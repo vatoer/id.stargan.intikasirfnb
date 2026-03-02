@@ -1,0 +1,28 @@
+%% DDD Core vs Supporting Domain Classification - PoS Multi-Line
+%% Render with Mermaid (e.g. in VS Code or Mermaid Live Editor)
+
+flowchart TB
+    subgraph Core["🔴 Core Domains (Business Differentiators)"]
+        direction TB
+        C1[Transaction<br/>Sale, Order, Payment]
+        C2[Catalog<br/>Product / Service / Job Type]
+        C3[Workflow & Queue<br/>Kitchen, Laundry, Bengkel]
+    end
+
+    subgraph Support["🟢 Supporting Domains (Reusable)"]
+        direction TB
+        S1[Identity & Access]
+        S2[Customer]
+        S3[Supplier]
+        S4[Accounting]
+        S5[Inventory]
+        S6[Reporting]
+        S7[Settings]
+        S8[Pricing & Promotion]
+    end
+
+    Core --> Support
+    note1[Investasi utama & berbeda per line]
+    note2[Dibangun sekali, dipakai semua line]
+    Core -.-> note1
+    Support -.-> note2

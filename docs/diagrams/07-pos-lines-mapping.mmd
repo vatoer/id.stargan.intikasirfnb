@@ -1,0 +1,104 @@
+%% Domain usage per PoS Line of Business
+
+flowchart LR
+    subgraph Domains["Domains"]
+        CAT[Catalog]
+        TX[Transaction]
+        INV[Inventory]
+        WQ[Workflow]
+        CUST[Customer]
+        SUP[Supplier]
+        ACC[Accounting]
+        IAM[IAM]
+        RPT[Reporting]
+        SET[Settings]
+    end
+
+    subgraph Retail["Retail"]
+        R1[Product/SKU]
+        R2[Sale, Cart]
+        R3[Stock]
+        R4[—]
+    end
+
+    subgraph FnB["F&B"]
+        F1[Menu, Variant]
+        F2[Order, Table, Split]
+        F3[Stock + Recipe]
+        F4[Kitchen Queue]
+    end
+
+    subgraph Laundry["Laundry"]
+        L1[Service, Package]
+        L2[Order per item]
+        L3[Light]
+        L4[Wash → Iron Queue]
+    end
+
+    subgraph Service["Service (Salon/Barber/Spa)"]
+        S1[Layanan, Paket, Add-on]
+        S2[Order + serviced_by]
+        S3[Optional produk]
+        S4[Antrian & penugasan staf]
+    end
+
+    subgraph Bengkel["Bengkel"]
+        B1[Job Type, Spare Part]
+        B2[Job Order, Estimate]
+        B3[Spare Part Stock]
+        B4[Mekanik Queue]
+    end
+
+    CAT --> R1
+    CAT --> F1
+    CAT --> L1
+    CAT --> S1
+    CAT --> B1
+
+    TX --> R2
+    TX --> F2
+    TX --> L2
+    TX --> S2
+    TX --> B2
+
+    INV --> R3
+    INV --> F3
+    INV --> L3
+    INV --> S3
+    INV --> B3
+
+    WQ --> R4
+    WQ --> F4
+    WQ --> L4
+    WQ --> S4
+    WQ --> B4
+
+    IAM --> Retail
+    IAM --> FnB
+    IAM --> Laundry
+    IAM --> Service
+    IAM --> Bengkel
+
+    CUST --> Retail
+    CUST --> FnB
+    CUST --> Laundry
+    CUST --> Service
+    CUST --> Bengkel
+
+    ACC --> Retail
+    ACC --> FnB
+    ACC --> Laundry
+    ACC --> Service
+    ACC --> Bengkel
+
+    RPT --> Retail
+    RPT --> FnB
+    RPT --> Laundry
+    RPT --> Service
+    RPT --> Bengkel
+
+    SET --> Retail
+    SET --> FnB
+    SET --> Laundry
+    SET --> Service
+    SET --> Bengkel

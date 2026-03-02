@@ -1,0 +1,41 @@
+%% Resep (opsional) & COGS — alur dari Order ke Inventory & Accounting
+
+flowchart TB
+    subgraph Catalog["Catalog Context"]
+        MI[MenuItem]
+        R[Recipe optional]
+        RL[RecipeLine: ingredient + qty per porsi]
+        MI --> R
+        R --> RL
+    end
+
+    subgraph Transaction["Transaction Context"]
+        Order[Order]
+        Line[OrderLine: menuItemId, qty]
+        Order --> Line
+    end
+
+    subgraph OnComplete["On SaleCompleted / OrderCompleted"]
+        E[Emit: OrderCompleted<br/>+ line details + recipe refs]
+    end
+
+    subgraph Inventory["Inventory Context"]
+        Deduct[Deduct stock by recipe<br/>qty × line.qty per ingredient]
+    end
+
+    subgraph Accounting["Accounting Context"]
+        COGS[Compute COGS from recipe<br/>qty × cost per ingredient]
+        Journal[Post Journal: COGS, Revenue]
+        COGS --> Journal
+    end
+
+    MI -.->|has optional Recipe| Line
+    Order --> E
+    E --> Deduct
+    E --> COGS
+    R --> Deduct
+    R --> COGS
+
+    subgraph Note[""]
+        N[Jika MenuItem tanpa Recipe: no auto-deduct, COGS = 0 atau manual]
+    end

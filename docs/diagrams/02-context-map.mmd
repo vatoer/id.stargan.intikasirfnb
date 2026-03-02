@@ -1,0 +1,53 @@
+%% DDD Context Map - PoS Multi-Line Bounded Contexts
+%% Relationships: CF = Conformist, ACL = Anti-Corruption Layer, OHS = Open Host Service, PL = Published Language
+
+flowchart LR
+    subgraph Core
+        TX[Transaction]
+        CAT[Catalog]
+        WQ[Workflow/Queue]
+    end
+
+    subgraph Support
+        IAM[Identity & Access]
+        CUST[Customer]
+        SUP[Supplier]
+        ACC[Accounting]
+        INV[Inventory]
+        RPT[Reporting]
+        SET[Settings]
+        PRICE[Pricing & Promotion]
+    end
+
+    TX -->|ACL / read| CAT
+    TX -->|optional| CUST
+    TX -->|user/session| IAM
+    TX -->|price rules| PRICE
+    TX -->|events| ACC
+    TX -->|events| INV
+    TX -->|events| WQ
+
+    INV -->|reference| CAT
+    INV -->|goods receipt| SUP
+    ACC -->|journal from| TX
+    ACC -->|journal from| SUP
+
+    RPT -.->|read model| TX
+    RPT -.->|read model| INV
+    RPT -.->|read model| ACC
+
+    SET -.->|config| TX
+    SET -.->|config| CAT
+    IAM -.->|tenant/outlet| SET
+
+    style TX fill:#e74c3c,color:#fff
+    style CAT fill:#e74c3c,color:#fff
+    style WQ fill:#e74c3c,color:#fff
+    style IAM fill:#27ae60,color:#fff
+    style CUST fill:#27ae60,color:#fff
+    style SUP fill:#27ae60,color:#fff
+    style ACC fill:#27ae60,color:#fff
+    style INV fill:#27ae60,color:#fff
+    style RPT fill:#27ae60,color:#fff
+    style SET fill:#27ae60,color:#fff
+    style PRICE fill:#27ae60,color:#fff

@@ -1,0 +1,20 @@
+%% MVVM + Use Case flow - User action to state update
+
+sequenceDiagram
+    participant V as View (UI)
+    participant VM as ViewModel
+    participant UC as Use Case
+    participant R as Repository (interface)
+    participant D as Domain (Entity)
+
+    V->>VM: User action (event)
+    VM->>UC: invoke(params)
+    UC->>R: getById / save
+    R-->>UC: domain model
+    UC->>D: business logic (e.g. sale.addLineItem)
+    D-->>UC: updated aggregate
+    UC->>R: save(aggregate)
+    UC-->>VM: Result / Flow
+    VM->>VM: update UiState
+    VM-->>V: StateFlow / LiveData
+    V->>V: Re-compose / update UI

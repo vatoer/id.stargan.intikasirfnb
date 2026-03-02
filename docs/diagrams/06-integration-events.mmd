@@ -1,0 +1,23 @@
+%% Event-Driven Integration Flow - Key domain events across contexts
+
+sequenceDiagram
+    participant T as Transaction
+    participant CAT as Catalog
+    participant INV as Inventory
+    participant ACC as Accounting
+    participant WQ as Workflow/Queue
+    participant PRICE as Pricing
+
+    Note over T: Sale lifecycle
+    T->>CAT: Read product (ACL) - name, price, tax
+    T->>PRICE: Get effective price / discount
+    T->>T: Add line, apply payment
+    T->>INV: Publish SaleCompleted (productId, qty)
+    T->>ACC: Publish SaleCompleted (amount, journal payload)
+    T->>WQ: Publish OrderConfirmed (optional: F&B, Laundry, Bengkel)
+
+    INV->>INV: Deduct stock, emit StockDeducted
+    ACC->>ACC: Create journal entries, emit JournalPosted
+    WQ->>WQ: Create WorkOrder, emit WorkOrderCreated
+
+    Note over T,WQ: Async event-driven; eventual consistency

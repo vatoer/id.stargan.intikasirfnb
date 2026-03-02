@@ -1,0 +1,35 @@
+%% F&B Context dalam Base PoS Architecture
+%% Menunjukkan perluasan F&B dari base (Transaction, Catalog, Workflow, Inventory)
+
+flowchart TB
+    subgraph Base["Base PoS (DDD_Core_Support_Architecture)"]
+        TX[Transaction]
+        CAT[Catalog]
+        WQ[Workflow/Queue]
+        INV[Inventory]
+        ACC[Accounting]
+        IAM[Identity & Access]
+    end
+
+    subgraph FnB["F&B Extensions"]
+        TX_F[Order + Channel<br/>Dine In / Take Away / Ojol A-B]
+        CAT_F[MenuItem + Modifier<br/>+ Recipe optional]
+        WQ_F[Kitchen Ticket<br/>KDS]
+        INV_F[Deduct by Recipe]
+    end
+
+    TX --> TX_F
+    CAT --> CAT_F
+    WQ --> WQ_F
+    INV --> INV_F
+
+    TX_F --> ACC
+    TX_F --> WQ_F
+    TX_F --> INV_F
+    CAT_F --> TX_F
+    INV_F --> ACC
+
+    style TX_F fill:#e74c3c,color:#fff
+    style CAT_F fill:#e74c3c,color:#fff
+    style WQ_F fill:#e74c3c,color:#fff
+    style INV_F fill:#3498db,color:#fff

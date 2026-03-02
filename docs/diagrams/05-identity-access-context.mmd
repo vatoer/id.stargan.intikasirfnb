@@ -1,0 +1,41 @@
+%% Identity & Access Bounded Context - Multi-tenant, RBAC
+
+flowchart TB
+    subgraph TenantScope["Tenant / Organization"]
+        T[Tenant<br/>id, name, plan]
+    end
+
+    subgraph OutletScope["Outlet / Store / Branch"]
+        O[Outlet<br/>id, name, tenantId, address]
+        Term[Terminal<br/>id, outletId, deviceId]
+        O --> Term
+    end
+
+    T --> O
+
+    subgraph UserAggregate["Aggregate: User (Root)"]
+        U[User<br/>id, email, tenantId, outletIds]
+        R[Role<br/>name, permissions]
+        U --> R
+    end
+
+    subgraph Session["Session"]
+        Sess[Session<br/>userId, terminalId, openAt]
+        CashSess[CashierSession link]
+        Sess -.-> CashSess
+    end
+
+    T --> U
+    O --> U
+    U --> Sess
+    Term --> Sess
+
+    subgraph Events["Domain Events"]
+        E1[UserLoggedIn]
+        E2[UserLoggedOut]
+        E3[RoleAssigned]
+    end
+
+    U --> E1
+    U --> E2
+    U --> E3

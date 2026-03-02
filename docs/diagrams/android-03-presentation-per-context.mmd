@@ -1,0 +1,43 @@
+%% Presentation layer split per context (feature modules)
+%% Domain & Data stay single module; only presentation is split
+
+flowchart TB
+    subgraph App["app (shell)"]
+        Main[MainActivity / NavHost]
+        DI[DI: Repository, UseCase]
+        Nav[Navigation graph]
+    end
+
+    subgraph Features["feature/* (per context)"]
+        F_ID[feature:identity]
+        F_CAT[feature:catalog]
+        F_TX[feature:transaction]
+        F_CUST[feature:customer]
+        F_SET[feature:settings]
+    end
+
+    subgraph Core["core"]
+        DOM[domain]
+        DATA[data]
+    end
+
+    App --> F_ID
+    App --> F_CAT
+    App --> F_TX
+    App --> F_CUST
+    App --> F_SET
+
+    App --> DOM
+    App --> DATA
+
+    F_ID --> DOM
+    F_CAT --> DOM
+    F_TX --> DOM
+    F_CUST --> DOM
+    F_SET --> DOM
+
+    DATA --> DOM
+
+    style DOM fill:#2ecc71,color:#fff
+    style DATA fill:#3498db,color:#fff
+    style App fill:#e67e22,color:#fff

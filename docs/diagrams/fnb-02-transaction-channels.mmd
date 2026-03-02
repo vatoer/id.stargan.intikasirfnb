@@ -1,0 +1,32 @@
+%% Order Channel: Dine In, Take Away, Ojol A, Ojol B — alur & aturan
+
+flowchart LR
+    subgraph Channels["Order Channel (pilihan transaksi)"]
+        DI[Dine In<br/>+ Meja]
+        TA[Take Away<br/>Nomor ambil]
+        OA[Ojol A<br/>+ externalOrderId]
+        OB[Ojol B<br/>+ externalOrderId]
+    end
+
+    subgraph Order["Order Aggregate"]
+        O[Order<br/>channel, tableId?, externalOrderId?]
+        OL[OrderLine]
+        PMT[Payment]
+        O --> OL
+        O --> PMT
+    end
+
+    DI --> O
+    TA --> O
+    OA --> O
+    OB --> O
+
+    subgraph Rules["Aturan per channel"]
+        R1[Dine In: tableId wajib]
+        R2[Take Away: no table, nomor order]
+        R3[Ojol: platform + external id wajib]
+    end
+
+    O -.-> R1
+    O -.-> R2
+    O -.-> R3

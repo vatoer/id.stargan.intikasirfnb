@@ -1,0 +1,42 @@
+%% Catalog Bounded Context - Products, Services, Categories
+
+flowchart TB
+    subgraph ProductAggregate["Aggregate: Product / Service / JobType (Root)"]
+        P[Product<br/>id, name, sku, basePrice, taxCode]
+        V[Variant<br/>size, option, add-on]
+        UoM[Unit of Measure]
+        P --> V
+        P --> UoM
+    end
+
+    subgraph CategoryAggregate["Aggregate: Category (Root)"]
+        Cat[Category<br/>id, name, parentId, sortOrder]
+    end
+
+    P -.->|categoryId| Cat
+
+    subgraph Events["Domain Events"]
+        E1[ProductCreated]
+        E2[ProductUpdated]
+        E3[ProductDeactivated]
+        E4[CategoryStructureChanged]
+    end
+
+    P --> E1
+    P --> E2
+    P --> E3
+    Cat --> E4
+
+    subgraph Lines["Per Line of Business"]
+        L1[Retail: SKU, barcode]
+        L2[F&B: Menu item, variant, recipe]
+        L3[Laundry: Service, package]
+        L4[Salon/Barber/Spa: Layanan, paket, add-on]
+        L5[Bengkel: Job type, spare part]
+    end
+
+    P -.-> L1
+    P -.-> L2
+    P -.-> L3
+    P -.-> L4
+    P -.-> L5

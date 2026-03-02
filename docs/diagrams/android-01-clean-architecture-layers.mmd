@@ -1,0 +1,42 @@
+%% Clean Architecture layers - Android PoS - Dependency rule: inward to Domain
+
+flowchart TB
+    subgraph Presentation["Presentation (Android)"]
+        UI[UI: Activity / Fragment / Compose]
+        VM[ViewModel]
+        State[UiState / Events]
+        UI --> VM
+        VM --> State
+    end
+
+    subgraph Application["Application (Use Cases)"]
+        UC[UseCase: AddLineItem, CompleteSale, ...]
+    end
+
+    subgraph Domain["Domain (DDD)"]
+        Entity[Entity / Aggregate]
+        VO[Value Object]
+        RepoIf[Repository interface]
+        Event[Domain Event]
+        Entity --> RepoIf
+    end
+
+    subgraph Data["Data"]
+        RepoImpl[Repository impl]
+        DS[Data Source: Room / API]
+        Mapper[Mapper: DTO ↔ Domain]
+        RepoImpl --> DS
+        RepoImpl --> Mapper
+    end
+
+    VM -->|calls| UC
+    UC -->|uses| RepoIf
+    RepoImpl -.->|implements| RepoIf
+    Data -->|depends on| Domain
+    Application --> Domain
+    Presentation --> Application
+
+    style Domain fill:#2ecc71,color:#fff
+    style Data fill:#3498db,color:#fff
+    style Application fill:#9b59b6,color:#fff
+    style Presentation fill:#e67e22,color:#fff

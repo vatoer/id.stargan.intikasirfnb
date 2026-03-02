@@ -1,0 +1,40 @@
+%% Transaction Bounded Context - Aggregates & Domain Events
+
+flowchart TB
+    subgraph SaleAggregate["Aggregate: Sale (Root)"]
+        Sale[Sale<br/>id, status, outletId, cashierId]
+        Line[LineItem<br/>productRef, qty, priceSnapshot, discount]
+        Payment[Payment<br/>method, amount, reference]
+        Sale --> Line
+        Sale --> Payment
+    end
+
+    subgraph SessionAggregate["Aggregate: CashierSession (Root)"]
+        Session[CashierSession<br/>open/close, float, reconciled]
+    end
+
+    subgraph Events["Domain Events"]
+        E1[SaleCreated]
+        E2[LineItemAdded]
+        E3[PaymentReceived]
+        E4[SaleCompleted]
+        E5[SaleVoided]
+        E6[RefundIssued]
+    end
+
+    Sale --> E1
+    Sale --> E2
+    Sale --> E3
+    Sale --> E4
+    Sale --> E5
+    Sale --> E6
+
+    subgraph External["Upstream / Dependencies"]
+        Catalog[Catalog - Product snapshot]
+        Customer[Customer - optional]
+        Pricing[Pricing - effective price]
+    end
+
+    Sale -.-> Catalog
+    Sale -.-> Customer
+    Sale -.-> Pricing
