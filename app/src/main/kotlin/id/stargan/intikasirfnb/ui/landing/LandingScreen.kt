@@ -46,6 +46,9 @@ import androidx.hilt.navigation.compose.hiltViewModel
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun LandingScreen(
+    onNavigateToPos: () -> Unit = {},
+    onNavigateToSettings: () -> Unit = {},
+    onNavigateToCatalog: () -> Unit = {},
     onLogout: () -> Unit,
     viewModel: LandingViewModel = hiltViewModel()
 ) {
@@ -98,7 +101,13 @@ fun LandingScreen(
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
             items(uiState.menuItems) { item ->
-                MenuCard(item = item, onClick = { /* Future navigation */ })
+                MenuCard(item = item, onClick = {
+                    when (item.id) {
+                        "pos" -> onNavigateToPos()
+                        "catalog" -> onNavigateToCatalog()
+                        "settings" -> onNavigateToSettings()
+                    }
+                })
             }
         }
     }

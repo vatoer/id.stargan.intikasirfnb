@@ -16,5 +16,13 @@ data class PaymentEntity(
     val method: String,
     val amountAmount: String,
     val amountCurrency: String = "IDR",
-    val reference: String? = null
+    val reference: String? = null,
+    // Sync metadata
+    val syncStatus: String = "PENDING",
+    val syncVersion: Long = 0L,
+    val createdAt: Long = System.currentTimeMillis(),
+    val updatedAt: Long = System.currentTimeMillis(),
+    val createdByTerminalId: String? = null,
+    val updatedByTerminalId: String? = null,
+    val deletedAt: Long? = null
 )

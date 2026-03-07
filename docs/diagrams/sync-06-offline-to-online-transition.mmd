@@ -1,0 +1,67 @@
+%% Offline/Online State Machine - Device connectivity transitions
+%% App works in ALL states; sync is opportunistic
+
+stateDiagram-v2
+    [*] --> Standalone : Install (default)
+
+    state Standalone {
+        [*] --> FullyOffline
+        FullyOffline : All features work
+        FullyOffline : Room DB = source of truth
+        FullyOffline : SyncEngine = NoOp
+        FullyOffline : No cloud dependency
+    }
+
+    Standalone --> CloudEnabled : User enables cloud sync\n+ registers terminal
+
+    state CloudEnabled {
+        [*] --> Online
+
+        state Online {
+            [*] --> Syncing
+            Syncing : SyncWorker active
+            Syncing : SSE stream connected
+            Syncing : Push/Pull running
+            Syncing --> Synced : All changes synced
+            Synced : syncStatus = SYNCED
+            Synced : Real-time updates via SSE
+            Synced --> Syncing : Local change detected\nor remote change received
+        }
+
+        Online --> Offline : Network lost\nor server unreachable
+
+        state Offline {
+            [*] --> OfflineOperating
+            OfflineOperating : All features still work
+            OfflineOperating : Room DB = source of truth
+            OfflineOperating : Changes queued (PENDING_UPLOAD)
+            OfflineOperating : SyncWorker retries with backoff
+            OfflineOperating --> OfflineOperating : Continue normal operations
+        }
+
+        Offline --> Online : Network restored
+
+        state Online_Restored {
+            [*] --> Reconciling
+            Reconciling : Push queued changes
+            Reconciling : Pull missed changes
+            Reconciling : Resolve conflicts (if any)
+            Reconciling --> Synced_Again : All caught up
+        }
+
+        Offline --> Online_Restored : Network restored\n(with pending changes)
+    }
+
+    CloudEnabled --> Standalone : User disables cloud sync
+
+    note right of Standalone
+        Default mode.
+        No internet required.
+        Single device operation.
+    end note
+
+    note right of CloudEnabled
+        Multi-device support.
+        Graceful offline handling.
+        Auto-reconnect & resync.
+    end note

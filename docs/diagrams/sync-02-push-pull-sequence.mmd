@@ -1,0 +1,47 @@
+%% Sync Push-Pull Sequence Diagram
+%% Device pushes local changes, then pulls remote changes
+
+sequenceDiagram
+    participant App as App (UseCase/Repo)
+    participant Room as Room DB
+    participant SE as SyncEngine
+    participant SQ as SyncQueue
+    participant SW as SyncWorker
+    participant API as Cloud API
+    participant PG as PostgreSQL
+
+    Note over App,Room: 1. Local Write (always first)
+    App->>Room: save(entity) with syncStatus=PENDING_UPLOAD
+    App->>SE: notifyChange(entityType, entityId)
+    SE->>SQ: enqueue(entityType, entityId, CREATE/UPDATE)
+
+    Note over SW,API: 2. Push (Device -> Cloud)
+    SW->>SQ: query all QUEUED entries
+    SQ-->>SW: List of pending changes
+    SW->>API: POST /api/sync/push { batch: [...] }
+    API->>PG: validate & apply changes
+    PG-->>API: accepted / conflict per item
+
+    alt Accepted
+        API-->>SW: { status: ACCEPTED, cloudVersion: N }
+        SW->>Room: update syncStatus=SYNCED, syncVersion=N
+        SW->>SQ: mark COMPLETED
+    else Conflict
+        API-->>SW: { status: CONFLICT, cloudData: {...} }
+        SW->>Room: update syncStatus=CONFLICT
+        SW->>SQ: mark FAILED (needs resolution)
+    else Network Error
+        SW->>SQ: increment retryCount, set nextRetryAt (backoff)
+    end
+
+    Note over SW,API: 3. Pull (Cloud -> Device)
+    SW->>API: GET /api/sync/pull?since={lastSyncVersion}
+    API->>PG: query changes since version
+    PG-->>API: List of remote changes
+    API-->>SW: { changes: [...], latestVersion: M }
+    SW->>Room: apply remote changes (upsert)
+    SW->>SW: update lastSyncVersion = M
+
+    Note over SE,API: 4. Real-time (optional, SSE)
+    API-->>SE: SSE event: new changes available
+    SE->>SW: trigger immediate pull

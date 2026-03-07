@@ -2,13 +2,13 @@ package id.stargan.intikasirfnb.domain.workflow
 
 import id.stargan.intikasirfnb.domain.identity.OutletId
 import id.stargan.intikasirfnb.domain.identity.UserId
+import id.stargan.intikasirfnb.domain.shared.UlidGenerator
 import id.stargan.intikasirfnb.domain.transaction.SaleId
-import java.util.UUID
 
 @JvmInline
 value class KitchenTicketId(val value: String) {
     companion object {
-        fun generate() = KitchenTicketId(UUID.randomUUID().toString())
+        fun generate() = KitchenTicketId(UlidGenerator.generate())
     }
 }
 

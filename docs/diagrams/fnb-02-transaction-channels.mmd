@@ -1,32 +1,86 @@
-%% Order Channel: Dine In, Take Away, Ojol A, Ojol B — alur & aturan
+%% Sales Channel: Configurable per Tenant — Channel Type + Per-Channel Pricing
+%% Setiap channel bisa punya harga sendiri (PriceList atau markup/discount)
 
-flowchart LR
-    subgraph Channels["Order Channel (pilihan transaksi)"]
-        DI[Dine In<br/>+ Meja]
-        TA[Take Away<br/>Nomor ambil]
-        OA[Ojol A<br/>+ externalOrderId]
-        OB[Ojol B<br/>+ externalOrderId]
+flowchart TB
+    subgraph ChannelTypes["Channel Type (built-in enum)"]
+        CT_DI[DINE_IN]
+        CT_TA[TAKE_AWAY]
+        CT_DP[DELIVERY_PLATFORM]
+        CT_OD[OWN_DELIVERY]
     end
 
+    subgraph SalesChannels["Sales Channel (configurable per tenant)"]
+        DI[Dine In<br/>code: DI<br/>price: base / configurable]
+        TA[Take Away<br/>code: TA<br/>price: base / configurable]
+        GF[GoFood<br/>code: GF<br/>markup 20%<br/>commission 20%]
+        GB[GrabFood<br/>code: GB<br/>markup 25%<br/>commission 25%]
+        SF[ShopeeFood<br/>code: SF<br/>PriceList Shopee<br/>commission 18%]
+        DS[Delivery Sendiri<br/>code: DS<br/>markup +Rp5.000]
+        ETC[... channel lain<br/>ditambah user]
+    end
+
+    CT_DI --> DI
+    CT_TA --> TA
+    CT_DP --> GF
+    CT_DP --> GB
+    CT_DP --> SF
+    CT_OD --> DS
+
     subgraph Order["Order Aggregate"]
-        O[Order<br/>channel, tableId?, externalOrderId?]
-        OL[OrderLine]
-        PMT[Payment]
+        O[Order<br/>channelId, tableId?<br/>externalOrderId?<br/>priceSnapshot per line]
+        OL[OrderLine<br/>priceSnapshot =<br/>channel-adjusted price]
+        PMT[Payment<br/>method, amount<br/>PlatformPayment?]
         O --> OL
         O --> PMT
     end
 
     DI --> O
     TA --> O
-    OA --> O
-    OB --> O
+    GF --> O
+    GB --> O
+    SF --> O
+    DS --> O
 
-    subgraph Rules["Aturan per channel"]
-        R1[Dine In: tableId wajib]
-        R2[Take Away: no table, nomor order]
-        R3[Ojol: platform + external id wajib]
+    subgraph Pricing["Channel Pricing (per OrderLine)"]
+        P1["basePrice (Catalog)"]
+        P2{"Channel punya<br/>PriceList?"}
+        P3["Ambil harga<br/>dari PriceList"]
+        P4{"Channel punya<br/>adjustment?"}
+        P5["Apply markup /<br/>discount"]
+        P6["Pakai base price"]
+        P7["+ Modifier delta"]
+        P8["= priceSnapshot<br/>(frozen)"]
+
+        P1 --> P2
+        P2 -->|Ya| P3
+        P2 -->|Tidak| P4
+        P3 --> P7
+        P4 -->|Ya| P5
+        P4 -->|Tidak| P6
+        P5 --> P7
+        P6 --> P7
+        P7 --> P8
     end
 
-    O -.-> R1
-    O -.-> R2
-    O -.-> R3
+    subgraph Rules["Aturan per Channel Type"]
+        R1[DINE_IN: tableId wajib<br/>Harga configurable]
+        R2[TAKE_AWAY: no table<br/>Harga configurable]
+        R3[DELIVERY_PLATFORM:<br/>externalOrderId wajib<br/>Commission tracking<br/>Settlement flow]
+        R4[OWN_DELIVERY:<br/>Ongkir opsional<br/>Harga configurable]
+    end
+
+    subgraph Settlement["Platform Settlement Flow"]
+        S1[Customer bayar platform]
+        S2[AR / Piutang Platform]
+        S3[Platform transfer ke merchant]
+        S4[Settled - komisi dipotong]
+        S1 --> S2
+        S2 --> S3
+        S3 --> S4
+    end
+
+    style GF fill:#e74c3c,color:#fff
+    style GB fill:#27ae60,color:#fff
+    style SF fill:#f39c12,color:#fff
+    style DI fill:#3498db,color:#fff
+    style TA fill:#9b59b6,color:#fff

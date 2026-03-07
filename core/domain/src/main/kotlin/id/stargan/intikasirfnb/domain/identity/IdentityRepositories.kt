@@ -18,3 +18,10 @@ interface UserRepository {
     suspend fun save(user: User)
     suspend fun listByTenant(tenantId: TenantId): List<User>
 }
+
+interface TerminalRepository {
+    suspend fun getById(id: TerminalId): Terminal?
+    suspend fun save(terminal: Terminal)
+    suspend fun getByOutlet(outletId: OutletId): List<Terminal>
+    suspend fun getActiveByOutlet(outletId: OutletId): List<Terminal>
+}

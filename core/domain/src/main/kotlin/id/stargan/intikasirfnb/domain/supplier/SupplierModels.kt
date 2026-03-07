@@ -3,19 +3,19 @@ package id.stargan.intikasirfnb.domain.supplier
 import id.stargan.intikasirfnb.domain.catalog.ProductId
 import id.stargan.intikasirfnb.domain.identity.TenantId
 import id.stargan.intikasirfnb.domain.shared.Money
-import java.util.UUID
+import id.stargan.intikasirfnb.domain.shared.UlidGenerator
 
 @JvmInline
 value class SupplierId(val value: String) {
     companion object {
-        fun generate() = SupplierId(UUID.randomUUID().toString())
+        fun generate() = SupplierId(UlidGenerator.generate())
     }
 }
 
 @JvmInline
 value class PurchaseOrderId(val value: String) {
     companion object {
-        fun generate() = PurchaseOrderId(UUID.randomUUID().toString())
+        fun generate() = PurchaseOrderId(UlidGenerator.generate())
     }
 }
 

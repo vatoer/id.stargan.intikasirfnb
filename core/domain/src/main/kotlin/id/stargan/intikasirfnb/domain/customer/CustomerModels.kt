@@ -1,12 +1,12 @@
 package id.stargan.intikasirfnb.domain.customer
 
 import id.stargan.intikasirfnb.domain.identity.TenantId
-import java.util.UUID
+import id.stargan.intikasirfnb.domain.shared.UlidGenerator
 
 @JvmInline
 value class CustomerId(val value: String) {
     companion object {
-        fun generate() = CustomerId(UUID.randomUUID().toString())
+        fun generate() = CustomerId(UlidGenerator.generate())
     }
 }
 

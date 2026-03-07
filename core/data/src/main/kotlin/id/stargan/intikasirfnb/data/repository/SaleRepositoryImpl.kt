@@ -3,6 +3,8 @@ package id.stargan.intikasirfnb.data.repository
 import id.stargan.intikasirfnb.data.local.dao.OrderLineDao
 import id.stargan.intikasirfnb.data.local.dao.PaymentDao
 import id.stargan.intikasirfnb.data.local.dao.SaleDao
+import androidx.room.withTransaction
+import id.stargan.intikasirfnb.data.local.PosDatabase
 import id.stargan.intikasirfnb.data.mapper.toDomain
 import id.stargan.intikasirfnb.data.mapper.toEntity
 import id.stargan.intikasirfnb.domain.identity.OutletId
@@ -13,6 +15,7 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 
 class SaleRepositoryImpl(
+    private val database: PosDatabase,
     private val saleDao: SaleDao,
     private val orderLineDao: OrderLineDao,
     private val paymentDao: PaymentDao
@@ -26,24 +29,28 @@ class SaleRepositoryImpl(
     }
 
     override suspend fun save(sale: Sale) {
-        saleDao.insert(sale.toEntity())
-        orderLineDao.deleteBySaleId(sale.id.value)
-        paymentDao.deleteBySaleId(sale.id.value)
-        orderLineDao.insertAll(sale.lines.mapIndexed { i, line -> line.toEntity(sale.id.value, i) })
-        paymentDao.insertAll(sale.payments.mapIndexed { i, pay -> pay.toEntity(sale.id.value, i) })
+        database.withTransaction {
+            saleDao.insert(sale.toEntity())
+            orderLineDao.deleteBySaleId(sale.id.value)
+            paymentDao.deleteBySaleId(sale.id.value)
+            orderLineDao.insertAll(sale.lines.map { it.toEntity(sale.id.value) })
+            paymentDao.insertAll(sale.payments.map { it.toEntity(sale.id.value) })
+        }
     }
 
-    override fun streamByOutlet(outletId: OutletId): Flow<List<Sale>> = saleDao.streamByOutlet(outletId.value).map { list ->
-        list.map { entity ->
+    override fun streamByOutlet(outletId: OutletId): Flow<List<Sale>> =
+        saleDao.streamByOutlet(outletId.value).map { list ->
+            list.map { entity ->
+                val lines = orderLineDao.getBySaleId(entity.id)
+                val payments = paymentDao.getBySaleId(entity.id)
+                entity.toDomain(lines, payments)
+            }
+        }
+
+    override suspend fun listByOutlet(outletId: OutletId, limit: Int): List<Sale> =
+        saleDao.listByOutlet(outletId.value, limit).map { entity ->
             val lines = orderLineDao.getBySaleId(entity.id)
             val payments = paymentDao.getBySaleId(entity.id)
             entity.toDomain(lines, payments)
         }
-    }
-
-    override suspend fun listByOutlet(outletId: OutletId, limit: Int): List<Sale> = saleDao.listByOutlet(outletId.value, limit).map { entity ->
-        val lines = orderLineDao.getBySaleId(entity.id)
-        val payments = paymentDao.getBySaleId(entity.id)
-        entity.toDomain(lines, payments)
-    }
 }

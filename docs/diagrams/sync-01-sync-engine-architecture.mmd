@@ -1,0 +1,60 @@
+%% Sync Engine Architecture - Components & Data Flow
+%% Offline-first: Room is source of truth; sync is background & non-blocking
+
+flowchart TB
+    subgraph Device["Android Device"]
+        subgraph App["Application Layer"]
+            UC[Use Case]
+            VM[ViewModel]
+            VM --> UC
+        end
+
+        subgraph DomainLayer["Domain Layer"]
+            Repo[Repository Interface]
+            SEIf[SyncEngine Interface]
+        end
+
+        subgraph DataLayer["Data Layer"]
+            RepoImpl[Repository Impl]
+            Room[(Room DB<br/>Source of Truth)]
+            CT[ChangeTracker<br/>Detect PENDING_UPLOAD]
+            SQ[(SyncQueue Table)]
+            SE_Impl{SyncEngine Impl}
+            NoOp[NoOpSyncEngine<br/>Standalone mode]
+            Cloud[CloudSyncEngine<br/>Cloud mode]
+            SW[SyncWorker<br/>WorkManager<br/>Periodic + OnChange]
+            HTTP[HTTP Client<br/>OkHttp / Ktor]
+
+            UC --> Repo
+            RepoImpl -.->|implements| Repo
+            RepoImpl --> Room
+            RepoImpl -->|notifyChange| SE_Impl
+            SE_Impl --> NoOp
+            SE_Impl --> Cloud
+            Cloud --> CT
+            CT --> SQ
+            Cloud --> SW
+            SW --> HTTP
+            CT -.->|scan| Room
+        end
+    end
+
+    subgraph CloudServer["Self-Hosted Cloud API"]
+        API[REST API<br/>+ SSE Stream]
+        PG[(PostgreSQL)]
+        API --> PG
+    end
+
+    HTTP -->|push/pull| API
+    API -.->|SSE real-time| SW
+
+    subgraph SyncModes["Mode Selection"]
+        M1[cloudSyncEnabled = false<br/>NoOpSyncEngine]
+        M2[cloudSyncEnabled = true<br/>CloudSyncEngine]
+    end
+
+    style Room fill:#2ecc71,color:#fff
+    style PG fill:#3498db,color:#fff
+    style NoOp fill:#95a5a6,color:#fff
+    style Cloud fill:#f39c12,color:#fff
+    style SW fill:#e74c3c,color:#fff

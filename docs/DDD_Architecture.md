@@ -10,12 +10,15 @@ Bahasa ini adalah fondasi dari DDD, digunakan secara konsisten oleh tim develope
 -   **Meja (Table):** Representasi meja fisik di restoran. Sebuah meja dapat memiliki satu pesanan aktif.
 -   **Item Menu (Menu Item):** Produk yang dijual (mis: "Nasi Goreng", "Es Teh Manis"). Memiliki harga, deskripsi, dan mungkin resep.
 -   **Katalog (Catalog):** Kumpulan dari semua Item Menu yang tersedia untuk dijual.
--   **Baris Pesanan (Order Line):** Satu entri dalam sebuah pesanan, yang menunjuk ke satu Item Menu beserta jumlah dan harga saat itu.
--   **Pembayaran (Payment):** Transaksi finansial untuk menyelesaikan sebuah Pesanan. Bisa tunai, kartu, atau metode lainnya.
+-   **Sales Channel (Kanal Penjualan):** Asal/jenis pesanan yang menentukan alur bisnis dan **harga yang berlaku**. Configurable per tenant — contoh: "Dine In", "Take Away", "GoFood", "GrabFood", "ShopeeFood", "Delivery Sendiri". Setiap channel bisa punya harga berbeda (markup, discount, atau PriceList terpisah). Jumlah platform 3rd party tidak terbatas.
+-   **Baris Pesanan (Order Line):** Satu entri dalam sebuah pesanan, yang menunjuk ke satu Item Menu beserta jumlah dan harga saat itu. Harga sudah memperhitungkan channel pricing (misal: harga GoFood bisa beda dari harga Dine In).
+-   **Pembayaran (Payment):** Transaksi finansial untuk menyelesaikan sebuah Pesanan. Bisa tunai, kartu, QRIS, atau settlement dari platform 3rd party (GoFood/GrabFood/ShopeeFood).
 -   **Tiket Dapur (Kitchen Ticket):** Representasi dari pesanan yang dikirim ke dapur untuk disiapkan.
 -   **Stok (Stock):** Jumlah bahan baku yang tersedia di inventaris.
 -   **Bahan Baku (Ingredient):** Komponen dasar yang membentuk Item Menu (mis: "Nasi", "Telur", "Kecap").
 -   **Sesi Kasir (Cashier Session):** Periode waktu dimana seorang kasir bertanggung jawab atas laci kas, dimulai dengan modal awal dan diakhiri dengan rekapitulasi.
+-   **Terminal:** Device Android yang menjalankan IntiKasir. Setiap terminal memiliki identitas unik (TerminalId) dan tipe (Kasir, Pelayan, Kitchen Display, Manager). Terminal adalah unit dasar untuk sync data.
+-   **Sync:** Proses sinkronisasi data antara terminal (local) dan cloud server. Bersifat opsional — aplikasi berfungsi 100% offline (Standalone mode). Saat cloud aktif, mendukung multi terminal dan multi outlet.
 
 ## 2. Bounded Contexts
 
@@ -38,8 +41,13 @@ Sistem PoS F&B dapat dipecah menjadi beberapa sub-domain yang kohesif dan indepe
     -   **Aggregates Utama:** `Ingredient`.
 
 5.  **Identity & Access Context:**
-    -   **Tanggung Jawab:** Mengelola pengguna (staf) dan hak akses mereka (mis: Kasir, Manajer, Koki).
-    -   **Aggregates Utama:** `User`, `Role`.
+    -   **Tanggung Jawab:** Mengelola pengguna (staf), hak akses mereka (mis: Kasir, Manajer, Koki), dan registrasi terminal (device).
+    -   **Aggregates Utama:** `User`, `Role`, `Terminal`.
+
+6.  **Sync Context:**
+    -   **Tanggung Jawab:** Mengelola sinkronisasi data antara local DB dan self-hosted cloud API. Mengelola antrian sync, retry, dan resolusi konflik.
+    -   **Aggregates Utama:** `SyncSession`, `SyncQueueEntry`, `ConflictRecord`.
+    -   **Catatan:** Hanya aktif saat cloud mode diaktifkan. Di standalone mode, menggunakan NoOpSyncEngine. Detail: [Offline_First_Cloud_Sync_Architecture.md](Offline_First_Cloud_Sync_Architecture.md).
 
 ## 3. Detail Bounded Context: Sales
 
@@ -59,8 +67,9 @@ Mari kita bedah `Sales Context` sebagai contoh.
     ```kotlin
     // Contoh representasi Aggregate Root Order di Kotlin
     class Order(
-        val id: OrderId,
+        val id: OrderId,               // ULID, generated di device
         val tableId: TableId,
+        val terminalId: TerminalId,     // Terminal yang membuat order ini
         private val lines: MutableList<OrderLine> = mutableListOf(),
         var status: OrderStatus = OrderStatus.OPEN
     ) {
@@ -118,6 +127,24 @@ Peta ini menjelaskan bagaimana para Bounded Contexts berinteraksi.
 
 -   **Sales -> Identity & Access (Generic Subdomain):**
     -   **Sales Context** perlu mengetahui `User` (kasir) mana yang sedang login untuk diatribusikan ke sebuah `Order` atau `CashierSession`. Ini adalah hubungan permintaan/respons sederhana.
+
+---
+
+## 5. Offline-First & Cloud-Ready
+
+Arsitektur ini dirancang **offline-first**:
+- Semua operasi CRUD terjadi di local database (Room) terlebih dahulu
+- Aplikasi berfungsi 100% tanpa koneksi internet (Standalone mode)
+- Cloud sync bersifat opsional, diaktifkan via SyncSettings
+- Saat cloud aktif: mendukung multi kasir, multi pelayan, multi outlet
+
+Semua entity menyertakan **sync metadata** dari hari pertama:
+- `syncStatus`: SYNCED / PENDING_UPLOAD / CONFLICT
+- `syncVersion`: monotonic version counter
+- `createdByTerminalId` / `updatedByTerminalId`: tracking asal perubahan
+- `deletedAt`: soft delete (tidak pernah hard delete)
+
+Detail lengkap: **[Offline_First_Cloud_Sync_Architecture.md](Offline_First_Cloud_Sync_Architecture.md)**
 
 ---
 Dokumen ini adalah titik awal. Seiring pemahaman domain yang semakin dalam, model ini akan berevolusi.

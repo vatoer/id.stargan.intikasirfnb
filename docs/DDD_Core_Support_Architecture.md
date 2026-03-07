@@ -12,7 +12,9 @@ Dokumen ini mendefinisikan arsitektur Domain-Driven Design (DDD) untuk platform 
 
 - **Reusability**: Domain pendukung (Support) dipakai konsisten di semua line (Retail, F&B, Laundry, Service, Bengkel).
 - **Extensibility**: Domain inti (Core) dapat dikembangkan spesifik per line tanpa mengacaukan domain bersama.
-- **Modern PoS**: Mengadopsi pola arsitektur PoS modern: multi-tenant, multi-outlet, headless/API-first, event-driven, offline-capable.
+- **Modern PoS**: Mengadopsi pola arsitektur PoS modern: multi-tenant, multi-outlet, headless/API-first, event-driven, offline-first.
+- **Offline-First**: Aplikasi berfungsi 100% tanpa internet. Local DB (Room) sebagai source of truth saat offline. Sync ke cloud bersifat opsional dan non-blocking.
+- **Cloud-Ready**: Arsitektur disiapkan untuk sync ke self-hosted cloud API. Saat cloud aktif: mendukung multi PoS point, multi terminal pelayan, multi-tenant, dan multi-outlet. Detail lengkap: **[Offline_First_Cloud_Sync_Architecture.md](Offline_First_Cloud_Sync_Architecture.md)**.
 
 ### 1.2 Strategic Design: Core vs Supporting
 
@@ -42,6 +44,7 @@ Diagram: [Klasifikasi Core vs Support](diagrams/01-domain-classification.mmd).
 | **Settings** | Support | Tenant, outlet, terminal, tax, currency, receipt, printer. |
 | **Pricing & Promotion** | Support | Harga, diskon, bundle, voucher, loyalty points. |
 | **Workflow / Queue** | Core (opsional per line) | Antrian order (dapur, laundry, bengkel); untuk Service: antrian & penugasan staf (siapa melayani siapa). |
+| **Licensing** | Support | Aktivasi lisensi via AppReg, Ed25519 signed license, offline verification, periodic revalidation. |
 
 Diagram: [Context Map lengkap](diagrams/02-context-map.mmd).
 
@@ -71,23 +74,29 @@ Diagram: [Catalog Context](diagrams/04-catalog-context.mmd).
 
 ### 3.2 Transaction (Core)
 
-**Tanggung jawab**: Siklus hidup penjualan: keranjang → order → pembayaran → selesai/batal/refund. Mendukung tunai, non-tunai, split, tip, dan integrasi payment gateway.
+**Tanggung jawab**: Siklus hidup penjualan: keranjang → order → pembayaran → selesai/batal/refund. Mendukung tunai, non-tunai, split, tip, tax lines, service charge, dan integrasi payment gateway.
 
 **Konsep utama**:
-- **Sale / Order**: satu transaksi penjualan (bisa draft → confirmed → paid → completed).
-- **Line Item**: baris order (referensi Catalog, qty, price snapshot, discount).
-- **Payment**: satu atau banyak pembayaran per order (method, amount, reference).
+- **Sale / Order**: satu transaksi penjualan (bisa draft → confirmed → paid → completed); terikat ke satu **Sales Channel**.
+- **Sales Channel**: entity configurable per tenant yang menentukan asal pesanan, aturan bisnis, dan **harga yang berlaku**. ChannelType: DINE_IN, TAKE_AWAY, DELIVERY_PLATFORM, OWN_DELIVERY. Jumlah channel tidak terbatas (GoFood, GrabFood, ShopeeFood, dll. masing-masing channel terpisah).
+- **Line Item**: baris order (referensi Catalog, qty, **price snapshot sudah termasuk channel pricing**, discount).
+- **Payment**: satu atau banyak pembayaran per order (method, amount, reference). Untuk DELIVERY_PLATFORM: `PlatformPayment` (gross, commission, net, settlement status).
 - **Session**: sesi kasir (open/close, float, reconciliation).
 
 **Aggregates**:
 - `Sale` (atau `Order`): Aggregate Root; mengandung `LineItem`, `Payment`.
 - `CashierSession`: Aggregate Root terpisah.
+- `SalesChannel`: Aggregate Root; mengandung `PlatformConfig` (untuk DELIVERY_PLATFORM).
 
 **Invariants**:
-- Total payment ≥ total amount due; status hanya berubah menurut state machine yang valid.
-- Line item merekam harga pada saat transaksi (price snapshot).
+- Total payment >= total amount due (grandTotal = subtotal + tax + service charge + tip); status hanya berubah menurut state machine yang valid.
+- Line item merekam harga pada saat transaksi (**price snapshot = harga efektif channel**, bukan base price).
+- Setiap channel bisa punya harga berbeda: Dine In, Take Away, GoFood, GrabFood, ShopeeFood — semuanya configurable.
+- Tax, service charge, dan tip di-snapshot di Sale saat kalkulasi (`TaxLine`, `ServiceChargeLine`, `TipLine`). Detail model: [DDD_FnB_Detail.md](DDD_FnB_Detail.md) Section 3.8.
 
-**Events**: `SaleCreated`, `LineItemAdded`, `PaymentReceived`, `SaleCompleted`, `SaleVoided`, `RefundIssued`.
+**Events**: `SaleCreated`, `LineItemAdded`, `PaymentReceived`, `SaleCompleted`, `SaleVoided`, `RefundIssued`, `SalesChannelCreated`, `SalesChannelUpdated`, `PlatformSettlementReceived`.
+
+Detail channel pricing untuk F&B: [DDD_FnB_Detail.md](DDD_FnB_Detail.md) Section 3.
 
 Diagram: [Transaction Context](diagrams/03-transaction-context.mmd).
 
@@ -127,17 +136,18 @@ Diagram: [Transaction Context](diagrams/03-transaction-context.mmd).
 
 ### 3.5 Identity & Access (Support)
 
-**Tanggung jawab**: Autentikasi, otorisasi, multi-tenant, outlet, terminal, dan sesi kasir (dapat di-share dengan Transaction untuk konsep “session”).
+**Tanggung jawab**: Autentikasi, otorisasi, multi-tenant, outlet, terminal, registrasi device, dan sesi kasir (dapat di-share dengan Transaction untuk konsep “session”).
 
 **Konsep utama**:
 - **Tenant / Organization**: pemilik bisnis (brand).
 - **Outlet / Store / Branch**: lokasi fisik.
 - **User**, **Role**, **Permission**: RBAC.
-- **Terminal**: device/station per outlet.
+- **Terminal**: device/station per outlet. Setiap device Android yang menjalankan IntiKasir adalah Terminal dengan type: CASHIER, WAITER, KITCHEN_DISPLAY, atau MANAGER. Terminal adalah first-class entity untuk mendukung multi-device dan sync.
 - **Session**: login session; bisa dikaitkan dengan CashierSession.
 
 **Aggregates**:
-- `Tenant`, `Outlet`, `User`: masing-masing bisa Aggregate Root.
+- `Tenant`, `Outlet`, `User`: masing-masing Aggregate Root.
+- `Terminal`: Aggregate Root — menyimpan terminalId (UUID), type, status, dan sync metadata. Di mode standalone: 1 terminal auto-created. Di mode cloud: terminal diregistrasi ke cloud API.
 - `Role`, `Permission`: sering value object atau entity di dalam User/tenant.
 
 Diagram: [Identity & Access Context](diagrams/05-identity-access-context.mmd).
@@ -191,26 +201,42 @@ Diagram: [Identity & Access Context](diagrams/05-identity-access-context.mmd).
 
 ### 3.9 Settings (Support)
 
-**Tanggung jawab**: Konfigurasi tenant/outlet/terminal: pajak, mata uang, format receipt, printer, numbering (invoice, receipt), business hours.
+**Tanggung jawab**: Konfigurasi tenant/outlet/terminal: pajak, mata uang, format receipt, printer, numbering (invoice, receipt), business hours, **tax/service charge/tip configuration**, **cloud sync configuration**.
 
 **Konsep utama**:
-- **TaxRate**, **TaxRule**: per product/category/region.
+- **TaxConfig**: Konfigurasi pajak per tenant (PPN, PB1, dll.) — rate, isIncludedInPrice, scope (ALL_ITEMS / SPECIFIC_CATEGORIES / SPECIFIC_ITEMS). Bisa >1 pajak aktif bersamaan. Detail model: [DDD_FnB_Detail.md](DDD_FnB_Detail.md) Section 3.8.
+- **ServiceChargeConfig**: Biaya layanan per tenant — rate (%), applicable channel types (e.g. hanya DINE_IN), isIncludedInPrice. Master toggle `isEnabled`.
+- **TipConfig**: Konfigurasi tip — suggested percentages, allowCustomAmount, applicable channel types. Master toggle `isEnabled`.
 - **ReceiptTemplate**, **PrinterConfig**, **NumberingSequence**.
+- **SyncSettings**: cloud API URL, sync interval, real-time toggle, conflict strategy, bandwidth management. Master toggle `cloudSyncEnabled` menentukan mode Standalone vs Cloud-Connected.
+- **TerminalSettings**: capabilities per device (canProcessPayment, canModifyProduct, maxDiscountPercent, dll.) berdasarkan TerminalType + override.
 
 **Aggregates**:
-- `TenantSettings`, `OutletSettings`: konfigurasi per scope.
+- `TenantSettings`, `OutletSettings`, `TerminalSettings`: konfigurasi per scope dengan hierarchy: Terminal > Outlet > Tenant Default.
+- `SyncSettings`: embedded di TenantSettings (tenant-wide toggle) dengan override di OutletSettings.
+- Tax, Service Charge, dan Tip dikonfigurasi di level Tenant (default) dengan override di level Outlet. Contoh: Outlet A service charge 5%, Outlet B 10%.
 
 ---
 
 ### 3.10 Pricing & Promotion (Support)
 
-**Tanggung jawab**: Harga dasar, harga tier (customer/location), diskon (item/cart), voucher, bundle. Catalog memegang “base price”; Pricing memegang rules dan override.
+**Tanggung jawab**: Harga dasar, **harga per sales channel**, harga tier (customer/segment), diskon (item/cart), voucher, bundle. Catalog memegang “base price”; Pricing memegang PriceList dan rules override.
 
 **Konsep utama**:
-- **PriceList**, **PriceRule**: per product, customer segment, channel.
-- **Discount**, **Coupon**, **Bundle**: applied di Transaction.
+- **PriceList**: Daftar harga per product. Digunakan untuk **channel-specific pricing** — setiap SalesChannel bisa merujuk ke PriceList tertentu (contoh: PriceList “GoFood”, PriceList “Take Away”). Jika tidak ada PriceList, pakai base price + adjustment.
+- **PriceRule**: Rule harga per product, customer segment, channel, waktu (happy hour).
+- **Discount**, **Coupon**, **Bundle**: applied di Transaction setelah channel pricing.
 
-**Integrasi**: Transaction meminta “harga efektif” ke Pricing; atau Pricing mempublikasikan event dan Transaction memakai snapshot.
+**Channel-specific pricing flow**:
+1. Base price dari Catalog
+2. Channel override: PriceList channel ATAU markup/discount dari SalesChannel config
+3. Modifier delta
+4. Discount/promotion (jika ada)
+5. = Price snapshot (frozen di OrderLine)
+
+**Contoh**: Nasi Goreng base Rp25.000 → Dine In: Rp25.000 (base), Take Away: Rp27.500 (markup 10%), GoFood: Rp30.000 (markup 20%), ShopeeFood: Rp28.000 (PriceList khusus).
+
+**Integrasi**: Transaction meminta “harga efektif” ke Pricing berdasarkan SalesChannel + MenuItem; harga di-snapshot di OrderLine. Detail F&B: [DDD_FnB_Detail.md](DDD_FnB_Detail.md) Section 3.3.
 
 ---
 
@@ -229,6 +255,30 @@ Diagram: [Identity & Access Context](diagrams/05-identity-access-context.mmd).
 **Events**: `WorkOrderCreated`, `WorkOrderStarted`, `WorkOrderCompleted`; untuk Service juga `StaffAssignedToOrder`.
 
 Diagram alur integrasi: [Integration & Events](diagrams/06-integration-events.mmd).
+
+### 3.12 Licensing (Support)
+
+**Tanggung jawab**: Aktivasi dan validasi lisensi aplikasi via AppReg License Server. Gatekeeper sebelum app bisa digunakan.
+
+**Konsep utama**:
+- **Serial Number (SN)**: Kode lisensi yang diinput user untuk mengaktivasi app.
+- **Signed License**: License payload yang ditandatangani server dengan Ed25519. Disimpan lokal, diverifikasi offline.
+- **Challenge-Response**: Nonce dari server (5 menit TTL, single-use) untuk mencegah replay attack.
+- **Play Integrity**: Google Play Integrity API untuk verifikasi bahwa app berjalan di device resmi (production only).
+- **Device Binding**: License terikat ke device ID (Widevine ID / ANDROID_ID).
+- **Offline Verification**: Ed25519 signature check tanpa network, dilakukan setiap app startup.
+- **Periodic Revalidation**: Online check ke server, 7-hari grace period jika offline.
+
+**Komponen utama**:
+- `LicenseVerifier`: Verifikasi Ed25519 signature + device binding + expiry (domain/pure logic).
+- `ActivationRepository`: Orchestrate challenge→integrity→activate→verify→save.
+- `LicenseRevalidator`: Periodic online check + grace period logic.
+- `LicenseStorage`: EncryptedSharedPreferences (Android Keystore-backed).
+- `AppRegApi`: Retrofit interface ke AppReg server (challenge, activate, reactivate, validate).
+
+**Integrasi**: Licensing → Identity & Access (gating app access). Startup flow: License check → Activation screen atau lanjut ke Login/Onboarding.
+
+Referensi: [docs/external-integration/android-integration.md](external-integration/android-integration.md)
 
 ---
 
@@ -277,9 +327,10 @@ Diagram: [Mapping per Line](diagrams/07-pos-lines-mapping.mmd).
 
 ## 6. Ubiquitous Language (Ringkas)
 
-- **Sale / Order**: Satu transaksi penjualan dari draft sampai selesai.
-- **Line Item**: Satu baris di Sale (product/service + qty + price snapshot).
-- **Payment**: Satu pembayaran (method + amount).
+- **Sale / Order**: Satu transaksi penjualan dari draft sampai selesai; terikat ke satu **Sales Channel**.
+- **Sales Channel**: Kanal penjualan configurable per tenant (Dine In, Take Away, GoFood, GrabFood, ShopeeFood, dll.); menentukan aturan bisnis dan **harga yang berlaku**. Setiap channel bisa punya harga berbeda.
+- **Line Item**: Satu baris di Sale (product/service + qty + **price snapshot sudah termasuk channel pricing**).
+- **Payment**: Satu pembayaran (method + amount); untuk delivery platform: `PlatformPayment` (gross, commission, net, settlement status).
 - **Cashier Session**: Sesi kasir (open/close, float).
 - **Product / Service / Job Type**: Item yang dijual (dari Catalog).
 - **Category**: Kategori/hierarki untuk Catalog.
@@ -295,12 +346,18 @@ Diagram: [Mapping per Line](diagrams/07-pos-lines-mapping.mmd).
 ## 7. Best Practice PoS Modern
 
 - **Multi-tenant**: Semua data di-scope Tenant dan (bila ada) Outlet.
-- **Offline-first**: Transaction dan Catalog dapat di-sync (eventual consistency) saat offline.
+- **Offline-first**: Semua operasi CRUD terjadi di local DB terlebih dahulu. Sync ke cloud bersifat background dan non-blocking. Aplikasi HARUS berfungsi 100% tanpa koneksi internet.
+- **Cloud-ready**: Self-hosted cloud API (bukan Firebase/third-party BaaS). Saat aktif: mendukung multi PoS, multi pelayan, multi tenant, multi outlet. Migrasi Standalone → Cloud reversible.
+- **Sync strategy**: Push-Pull with versioning. Semua entity memiliki sync metadata (syncStatus, syncVersion, createdByTerminalId, updatedByTerminalId). ID menggunakan ULID (sortable, offline-safe).
+- **Conflict resolution**: Transaction/Payment = terminal-owned (no conflict). Master data = Last-Write-Wins. Stock = cloud-computed. User/Role = cloud-authoritative.
 - **Event-driven**: Domain events untuk integrasi antar context; mengurangi coupling.
-- **CQRS di Reporting**: Write di context asal; read model terpisah untuk report/dashboard.
+- **CQRS di Reporting**: Write di context asal; read model terpisah untuk report/dashboard. Cloud-only aggregate reports saat multi-outlet.
 - **Idempotency**: Payment dan mutation penting memakai idempotency key.
-- **Audit**: User, timestamp, dan reason untuk void/refund/adjustment.
-- **Versioning API**: API publik (bila headless) di-version untuk kompatibilitas.
+- **Audit**: User, terminal, timestamp, dan reason untuk void/refund/adjustment.
+- **Transaction numbering**: Format `{OutletCode}-{TerminalCode}-{YYYYMMDD}-{Sequence}` — multi-terminal safe, offline-safe.
+- **Versioning API**: Cloud API di-version untuk kompatibilitas.
+
+Detail arsitektur offline-first dan cloud sync: **[Offline_First_Cloud_Sync_Architecture.md](Offline_First_Cloud_Sync_Architecture.md)**.
 
 ---
 
@@ -312,9 +369,20 @@ Diagram: [Mapping per Line](diagrams/07-pos-lines-mapping.mmd).
 | Context Map | [02-context-map.mmd](diagrams/02-context-map.mmd) | Semua Bounded Context dan hubungan |
 | Transaction Context | [03-transaction-context.mmd](diagrams/03-transaction-context.mmd) | Aggregate & event Transaction |
 | Catalog Context | [04-catalog-context.mmd](diagrams/04-catalog-context.mmd) | Aggregate Catalog |
-| Identity & Access | [05-identity-access-context.mmd](diagrams/05-identity-access-context.mmd) | Tenant, Outlet, User, Role |
+| Identity & Access | [05-identity-access-context.mmd](diagrams/05-identity-access-context.mmd) | Tenant, Outlet, User, Role, Terminal |
 | Integrasi & Events | [06-integration-events.mmd](diagrams/06-integration-events.mmd) | Alur event antar context |
 | Mapping per Line | [07-pos-lines-mapping.mmd](diagrams/07-pos-lines-mapping.mmd) | Domain vs Retail/F&B/Laundry/Service/Bengkel |
+
+### Diagram Sync / Offline-First
+
+| Diagram | File | Keterangan |
+|---------|------|------------|
+| Sync Engine Architecture | [sync-01-sync-engine-architecture.mmd](diagrams/sync-01-sync-engine-architecture.mmd) | Komponen SyncEngine dan flow data |
+| Push-Pull Sequence | [sync-02-push-pull-sequence.mmd](diagrams/sync-02-push-pull-sequence.mmd) | Sequence diagram push/pull |
+| Conflict Resolution | [sync-03-conflict-resolution-flow.mmd](diagrams/sync-03-conflict-resolution-flow.mmd) | Decision tree conflict resolution |
+| Multi-Terminal Topology | [sync-04-multi-terminal-topology.mmd](diagrams/sync-04-multi-terminal-topology.mmd) | Deployment topology multi-device |
+| Initial Sync Sequence | [sync-05-initial-sync-sequence.mmd](diagrams/sync-05-initial-sync-sequence.mmd) | First-time device registration & sync |
+| Offline/Online Transition | [sync-06-offline-to-online-transition.mmd](diagrams/sync-06-offline-to-online-transition.mmd) | State machine: offline ↔ online |
 
 ---
 

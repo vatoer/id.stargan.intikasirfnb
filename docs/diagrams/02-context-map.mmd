@@ -9,19 +9,20 @@ flowchart LR
     end
 
     subgraph Support
-        IAM[Identity & Access]
+        IAM[Identity & Access<br/>+ Terminal]
         CUST[Customer]
         SUP[Supplier]
         ACC[Accounting]
         INV[Inventory]
         RPT[Reporting]
-        SET[Settings]
+        SET[Settings<br/>+ SyncSettings]
         PRICE[Pricing & Promotion]
+        SYNC[Sync<br/>Queue / Conflict / Engine]
     end
 
     TX -->|ACL / read| CAT
     TX -->|optional| CUST
-    TX -->|user/session| IAM
+    TX -->|user/session/terminal| IAM
     TX -->|price rules| PRICE
     TX -->|events| ACC
     TX -->|events| INV
@@ -38,7 +39,14 @@ flowchart LR
 
     SET -.->|config| TX
     SET -.->|config| CAT
-    IAM -.->|tenant/outlet| SET
+    SET -.->|sync config| SYNC
+    IAM -.->|tenant/outlet/terminal| SET
+    IAM -.->|terminal registration| SYNC
+
+    SYNC -.->|push/pull all entities| TX
+    SYNC -.->|push/pull all entities| CAT
+    SYNC -.->|push/pull all entities| INV
+    SYNC -.->|push/pull all entities| CUST
 
     style TX fill:#e74c3c,color:#fff
     style CAT fill:#e74c3c,color:#fff
@@ -51,3 +59,4 @@ flowchart LR
     style RPT fill:#27ae60,color:#fff
     style SET fill:#27ae60,color:#fff
     style PRICE fill:#27ae60,color:#fff
+    style SYNC fill:#f39c12,color:#fff

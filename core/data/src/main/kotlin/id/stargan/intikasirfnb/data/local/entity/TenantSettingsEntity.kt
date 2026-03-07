@@ -11,9 +11,17 @@ import androidx.room.PrimaryKey
 data class TenantSettingsEntity(
     @PrimaryKey val tenantId: String,
     val defaultCurrencyCode: String = "IDR",
-    val taxRatesJson: String = "[]",
     val receiptNumberingPrefix: String? = null,
     val receiptNumberingNext: Long = 1L,
     val invoiceNumberingPrefix: String? = null,
-    val invoiceNumberingNext: Long = 1L
+    val invoiceNumberingNext: Long = 1L,
+    val syncEnabled: Boolean = false,
+    // Sync metadata
+    val syncStatus: String = "PENDING",
+    val syncVersion: Long = 0L,
+    val createdAt: Long = System.currentTimeMillis(),
+    val updatedAt: Long = System.currentTimeMillis(),
+    val createdByTerminalId: String? = null,
+    val updatedByTerminalId: String? = null,
+    val deletedAt: Long? = null
 )

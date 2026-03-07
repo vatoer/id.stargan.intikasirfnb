@@ -2,29 +2,43 @@ package id.stargan.intikasirfnb.domain.catalog
 
 import id.stargan.intikasirfnb.domain.identity.TenantId
 import id.stargan.intikasirfnb.domain.shared.Money
+import id.stargan.intikasirfnb.domain.shared.UlidGenerator
 import java.math.BigDecimal
-import java.util.UUID
 
 // --- Value objects / IDs ---
 
 @JvmInline
 value class ProductId(val value: String) {
     companion object {
-        fun generate() = ProductId(UUID.randomUUID().toString())
+        fun generate() = ProductId(UlidGenerator.generate())
     }
 }
 
 @JvmInline
 value class CategoryId(val value: String) {
     companion object {
-        fun generate() = CategoryId(UUID.randomUUID().toString())
+        fun generate() = CategoryId(UlidGenerator.generate())
+    }
+}
+
+@JvmInline
+value class ModifierGroupId(val value: String) {
+    companion object {
+        fun generate() = ModifierGroupId(UlidGenerator.generate())
+    }
+}
+
+@JvmInline
+value class ModifierOptionId(val value: String) {
+    companion object {
+        fun generate() = ModifierOptionId(UlidGenerator.generate())
     }
 }
 
 @JvmInline
 value class IngredientId(val value: String) {
     companion object {
-        fun generate() = IngredientId(UUID.randomUUID().toString())
+        fun generate() = IngredientId(UlidGenerator.generate())
     }
 }
 
@@ -41,18 +55,35 @@ data class Category(
     val isActive: Boolean = true
 )
 
-// --- Modifier (F&B add-on / option) ---
+// --- Modifier (F&B add-on / option) — separate entities, reusable across items ---
 
 data class ModifierOption(
-    val id: String,
+    val id: ModifierOptionId,
+    val groupId: ModifierGroupId,
     val name: String,
-    val priceDelta: Money = Money.zero()
+    val priceDelta: Money = Money.zero(),
+    val sortOrder: Int = 0,
+    val isActive: Boolean = true
 )
 
 data class ModifierGroup(
-    val id: String,
+    val id: ModifierGroupId,
+    val tenantId: TenantId,
     val name: String,
-    val options: List<ModifierOption>,
+    val options: List<ModifierOption> = emptyList(),
+    val sortOrder: Int = 0,
+    val isActive: Boolean = true
+)
+
+/**
+ * Junction: links a ModifierGroup to a MenuItem with per-item overrides.
+ */
+data class MenuItemModifierLink(
+    val id: String,
+    val menuItemId: ProductId,
+    val modifierGroupId: ModifierGroupId,
+    val sortOrder: Int = 0,
+    val isRequired: Boolean = false,
     val minSelection: Int = 0,
     val maxSelection: Int = 1
 )
@@ -77,9 +108,10 @@ data class MenuItem(
     val categoryId: CategoryId,
     val name: String,
     val description: String? = null,
+    val imageUri: String? = null,
     val basePrice: Money,
     val taxCode: String? = null,
-    val modifierGroups: List<ModifierGroup> = emptyList(),
+    val modifierLinks: List<MenuItemModifierLink> = emptyList(),
     val recipe: Recipe? = null,
     val sortOrder: Int = 0,
     val isActive: Boolean = true

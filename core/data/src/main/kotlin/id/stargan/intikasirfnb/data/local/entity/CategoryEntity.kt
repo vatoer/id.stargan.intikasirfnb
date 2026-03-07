@@ -16,5 +16,13 @@ data class CategoryEntity(
     val name: String,
     val parentId: String? = null,
     val sortOrder: Int = 0,
-    val isActive: Boolean = true
+    val isActive: Boolean = true,
+    // Sync metadata
+    val syncStatus: String = "PENDING",
+    val syncVersion: Long = 0L,
+    val createdAt: Long = System.currentTimeMillis(),
+    val updatedAt: Long = System.currentTimeMillis(),
+    val createdByTerminalId: String? = null,
+    val updatedByTerminalId: String? = null,
+    val deletedAt: Long? = null
 )

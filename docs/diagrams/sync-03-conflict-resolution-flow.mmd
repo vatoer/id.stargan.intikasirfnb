@@ -1,0 +1,41 @@
+%% Conflict Resolution Decision Flow
+%% Strategy depends on entity type
+
+flowchart TB
+    Start[Push rejected:<br/>Cloud has different version] --> CheckType{Entity Type?}
+
+    CheckType -->|Sale / Payment| NoConflict[No Conflict<br/>Terminal-owned:<br/>only 1 terminal writes]
+    CheckType -->|CashierSession| NoConflict2[No Conflict<br/>Terminal-scoped:<br/>1 session = 1 terminal]
+    CheckType -->|StockMovement| AppendOnly[Append-Only<br/>Movement is event, not state<br/>Both versions accepted]
+    CheckType -->|StockLevel| CloudWins[Cloud Computed<br/>Cloud recalculates from<br/>all movements]
+    CheckType -->|User / Role| CloudAuth[Cloud Authoritative<br/>Security-critical:<br/>cloud version wins]
+    CheckType -->|Product / Category<br/>Customer / Settings| LWW{Last-Write-Wins<br/>Compare updatedAt}
+
+    LWW -->|Local newer| KeepLocal[Keep Local Version<br/>Re-push to cloud]
+    LWW -->|Cloud newer| KeepCloud[Keep Cloud Version<br/>Apply to local Room]
+    LWW -->|Same timestamp| CloudTiebreak[Cloud Wins<br/>Tiebreaker]
+
+    subgraph ManualOption["If conflictStrategy = MANUAL_RESOLVE"]
+        Manual[Show Dialog to User<br/>Side-by-side comparison<br/>Choose: Local / Cloud / Merge]
+    end
+
+    LWW -.->|MANUAL_RESOLVE setting| Manual
+
+    subgraph Resolution["After Resolution"]
+        R1[Update Room: syncStatus = SYNCED]
+        R2[Push resolution to Cloud]
+        R3[Log ConflictRecord for audit]
+    end
+
+    KeepLocal --> Resolution
+    KeepCloud --> Resolution
+    CloudTiebreak --> Resolution
+    Manual --> Resolution
+
+    style NoConflict fill:#2ecc71,color:#fff
+    style NoConflict2 fill:#2ecc71,color:#fff
+    style AppendOnly fill:#2ecc71,color:#fff
+    style CloudWins fill:#3498db,color:#fff
+    style CloudAuth fill:#3498db,color:#fff
+    style KeepLocal fill:#f39c12,color:#fff
+    style KeepCloud fill:#f39c12,color:#fff

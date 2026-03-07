@@ -1,4 +1,5 @@
 %% Event-Driven Integration Flow - Key domain events across contexts
+%% Updated: includes Sync context and terminal awareness
 
 sequenceDiagram
     participant T as Transaction
@@ -7,11 +8,12 @@ sequenceDiagram
     participant ACC as Accounting
     participant WQ as Workflow/Queue
     participant PRICE as Pricing
+    participant SYNC as Sync Engine
 
-    Note over T: Sale lifecycle
+    Note over T: Sale lifecycle (on Terminal)
     T->>CAT: Read product (ACL) - name, price, tax
     T->>PRICE: Get effective price / discount
-    T->>T: Add line, apply payment
+    T->>T: Add line, apply payment (local Room DB)
     T->>INV: Publish SaleCompleted (productId, qty)
     T->>ACC: Publish SaleCompleted (amount, journal payload)
     T->>WQ: Publish OrderConfirmed (optional: F&B, Laundry, Bengkel)
@@ -20,4 +22,12 @@ sequenceDiagram
     ACC->>ACC: Create journal entries, emit JournalPosted
     WQ->>WQ: Create WorkOrder, emit WorkOrderCreated
 
-    Note over T,WQ: Async event-driven; eventual consistency
+    Note over T,SYNC: Sync flow (if cloud enabled)
+    T->>SYNC: notifyChange(SALE, saleId)
+    INV->>SYNC: notifyChange(STOCK_MOVEMENT, movementId)
+    SYNC->>SYNC: Queue changes (PENDING_UPLOAD)
+    SYNC-->>SYNC: Push to Cloud API (background)
+    SYNC-->>T: Pull remote changes from other terminals
+    SYNC-->>WQ: Pull kitchen ticket status updates
+
+    Note over T,SYNC: All events local-first; sync is async & non-blocking

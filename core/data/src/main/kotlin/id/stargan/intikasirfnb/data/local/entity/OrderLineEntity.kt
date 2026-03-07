@@ -19,5 +19,14 @@ data class OrderLineEntity(
     val unitPriceAmount: String,
     val unitPriceCurrency: String,
     val discountAmount: String = "0",
-    val modifierSnapshot: String? = null
+    val modifierSnapshot: String? = null,
+    val notes: String? = null,
+    // Sync metadata
+    val syncStatus: String = "PENDING",
+    val syncVersion: Long = 0L,
+    val createdAt: Long = System.currentTimeMillis(),
+    val updatedAt: Long = System.currentTimeMillis(),
+    val createdByTerminalId: String? = null,
+    val updatedByTerminalId: String? = null,
+    val deletedAt: Long? = null
 )

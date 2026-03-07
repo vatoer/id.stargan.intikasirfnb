@@ -2,7 +2,7 @@
 
 flowchart TB
     subgraph SaleAggregate["Aggregate: Sale (Root)"]
-        Sale[Sale<br/>id, status, outletId, cashierId]
+        Sale[Sale<br/>id ULID, status, outletId<br/>terminalId, cashierId<br/>syncStatus, syncVersion]
         Line[LineItem<br/>productRef, qty, priceSnapshot, discount]
         Payment[Payment<br/>method, amount, reference]
         Sale --> Line
@@ -10,8 +10,14 @@ flowchart TB
     end
 
     subgraph SessionAggregate["Aggregate: CashierSession (Root)"]
-        Session[CashierSession<br/>open/close, float, reconciled]
+        Session[CashierSession<br/>open/close, float, reconciled<br/>terminalId scoped]
     end
+
+    subgraph NumberFormat["Transaction Number"]
+        TxNum["{OutletCode}-{TerminalCode}-{YYYYMMDD}-{Seq}<br/>e.g. KMG-K1-20260307-0001"]
+    end
+
+    Sale -.-> TxNum
 
     subgraph Events["Domain Events"]
         E1[SaleCreated]

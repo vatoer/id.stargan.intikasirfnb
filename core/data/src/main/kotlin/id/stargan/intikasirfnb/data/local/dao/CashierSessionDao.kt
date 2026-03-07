@@ -8,9 +8,15 @@ import id.stargan.intikasirfnb.data.local.entity.CashierSessionEntity
 
 @Dao
 interface CashierSessionDao {
+    @Query("SELECT * FROM cashier_sessions WHERE id = :id")
+    suspend fun getById(id: String): CashierSessionEntity?
+
     @Query("SELECT * FROM cashier_sessions WHERE outletId = :outletId AND terminalId = :terminalId AND status = 'OPEN' LIMIT 1")
     suspend fun getCurrentSession(outletId: String, terminalId: String): CashierSessionEntity?
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insert(entity: CashierSessionEntity)
+
+    @Query("SELECT * FROM cashier_sessions WHERE outletId = :outletId ORDER BY openAtMillis DESC LIMIT :limit")
+    suspend fun listByOutlet(outletId: String, limit: Int): List<CashierSessionEntity>
 }

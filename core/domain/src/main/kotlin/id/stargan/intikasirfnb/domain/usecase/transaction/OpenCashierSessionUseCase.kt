@@ -5,6 +5,7 @@ import id.stargan.intikasirfnb.domain.identity.TerminalId
 import id.stargan.intikasirfnb.domain.identity.UserId
 import id.stargan.intikasirfnb.domain.shared.Money
 import id.stargan.intikasirfnb.domain.transaction.CashierSession
+import id.stargan.intikasirfnb.domain.transaction.CashierSessionId
 import id.stargan.intikasirfnb.domain.transaction.CashierSessionRepository
 import id.stargan.intikasirfnb.domain.transaction.CashierSessionStatus
 
@@ -19,7 +20,8 @@ class OpenCashierSessionUseCase(private val cashierSessionRepository: CashierSes
             "Session already open for this terminal"
         }
         val session = CashierSession(
-            id = terminalId,
+            id = CashierSessionId.generate(),
+            terminalId = terminalId,
             outletId = outletId,
             userId = userId,
             openAtMillis = System.currentTimeMillis(),

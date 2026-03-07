@@ -11,14 +11,15 @@ flowchart TB
 
     subgraph Support["🟢 Supporting Domains (Reusable)"]
         direction TB
-        S1[Identity & Access]
+        S1[Identity & Access<br/>+ Terminal / Device]
         S2[Customer]
         S3[Supplier]
         S4[Accounting]
         S5[Inventory]
         S6[Reporting]
-        S7[Settings]
+        S7[Settings<br/>+ SyncSettings]
         S8[Pricing & Promotion]
+        S9[Sync<br/>Queue, Conflict, Engine]
     end
 
     Core --> Support

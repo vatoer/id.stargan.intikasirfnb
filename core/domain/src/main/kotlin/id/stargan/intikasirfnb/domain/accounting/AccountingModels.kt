@@ -1,19 +1,19 @@
 package id.stargan.intikasirfnb.domain.accounting
 
 import id.stargan.intikasirfnb.domain.shared.Money
-import java.util.UUID
+import id.stargan.intikasirfnb.domain.shared.UlidGenerator
 
 @JvmInline
 value class AccountId(val value: String) {
     companion object {
-        fun generate() = AccountId(UUID.randomUUID().toString())
+        fun generate() = AccountId(UlidGenerator.generate())
     }
 }
 
 @JvmInline
 value class JournalId(val value: String) {
     companion object {
-        fun generate() = JournalId(UUID.randomUUID().toString())
+        fun generate() = JournalId(UlidGenerator.generate())
     }
 }
 

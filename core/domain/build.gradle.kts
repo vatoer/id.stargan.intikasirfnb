@@ -10,4 +10,11 @@ kotlin {
 
 dependencies {
     api(libs.kotlinx.coroutines.core)
+    api(libs.ulid.creator)
+
+    // Test
+    testImplementation(libs.junit)
+    testImplementation(libs.mockk)
+    testImplementation(libs.kotlinx.coroutines.test)
+    testImplementation(libs.turbine)
 }

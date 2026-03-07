@@ -20,5 +20,13 @@ data class CustomerEntity(
     val addressLine2: String? = null,
     val city: String? = null,
     val postalCode: String? = null,
-    val loyaltyPoints: Int = 0
+    val loyaltyPoints: Int = 0,
+    // Sync metadata
+    val syncStatus: String = "PENDING",
+    val syncVersion: Long = 0L,
+    val createdAt: Long = System.currentTimeMillis(),
+    val updatedAt: Long = System.currentTimeMillis(),
+    val createdByTerminalId: String? = null,
+    val updatedByTerminalId: String? = null,
+    val deletedAt: Long? = null
 )

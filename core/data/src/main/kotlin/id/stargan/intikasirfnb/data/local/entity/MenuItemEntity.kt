@@ -19,11 +19,19 @@ data class MenuItemEntity(
     val categoryId: String,
     val name: String,
     val description: String? = null,
+    val imageUri: String? = null,
     val basePriceAmount: String,
     val basePriceCurrency: String = "IDR",
     val taxCode: String? = null,
-    val modifierGroupsJson: String = "[]",
     val recipeJson: String? = null,
     val sortOrder: Int = 0,
-    val isActive: Boolean = true
+    val isActive: Boolean = true,
+    // Sync metadata
+    val syncStatus: String = "PENDING",
+    val syncVersion: Long = 0L,
+    val createdAt: Long = System.currentTimeMillis(),
+    val updatedAt: Long = System.currentTimeMillis(),
+    val createdByTerminalId: String? = null,
+    val updatedByTerminalId: String? = null,
+    val deletedAt: Long? = null
 )

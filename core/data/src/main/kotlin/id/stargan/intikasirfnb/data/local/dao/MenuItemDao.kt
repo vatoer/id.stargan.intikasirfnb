@@ -14,9 +14,15 @@ interface MenuItemDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insert(entity: MenuItemEntity)
 
+    @Query("DELETE FROM menu_items WHERE id = :id")
+    suspend fun deleteById(id: String)
+
     @Query("SELECT * FROM menu_items WHERE tenantId = :tenantId ORDER BY sortOrder, name")
     suspend fun listByTenant(tenantId: String): List<MenuItemEntity>
 
     @Query("SELECT * FROM menu_items WHERE categoryId = :categoryId ORDER BY sortOrder, name")
     suspend fun listByCategory(categoryId: String): List<MenuItemEntity>
+
+    @Query("SELECT * FROM menu_items WHERE tenantId = :tenantId AND name LIKE '%' || :query || '%' ORDER BY sortOrder, name")
+    suspend fun searchByName(tenantId: String, query: String): List<MenuItemEntity>
 }

@@ -2,12 +2,17 @@ package id.stargan.intikasirfnb.data.mapper
 
 import id.stargan.intikasirfnb.data.local.entity.OutletEntity
 import id.stargan.intikasirfnb.data.local.entity.TenantEntity
+import id.stargan.intikasirfnb.data.local.entity.TerminalEntity
 import id.stargan.intikasirfnb.data.local.entity.UserEntity
 import id.stargan.intikasirfnb.domain.identity.Outlet
 import id.stargan.intikasirfnb.domain.identity.OutletId
 import id.stargan.intikasirfnb.domain.identity.Role
 import id.stargan.intikasirfnb.domain.identity.Tenant
 import id.stargan.intikasirfnb.domain.identity.TenantId
+import id.stargan.intikasirfnb.domain.identity.Terminal
+import id.stargan.intikasirfnb.domain.identity.TerminalId
+import id.stargan.intikasirfnb.domain.identity.TerminalStatus
+import id.stargan.intikasirfnb.domain.identity.TerminalType
 import id.stargan.intikasirfnb.domain.identity.User
 import id.stargan.intikasirfnb.domain.identity.UserId
 
@@ -59,4 +64,28 @@ fun User.toEntity(): UserEntity = UserEntity(
     outletIdsCsv = outletIds.joinToString(",") { it.value },
     rolesCsv = roles.joinToString(",") { it.value },
     isActive = isActive
+)
+
+fun TerminalEntity.toDomain(): Terminal = Terminal(
+    id = TerminalId(id),
+    tenantId = TenantId(tenantId),
+    outletId = OutletId(outletId),
+    deviceName = deviceName,
+    terminalType = TerminalType.valueOf(terminalType),
+    status = TerminalStatus.valueOf(status),
+    lastSyncAtMillis = lastSyncAtMillis,
+    registeredAtMillis = registeredAtMillis,
+    syncEnabled = syncEnabled
+)
+
+fun Terminal.toEntity(): TerminalEntity = TerminalEntity(
+    id = id.value,
+    tenantId = tenantId.value,
+    outletId = outletId.value,
+    deviceName = deviceName,
+    terminalType = terminalType.name,
+    status = status.name,
+    lastSyncAtMillis = lastSyncAtMillis,
+    registeredAtMillis = registeredAtMillis,
+    syncEnabled = syncEnabled
 )

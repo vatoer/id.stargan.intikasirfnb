@@ -1,4 +1,4 @@
-%% Identity & Access Bounded Context - Multi-tenant, RBAC
+%% Identity & Access Bounded Context - Multi-tenant, RBAC, Terminal/Device
 
 flowchart TB
     subgraph TenantScope["Tenant / Organization"]
@@ -7,11 +7,19 @@ flowchart TB
 
     subgraph OutletScope["Outlet / Store / Branch"]
         O[Outlet<br/>id, name, tenantId, address]
-        Term[Terminal<br/>id, outletId, deviceId]
-        O --> Term
     end
 
     T --> O
+
+    subgraph TerminalAggregate["Aggregate: Terminal (Root)"]
+        Term[Terminal<br/>id UUID, outletId, tenantId<br/>deviceName, terminalType<br/>status, lastSyncAt<br/>syncEnabled]
+        TType[TerminalType<br/>CASHIER / WAITER<br/>KITCHEN_DISPLAY / MANAGER]
+        TStatus[TerminalStatus<br/>ACTIVE / SUSPENDED<br/>DEREGISTERED]
+        Term --> TType
+        Term --> TStatus
+    end
+
+    O --> Term
 
     subgraph UserAggregate["Aggregate: User (Root)"]
         U[User<br/>id, email, tenantId, outletIds]
@@ -30,12 +38,24 @@ flowchart TB
     U --> Sess
     Term --> Sess
 
+    subgraph Registration["Terminal Registration Flow"]
+        Standalone[Standalone Mode<br/>Auto-create Terminal<br/>No cloud needed]
+        Cloud[Cloud Mode<br/>POST /api/terminals/register<br/>Returns config + initial sync]
+    end
+
+    Term -.-> Standalone
+    Term -.-> Cloud
+
     subgraph Events["Domain Events"]
         E1[UserLoggedIn]
         E2[UserLoggedOut]
         E3[RoleAssigned]
+        E4[TerminalRegistered]
+        E5[TerminalDeregistered]
     end
 
     U --> E1
     U --> E2
     U --> E3
+    Term --> E4
+    Term --> E5

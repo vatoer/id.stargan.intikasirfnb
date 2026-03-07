@@ -1,0 +1,47 @@
+%% Initial Sync Sequence - First-time device registration & data download
+
+sequenceDiagram
+    participant User as User / Admin
+    participant App as Android App
+    participant Room as Room DB
+    participant API as Cloud API
+    participant PG as PostgreSQL
+
+    Note over User,App: Phase 1: Standalone Setup (default)
+    User->>App: Install & open app
+    App->>App: Generate TerminalId (UUID)
+    App->>Room: Create Terminal (standalone, syncEnabled=false)
+    App->>Room: Create default Tenant & Outlet
+    Note over App: App fully operational offline
+
+    Note over User,API: Phase 2: Enable Cloud Sync
+    User->>App: Open Settings > Cloud Sync
+    User->>App: Input Cloud API URL + Registration Token
+    App->>API: GET /api/health (validate connection)
+    API-->>App: OK
+
+    App->>API: POST /api/terminals/register<br/>{ terminalId, deviceInfo }
+    API->>PG: Validate token, create terminal record
+    PG-->>API: Terminal registered
+    API-->>App: { tenantId, outletId, terminalConfig }
+
+    Note over App,PG: Phase 3: Initial Data Download
+    App->>API: GET /api/sync/pull?since=0 (full download)
+    API->>PG: Query all master data for tenant/outlet
+    PG-->>API: Products, Categories, Users, Settings, Customers, Price Lists, Active Orders
+
+    API-->>App: { changes: [...], latestVersion: N }
+    App->>Room: Bulk insert/update all received data
+    App->>Room: Set lastSyncVersion = N
+    App->>Room: Update Terminal: syncEnabled=true, lastSyncAt=now
+
+    Note over App: Phase 4: Sync Active
+    App->>App: Start SyncWorker (periodic)
+    App->>API: GET /api/sync/stream (SSE connection)
+
+    Note over App,API: Upload existing local data (if migrating from standalone)
+    App->>Room: Query all local entities with syncStatus=PENDING_UPLOAD
+    App->>API: POST /api/sync/push { batch: [local data] }
+    API-->>App: Accepted / Conflict per item
+
+    Note over App: Device fully operational in cloud mode

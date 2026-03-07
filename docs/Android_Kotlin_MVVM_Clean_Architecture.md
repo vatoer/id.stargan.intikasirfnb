@@ -14,8 +14,13 @@ Dokumen ini mendefinisikan **stack teknis** dan **pemetaan lapisan** untuk penge
 | **Pola UI** | MVVM | ViewModel + View (Activity/Fragment/Compose); state via StateFlow/LiveData |
 | **Async** | Kotlin Coroutines + Flow | Use case & repository return `Flow`/`suspend`; ViewModel `viewModelScope.launch` |
 | **DI** | Hilt (atau Koin) | Inject repository, use case, ViewModel |
-| **Persistence** | Room (+ optional remote sync) | Local-first; offline-capable |
+| **Persistence** | Room (local-first) | Offline-first; Room sebagai source of truth. Cloud sync opsional via SyncEngine (WorkManager). |
+| **Sync** | WorkManager + OkHttp/Ktor Client | Background sync ke self-hosted cloud API. NoOpSyncEngine di standalone mode. |
 | **Navigation** | Jetpack Navigation Component | Single Activity + fragments atau Compose |
+| **Licensing** | AppReg License Server | Challenge-response + Play Integrity + Ed25519 signed license. Offline verification at startup. |
+| **Network** | Retrofit + OkHttp | License server API, certificate pinning (production). Future: cloud sync API. |
+| **Security** | EncryptedSharedPreferences, BouncyCastle | License storage (Android Keystore-backed), Ed25519 signature verification |
+| **Build Flavors** | `dev` / `prod` | dev: dummy Play Integrity, no cert pinning. prod: real integrity + cert pinning |
 
 ---
 
@@ -45,6 +50,7 @@ Dependency mengalir **ke dalam**: Presentation → Domain ← Data. **Domain** t
 ┌───────────────────────────────┴─────────────────────────────────┐
 │  DATA                                                             │
 │  Repository impl, Data Source (Room, Remote), Mapper (DTO ↔ Model) │
+│  SyncEngine (CloudSyncEngine / NoOpSyncEngine)                      │
 │  → implement Repository interface dari Domain                      │
 └─────────────────────────────────────────────────────────────────┘
 ```
@@ -119,7 +125,8 @@ feature/
 
 - `pos.domain.catalog` — Product, Category, ProductRepository (interface).
 - `pos.domain.transaction` — Sale, OrderLine, Payment, SaleRepository, CashierSessionRepository.
-- `pos.domain.identity` — User, Tenant, Outlet, UserRepository.
+- `pos.domain.identity` — User, Tenant, Outlet, Terminal, UserRepository, TerminalRepository.
+- `pos.domain.sync` — SyncEngine (interface), SyncQueueEntry, ConflictRecord, SyncStatus.
 - Dan seterusnya per bounded context.
 
 ---
@@ -168,8 +175,9 @@ ViewModel memanggil use case dari `viewModelScope.launch` atau `flow { ... }.col
 ## 8. Dependency Rule dan Android
 
 - **Domain** module tidak boleh depend ke `android.*`, Room, Retrofit, atau `:data`. Hanya Kotlin stdlib (dan optional dependency seperti kotlinx.datetime jika dipakai).
-- **Data** module depend ke **domain** (implement `SaleRepository`, dll.); boleh depend ke Android (Room, WorkManager untuk sync).
+- **Data** module depend ke **domain** (implement `SaleRepository`, dll.); boleh depend ke Android (Room, WorkManager untuk sync). SyncEngine implementations (CloudSyncEngine, NoOpSyncEngine) hidup di data layer.
 - **App** (presentation) depend ke **domain** (use case, model untuk UI) dan **data** (DI provide repository impl); ViewModel di-inject dengan use case, bukan repository langsung (boleh, tapi use case lebih khas).
+- **Sync-aware repository**: Repository impl menerima SyncEngine via DI. Setelah save ke Room, memanggil `syncEngine.notifyChange()` (fire-and-forget). Di standalone mode: NoOpSyncEngine (no-op). Detail: [Offline_First_Cloud_Sync_Architecture.md](Offline_First_Cloud_Sync_Architecture.md) Section 8.
 
 ---
 
@@ -178,7 +186,7 @@ ViewModel memanggil use case dari `viewModelScope.launch` atau `flow { ... }.col
 | Lapisan | Isi | Referensi |
 |---------|-----|-----------|
 | **Domain** | Entity, VO, Aggregate, Repository interface, Domain event, Use case | [DDD_Core_Support_Architecture](DDD_Core_Support_Architecture.md), [Domain_Layer_Implementation_Guide](Domain_Layer_Implementation_Guide.md) |
-| **Data** | Repository impl, Room DAO/Entity, DTO, Mapper (DTO ↔ Domain) | Interface dari domain |
+| **Data** | Repository impl, Room DAO/Entity, DTO, Mapper (DTO ↔ Domain), SyncEngine impl | Interface dari domain; [Offline_First_Cloud_Sync_Architecture](Offline_First_Cloud_Sync_Architecture.md) |
 | **Presentation** | ViewModel, UiState (sealed/ data class), Event, View | MVVM; state flow ke View |
 | **DI** | Provide Repository impl, Use case, ViewModel | Hilt/Koin modules |
 

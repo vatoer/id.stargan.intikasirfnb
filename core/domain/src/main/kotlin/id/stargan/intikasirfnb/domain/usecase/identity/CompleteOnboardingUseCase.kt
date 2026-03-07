@@ -12,13 +12,16 @@ import id.stargan.intikasirfnb.domain.identity.TenantRepository
 import id.stargan.intikasirfnb.domain.identity.User
 import id.stargan.intikasirfnb.domain.identity.UserId
 import id.stargan.intikasirfnb.domain.identity.UserRepository
+import id.stargan.intikasirfnb.domain.transaction.SalesChannel
+import id.stargan.intikasirfnb.domain.transaction.SalesChannelRepository
 
 class CompleteOnboardingUseCase(
     private val tenantRepository: TenantRepository,
     private val outletRepository: OutletRepository,
     private val userRepository: UserRepository,
     private val pinHasher: PinHasher,
-    private val sessionManager: SessionManager
+    private val sessionManager: SessionManager,
+    private val salesChannelRepository: SalesChannelRepository
 ) {
     suspend operator fun invoke(
         businessName: String,
@@ -57,6 +60,10 @@ class CompleteOnboardingUseCase(
                 roles = listOf(Role("owner"))
             )
             userRepository.save(user)
+
+            // Pre-seed default sales channels
+            salesChannelRepository.save(SalesChannel.dineIn(tenantId))
+            salesChannelRepository.save(SalesChannel.takeAway(tenantId))
 
             sessionManager.setCurrentUser(user)
             sessionManager.setCurrentOutlet(outlet)

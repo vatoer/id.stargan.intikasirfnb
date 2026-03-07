@@ -1,0 +1,76 @@
+%% Multi-Terminal Deployment Topology
+%% Shows standalone vs cloud-connected modes
+
+flowchart TB
+    subgraph Standalone["Mode: Standalone (Default)"]
+        SD[Android Device<br/>Terminal K1 - CASHIER]
+        SDB[(Room DB<br/>Source of Truth)]
+        SD --> SDB
+        SNote[No internet required<br/>All features work offline]
+    end
+
+    subgraph CloudConnected["Mode: Cloud-Connected"]
+        subgraph OutletA["Outlet: Cabang Kemang"]
+            K1[Terminal K1<br/>CASHIER]
+            K2[Terminal K2<br/>CASHIER]
+            W1[Terminal W1<br/>WAITER - Tablet]
+            W2[Terminal W2<br/>WAITER - Tablet]
+            KD1[Terminal KD1<br/>KITCHEN_DISPLAY]
+            K1DB[(Room)]
+            K2DB[(Room)]
+            W1DB[(Room)]
+            W2DB[(Room)]
+            KD1DB[(Room)]
+            K1 --> K1DB
+            K2 --> K2DB
+            W1 --> W1DB
+            W2 --> W2DB
+            KD1 --> KD1DB
+        end
+
+        subgraph OutletB["Outlet: Cabang Menteng"]
+            K3[Terminal K1<br/>CASHIER]
+            M1[Terminal M1<br/>MANAGER]
+            K3DB[(Room)]
+            M1DB[(Room)]
+            K3 --> K3DB
+            M1 --> M1DB
+        end
+
+        subgraph Cloud["Self-Hosted Cloud Server"]
+            API[Cloud API<br/>REST + SSE]
+            PG[(PostgreSQL<br/>Aggregated Source of Truth)]
+            API --> PG
+        end
+
+        K1DB -.->|sync| API
+        K2DB -.->|sync| API
+        W1DB -.->|sync| API
+        W2DB -.->|sync| API
+        KD1DB -.->|sync| API
+        K3DB -.->|sync| API
+        M1DB -.->|sync| API
+    end
+
+    subgraph TerminalCapabilities["Terminal Type Capabilities"]
+        TC1[CASHIER: Full PoS + payment]
+        TC2[WAITER: Create order, no payment]
+        TC3[KITCHEN_DISPLAY: Read-only tickets]
+        TC4[MANAGER: Full access + reports]
+    end
+
+    subgraph DataFlow["Data Flow per Terminal"]
+        DF1[Waiter creates Order -> sync -> Kitchen sees ticket]
+        DF2[Kitchen marks Ready -> sync -> Waiter notified]
+        DF3[Cashier processes Payment -> sync -> Stock deducted]
+    end
+
+    style Cloud fill:#3498db,color:#fff
+    style K1 fill:#e74c3c,color:#fff
+    style K2 fill:#e74c3c,color:#fff
+    style K3 fill:#e74c3c,color:#fff
+    style W1 fill:#f39c12,color:#fff
+    style W2 fill:#f39c12,color:#fff
+    style KD1 fill:#9b59b6,color:#fff
+    style M1 fill:#27ae60,color:#fff
+    style SD fill:#95a5a6,color:#fff
