@@ -9,10 +9,12 @@ import id.stargan.intikasirfnb.domain.transaction.SaleRepository
 import id.stargan.intikasirfnb.domain.transaction.SalesChannelId
 import id.stargan.intikasirfnb.domain.transaction.SalesChannelRepository
 import id.stargan.intikasirfnb.domain.transaction.TableId
+import id.stargan.intikasirfnb.domain.transaction.TableRepository
 
 class CreateSaleUseCase(
     private val saleRepository: SaleRepository,
-    private val salesChannelRepository: SalesChannelRepository
+    private val salesChannelRepository: SalesChannelRepository,
+    private val tableRepository: TableRepository? = null
 ) {
     suspend operator fun invoke(
         outletId: OutletId,
@@ -31,6 +33,14 @@ class CreateSaleUseCase(
         require(!channel.requiresExternalOrderId || !externalOrderId.isNullOrBlank()) {
             "External order ID is required for ${channel.name}"
         }
+
+        // Validate and occupy table if provided
+        if (tableId != null && tableRepository != null) {
+            val table = tableRepository.getById(tableId)
+                ?: error("Meja tidak ditemukan")
+            require(table.isAvailable) { "Meja ${table.name} sedang digunakan" }
+        }
+
         val sale = Sale(
             id = SaleId.generate(),
             outletId = outletId,
@@ -41,6 +51,12 @@ class CreateSaleUseCase(
             cashierId = cashierId
         )
         saleRepository.save(sale)
+
+        // Occupy table after sale is saved
+        if (tableId != null && tableRepository != null) {
+            tableRepository.occupyTable(tableId, sale.id)
+        }
+
         sale
     }
 }

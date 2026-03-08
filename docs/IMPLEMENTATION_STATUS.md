@@ -12,13 +12,13 @@
 
 ```
 Phase 1: Foundation & Standalone MVP    [###############.....] 73%   IN_PROGRESS (86% excl. License)
-Phase 2: Full PoS Features             [#...................] 5%    NOT_STARTED (early models scaffolded)
+Phase 2: Full PoS Features             [######..............] 30%   IN_PROGRESS (5.1 F&B Transaction 100%)
 Phase 3: Cloud Sync Foundation          [....................] 0%    NOT_STARTED
 Phase 4: Multi-Terminal                 [....................] 0%    NOT_STARTED
 Phase 5: Multi-Outlet & Multi-Tenant    [....................] 0%    NOT_STARTED
 ```
 
-> Progress bar: `#` = done, `.` = remaining. Phase 1: 72 DONE, 1 PARTIAL, 25 NOT_STARTED (14 are License & Activation).
+> Progress bar: `#` = done, `.` = remaining. Phase 1: 72 DONE, 1 PARTIAL, 25 NOT_STARTED (14 are License & Activation). Phase 2: 5.1 fully complete (13/13), 5.2-5.6 mostly NOT_STARTED.
 
 ---
 
@@ -26,9 +26,9 @@ Phase 5: Multi-Outlet & Multi-Tenant    [....................] 0%    NOT_STARTED
 
 | Item | Detail |
 |------|--------|
-| **Working on** | Core PoS flow DONE (POS screen + Payment + Receipt + Session + Printing). Responsive layout (phone/tablet) DONE |
+| **Working on** | Phase 2.1 F&B Transaction Enhancements — ALL 13 TASKS DONE. Split bill, multi-payment, table grid, channel selector, modifier selection, platform settlement |
 | **Blocked by** | — |
-| **Next up** | 1. Transaction history (1.5.17)  2. License & Activation (1.7.*)  3. NumberingSequence logic (1.3.9)  4. Phase 2 features |
+| **Next up** | 1. Phase 2.2 Workflow / Kitchen Queue  2. Phase 2.3 Customer UI  3. Transaction history (1.5.17)  4. License & Activation (1.7.*) |
 | **Decisions needed** | — |
 
 ---
@@ -136,6 +136,45 @@ Phase 5: Multi-Outlet & Multi-Tenant    [....................] 0%    NOT_STARTED
 
 ---
 
+## Phase 2 Progress
+
+### 5.1 F&B Transaction Enhancements
+
+| Task | Status | Notes |
+|------|--------|-------|
+| 2.1.1 Table entity + TableStatus | DONE | Table with derived status (AVAILABLE/OCCUPIED/RESERVED via currentSaleId) |
+| 2.1.2 Platform delivery support | DONE | PlatformConfig, PlatformPayment, PlatformSettlement models + 7 use cases |
+| 2.1.2b PriceList aggregate | DONE | Domain + full data layer (entity, DAO, repo, mapper, DI) |
+| 2.1.2c Platform channel setup wizard | DONE | SalesChannelSettingsScreen with platform presets, commission%, payment method |
+| 2.1.2d Platform settlement tracking | DONE | PlatformSettlementRepository (12 methods) + 7 use cases |
+| 2.1.2e Settlement reconciliation UI | DONE | SettlementScreen with tabs, batch settle, dispute/cancel. SettlementViewModel |
+| 2.1.3 Dine-in flow | DONE | AssignTableUseCase + table release on complete/void + TablePickerContent |
+| 2.1.4 Split bill | DONE | SplitBill model (EQUAL/BY_ITEM/BY_AMOUNT) + Init/Cancel use cases + payerIndex tracking |
+| 2.1.5 Multiple payment methods | DONE | PaymentBreakdown, remainingAmount, cashTotal, nonCashTotal, validation |
+| 2.1.6 Table data layer | DONE | TableEntity + TableDao + TableRepositoryImpl |
+| 2.1.7 Table map / grid UI | DONE | TableManagementScreen + TablePickerContent + Settings integration |
+| 2.1.8 Channel selection UI | DONE | ChannelSelectorBar + ChannelChip with icons, order flow subtitle |
+| 2.1.9 Modifier selection UI | DONE | ModifierSelectionContent bottom sheet, required/optional, price delta, validation |
+
+> **5.1 Complete: 13/13 tasks DONE**
+
+### 5.2 Workflow / Kitchen Queue
+
+| Task | Status | Notes |
+|------|--------|-------|
+| 2.2.1-2.2.6 Kitchen ticket flow | PARTIAL | Domain models exist (KitchenTicket + repo). No Room entity/DAO, no events, no UI |
+
+### 5.3-5.6 Remaining Sections
+
+| Section | Status | Notes |
+|---------|--------|-------|
+| 5.3 Customer Context | PARTIAL | Data layer done. UI missing |
+| 5.4 Pricing & Promotion | PARTIAL | OrderLine.discountAmount exists. No Discount type, no UI |
+| 5.5 Inventory | PARTIAL | Domain models done. No data layer, no UI |
+| 5.6 Accounting | PARTIAL | Domain models done. No data layer, no UI |
+
+---
+
 ## Blockers & Issues
 
 | # | Issue | Impact | Reported | Resolved | Notes |
@@ -155,15 +194,17 @@ Phase 5: Multi-Outlet & Multi-Tenant    [....................] 0%    NOT_STARTED
 | Phase 1 tasks DONE | 72/98 (73%) | 98/98 (100%) |
 | Phase 1 tasks DONE (excl License) | 72/84 (86%) | 84/84 (100%) |
 | Phase 1 tasks PARTIAL | 1/98 (1%) | 0 |
+| Phase 2 Section 5.1 | 13/13 (100%) | 13/13 |
+| Phase 2 overall | ~15/43 (~35%) | 43/43 |
 | Domain unit tests | 157 (all passing) | >= 80% coverage |
 | Data test coverage | 0% | >= 60% |
 | Open blockers | 1 (B3: destructive migration) | 0 |
 | ADRs documented | 7 | — |
 | Bounded contexts (domain models) | 9/13 | 13 |
-| Use cases implemented | 42 | — |
-| UI screens implemented | 23 (auth + settings + catalog + PoS + Payment/Receipt + Session) | ~25 (Phase 1 complete) |
+| Use cases implemented | 52+ | — |
+| UI screens implemented | 26 (auth + settings + catalog + PoS + Payment/Receipt + Session + Table + Settlement) | ~25 (Phase 1 complete) |
 | Room tables | 20 | — |
-| Room DB version | 10 | — |
+| Room DB version | 18 | — |
 
 ---
 
@@ -193,6 +234,7 @@ Phase 5: Multi-Outlet & Multi-Tenant    [....................] 0%    NOT_STARTED
 | 2026-03-08 | Responsive POS layout (phone/tablet) | BoxWithConstraints with 600dp breakpoint. Phone: BottomSheetScaffold (peek bar cart summary, FAB with cart badge, 100dp menu cards). Tablet: 60/40 split panel (140dp cards). navigationBarsPadding() on all bottom-anchored elements (snackbar, cart summary, FAB, payment bar). Cart summary shrunk fonts for 8-digit amounts |
 | 2026-03-08 | 2-step split payment | Modern F&B PoS pattern: StagedPayment (local, not persisted) → stage multiple entries → review with remove → BAYAR batch commit. Non-cash autofills remaining amount. RemovePaymentUseCase + Sale.removePayment() added for domain completeness. Receipt preview merged into payment success screen |
 | 2026-03-08 | Dine In channel fix | SalesChannel.requiresTable deferred to Phase 2 (always returns false). Table management not yet implemented — prevents "Table is required for Dine In" error |
+| 2026-03-08 | Phase 2.1 F&B Transaction Enhancements complete | All 13 tasks DONE: split bill (3 strategies), multi-payment (breakdown+validation), table management (grid+picker+release), channel selection (scrollable bar+chips), modifier selection (bottom sheet+groups+required/optional+price delta), platform settlement (tracking+reconciliation UI+batch settle), PriceList data layer, platform channel wizard |
 
 ---
 
@@ -208,6 +250,9 @@ Phase 5: Multi-Outlet & Multi-Tenant    [....................] 0%    NOT_STARTED
 | DONE | First transaction end-to-end (PoS → payment → receipt print) | All done |
 | DONE | Session open/close UI | Transaction domain |
 | DONE | Responsive layout (phone BottomSheet + tablet split) | — |
+| DONE | Phase 2.1 F&B Transaction Enhancements (13/13) | Phase 1 PoS |
+| — | Phase 2.2 Workflow / Kitchen Queue | 2.1 done |
+| — | Phase 2.3 Customer UI | Customer data layer |
 | — | Transaction history (1.5.17) | Transaction domain |
 | — | Numbering sequence (1.3.9) | Settings domain |
 | — | License & Activation (1.7.*) | External: AppReg server |
@@ -250,6 +295,7 @@ Decisions made during implementation. For full rationale, see [ADR/](adr/).
 - **2026-03-08**: Responsive POS layout implemented. Phone uses BottomSheetScaffold with peek bar (80dp) cart summary + FAB with cart badge. Tablet keeps 60/40 split panel. BoxWithConstraints with 600dp breakpoint. Phone menu cards shrunk to 100dp/50dp (vs 140dp/80dp on tablet). Cart summary font sizes reduced for 8-digit IDR amounts. navigationBarsPadding() added to all bottom-anchored elements (snackbar hosts, cart summary pay button, payment action bars, FAB) to prevent Android nav bar overlap.
 - **2026-03-08**: Payment screen redesigned with 2-step split payment flow following modern F&B PoS best practice. StagedPayment data class (local, not persisted to DB) allows cashier to stage multiple payment entries (Tunai + Kartu, etc), review them, remove mistakes, then commit all at once via BAYAR button. Non-cash methods now autofill remaining amount (editable). RemovePaymentUseCase + Sale.removePayment() added to domain for completeness. Receipt preview merged into payment success screen (was separate ReceiptScreen). PrintStatus enum: IDLE/PRINTING/SUCCESS/ERROR.
 - **2026-03-08**: SalesChannel.requiresTable deferred to Phase 2. Was hardcoded `channelType == DINE_IN` which caused "Table is required for Dine In" error since table management doesn't exist yet. Now always returns false — table selection will be required when table management is implemented in Phase 2.
+- **2026-03-08**: Phase 2.1 F&B Transaction Enhancements fully completed (13/13 tasks). Key implementations: (1) Split bill: SplitBill model with 3 strategies (EQUAL, BY_ITEM, BY_AMOUNT), SplitBillEntry with payerIndex tracking, JSON serialization for Room, InitSplitBillUseCase (3 methods) + CancelSplitBillUseCase. (2) Multi-payment: PaymentBreakdown + PaymentBreakdownEntry VOs, Sale helpers (remainingAmount, cashTotal, nonCashTotal, isMixedPayment, paymentsByMethod), non-cash validation (cannot exceed remaining). (3) Table management: TableManagementScreen with adaptive grid, section filter, color-coded status (green=available, red=occupied), add/edit/delete dialogs. TablePickerContent reusable bottom sheet for POS. Settings integration. (4) Channel selection: ChannelSelectorBar + ChannelChip in PosTopBar, scrollable LazyRow with per-type icons, order flow subtitle, channel switch with cart preservation. (5) Modifier selection: ModifierSelectionContent bottom sheet, modifier groups with required/optional badges, single/multi-select per maxSelection, price delta display, running total, validation (disabled confirm until required groups satisfied), PosViewModel on-demand link loading. (6) Platform settlement: Full reconciliation UI with tabs, batch settle, dispute/cancel. PriceList full data layer. DB bumped to v18.
 - **2026-03-07**: Catalog modifier architecture refactored from embedded JSON (Option A) to separate entities (Option B). Rationale: FnB modifiers (Size, Sugar Level, Ice Level) are reused across many items — embedded JSON causes duplication nightmare and makes "rename modifier" require updating 20+ items. New schema: modifier_groups (tenant-scoped, reusable), modifier_options (FK CASCADE from group), menu_item_modifier_groups (junction with per-item overrides: isRequired, minSelection, maxSelection). OrderLine.modifierSnapshot remains JSON (transaction snapshot pattern unchanged). MenuItem gained imageUri field. DB v9.
 
 ---

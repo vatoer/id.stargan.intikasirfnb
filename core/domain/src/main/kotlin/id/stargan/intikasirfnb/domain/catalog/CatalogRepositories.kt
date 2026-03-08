@@ -18,6 +18,15 @@ interface MenuItemRepository {
     suspend fun searchByName(tenantId: TenantId, query: String): List<MenuItem>
 }
 
+interface PriceListRepository {
+    suspend fun getById(id: PriceListId): PriceList?
+    suspend fun save(priceList: PriceList)
+    suspend fun delete(id: PriceListId)
+    suspend fun listByTenant(tenantId: TenantId): List<PriceList>
+    /** Get just the price for a specific product in a specific price list (optimized lookup) */
+    suspend fun getPrice(priceListId: PriceListId, productId: ProductId): PriceListEntry?
+}
+
 interface ModifierGroupRepository {
     suspend fun getById(id: ModifierGroupId): ModifierGroup?
     suspend fun save(group: ModifierGroup)

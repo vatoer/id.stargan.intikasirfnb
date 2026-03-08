@@ -12,6 +12,8 @@ import id.stargan.intikasirfnb.data.local.dao.ModifierGroupDao
 import id.stargan.intikasirfnb.data.local.dao.ModifierOptionDao
 import id.stargan.intikasirfnb.data.local.dao.OrderLineDao
 import id.stargan.intikasirfnb.data.local.dao.OutletDao
+import id.stargan.intikasirfnb.data.local.dao.PlatformSettlementDao
+import id.stargan.intikasirfnb.data.local.dao.PriceListDao
 import id.stargan.intikasirfnb.data.local.dao.OutletSettingsDao
 import id.stargan.intikasirfnb.data.local.dao.PaymentDao
 import id.stargan.intikasirfnb.data.local.dao.SaleDao
@@ -33,6 +35,9 @@ import id.stargan.intikasirfnb.data.local.entity.ModifierOptionEntity
 import id.stargan.intikasirfnb.data.local.entity.OrderLineEntity
 import id.stargan.intikasirfnb.data.local.entity.OutletEntity
 import id.stargan.intikasirfnb.data.local.entity.OutletSettingsEntity
+import id.stargan.intikasirfnb.data.local.entity.PlatformSettlementEntity
+import id.stargan.intikasirfnb.data.local.entity.PriceListEntity
+import id.stargan.intikasirfnb.data.local.entity.PriceListEntryEntity
 import id.stargan.intikasirfnb.data.local.entity.PaymentEntity
 import id.stargan.intikasirfnb.data.local.entity.SaleEntity
 import id.stargan.intikasirfnb.data.local.entity.TableEntity
@@ -64,9 +69,12 @@ import id.stargan.intikasirfnb.data.local.entity.UserEntity
         CustomerEntity::class,
         TerminalEntity::class,
         TaxConfigEntity::class,
-        TerminalSettingsEntity::class
+        TerminalSettingsEntity::class,
+        PlatformSettlementEntity::class,
+        PriceListEntity::class,
+        PriceListEntryEntity::class
     ],
-    version = 14,
+    version = 18,
     exportSchema = true
 )
 abstract class PosDatabase : RoomDatabase() {
@@ -90,4 +98,6 @@ abstract class PosDatabase : RoomDatabase() {
     abstract fun terminalDao(): TerminalDao
     abstract fun taxConfigDao(): TaxConfigDao
     abstract fun terminalSettingsDao(): TerminalSettingsDao
+    abstract fun platformSettlementDao(): PlatformSettlementDao
+    abstract fun priceListDao(): PriceListDao
 }

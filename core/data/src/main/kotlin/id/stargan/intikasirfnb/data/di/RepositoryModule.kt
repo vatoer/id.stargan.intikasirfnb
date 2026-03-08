@@ -31,7 +31,11 @@ import id.stargan.intikasirfnb.data.repository.ModifierGroupRepositoryImpl
 import id.stargan.intikasirfnb.data.repository.OutletRepositoryImpl
 import id.stargan.intikasirfnb.data.repository.OutletSettingsRepositoryImpl
 import id.stargan.intikasirfnb.data.local.PosDatabase
+import id.stargan.intikasirfnb.data.local.dao.PlatformSettlementDao
+import id.stargan.intikasirfnb.data.local.dao.PriceListDao
 import id.stargan.intikasirfnb.data.local.dao.SalesChannelDao
+import id.stargan.intikasirfnb.data.repository.PlatformSettlementRepositoryImpl
+import id.stargan.intikasirfnb.data.repository.PriceListRepositoryImpl
 import id.stargan.intikasirfnb.data.repository.SaleRepositoryImpl
 import id.stargan.intikasirfnb.data.repository.SalesChannelRepositoryImpl
 import id.stargan.intikasirfnb.data.repository.TableRepositoryImpl
@@ -55,6 +59,8 @@ import id.stargan.intikasirfnb.domain.settings.TenantSettingsRepository
 import id.stargan.intikasirfnb.domain.settings.TerminalSettingsRepository
 import id.stargan.intikasirfnb.domain.transaction.CashierSessionRepository
 import id.stargan.intikasirfnb.domain.transaction.SaleRepository
+import id.stargan.intikasirfnb.domain.catalog.PriceListRepository
+import id.stargan.intikasirfnb.domain.transaction.PlatformSettlementRepository
 import id.stargan.intikasirfnb.domain.transaction.SalesChannelRepository
 import id.stargan.intikasirfnb.domain.transaction.TableRepository
 import id.stargan.intikasirfnb.domain.sync.SyncEngine
@@ -146,6 +152,16 @@ object RepositoryModule {
     @Singleton
     fun provideTerminalSettingsRepository(dao: TerminalSettingsDao): TerminalSettingsRepository =
         TerminalSettingsRepositoryImpl(dao)
+
+    @Provides
+    @Singleton
+    fun providePriceListRepository(dao: PriceListDao): PriceListRepository =
+        PriceListRepositoryImpl(dao)
+
+    @Provides
+    @Singleton
+    fun providePlatformSettlementRepository(dao: PlatformSettlementDao): PlatformSettlementRepository =
+        PlatformSettlementRepositoryImpl(dao)
 
     @Provides
     @Singleton

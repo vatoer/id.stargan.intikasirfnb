@@ -30,6 +30,16 @@ data class SaleEntity(
     val serviceChargeAmount: String? = null,
     val serviceChargeIsIncluded: Boolean? = null,
     val tipAmount: String? = null,
+    // Platform payment breakdown (DELIVERY_PLATFORM orders)
+    val platformGrossAmount: String? = null,
+    val platformCommissionPercent: String? = null,
+    val platformCommissionType: String? = null,
+    val platformCommissionAmount: String? = null,
+    val platformNetAmount: String? = null,
+    val platformName: String? = null,
+    val platformOrderId: String? = null,
+    // Split bill (JSON blob)
+    val splitBillJson: String? = null,
     val createdAtMillis: Long,
     val updatedAtMillis: Long,
     // Sync metadata

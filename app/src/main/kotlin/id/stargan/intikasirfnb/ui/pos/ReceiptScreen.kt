@@ -305,6 +305,10 @@ private fun ReceiptPreviewCard(
                     id.stargan.intikasirfnb.domain.transaction.PaymentMethod.CARD -> "Kartu"
                     id.stargan.intikasirfnb.domain.transaction.PaymentMethod.E_WALLET -> "E-Wallet"
                     id.stargan.intikasirfnb.domain.transaction.PaymentMethod.TRANSFER -> "Transfer"
+                    id.stargan.intikasirfnb.domain.transaction.PaymentMethod.PLATFORM_GOFOOD -> "GoFood"
+                    id.stargan.intikasirfnb.domain.transaction.PaymentMethod.PLATFORM_GRABFOOD -> "GrabFood"
+                    id.stargan.intikasirfnb.domain.transaction.PaymentMethod.PLATFORM_SHOPEEFOOD -> "ShopeeFood"
+                    id.stargan.intikasirfnb.domain.transaction.PaymentMethod.PLATFORM_OTHER -> "Platform Lain"
                     id.stargan.intikasirfnb.domain.transaction.PaymentMethod.OTHER -> "Lainnya"
                 }
                 ReceiptRow(methodLabel, idrFormat.format(payment.amount.amount))

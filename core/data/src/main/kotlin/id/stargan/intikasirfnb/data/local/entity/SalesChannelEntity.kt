@@ -17,11 +17,14 @@ data class SalesChannelEntity(
     val isActive: Boolean = true,
     val sortOrder: Int = 0,
     val defaultOrderFlow: String = "PAY_FIRST",
+    val priceListId: String? = null,
     val priceAdjustmentType: String? = null,
     val priceAdjustmentValue: String? = null,
     // Platform config (null for non-platform channels)
     val platformName: String? = null,
     val commissionPercent: String? = null,
+    val commissionType: String? = null,       // CommissionType enum
+    val platformPaymentMethod: String? = null, // PlatformPaymentMethod enum
     val requiresExternalOrderId: Boolean = false,
     val autoConfirmOrder: Boolean = false,
     // Sync metadata

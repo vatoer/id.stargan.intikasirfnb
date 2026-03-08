@@ -39,7 +39,11 @@ import id.stargan.intikasirfnb.ui.settings.SalesChannelSettingsScreen
 import id.stargan.intikasirfnb.ui.settings.SalesChannelViewModel
 import id.stargan.intikasirfnb.ui.history.TransactionHistoryScreen
 import id.stargan.intikasirfnb.ui.history.TransactionHistoryViewModel
+import id.stargan.intikasirfnb.ui.settlement.SettlementScreen
+import id.stargan.intikasirfnb.ui.settlement.SettlementViewModel
 import id.stargan.intikasirfnb.ui.settings.TipSettingsScreen
+import id.stargan.intikasirfnb.ui.table.TableManagementScreen
+import id.stargan.intikasirfnb.ui.table.TableManagementViewModel
 
 object PosRoutes {
     const val SPLASH = "splash"
@@ -55,6 +59,8 @@ object PosRoutes {
     const val SETTINGS_RECEIPT = "settings/receipt"
     const val SETTINGS_PRINTER = "settings/printer"
     const val SETTINGS_SALES_CHANNELS = "settings/sales_channels"
+    const val SETTINGS_SETTLEMENT = "settings/settlement"
+    const val SETTINGS_TABLES = "settings/tables"
     const val CATALOG_GRAPH = "catalog_graph"
     const val CATALOG = "catalog"
     const val CATALOG_CATEGORIES = "catalog/categories"
@@ -209,7 +215,9 @@ fun PosNavGraph(debugSeeder: DebugSeeder? = null) {
                 onNavigateToTip = { navController.navigate(PosRoutes.SETTINGS_TIP) },
                 onNavigateToReceipt = { navController.navigate(PosRoutes.SETTINGS_RECEIPT) },
                 onNavigateToPrinter = { navController.navigate(PosRoutes.SETTINGS_PRINTER) },
-                onNavigateToSalesChannels = { navController.navigate(PosRoutes.SETTINGS_SALES_CHANNELS) }
+                onNavigateToSalesChannels = { navController.navigate(PosRoutes.SETTINGS_SALES_CHANNELS) },
+                onNavigateToSettlement = { navController.navigate(PosRoutes.SETTINGS_SETTLEMENT) },
+                onNavigateToTables = { navController.navigate(PosRoutes.SETTINGS_TABLES) }
             )
         }
 
@@ -265,6 +273,22 @@ fun PosNavGraph(debugSeeder: DebugSeeder? = null) {
             val salesChannelViewModel = hiltViewModel<SalesChannelViewModel>()
             SalesChannelSettingsScreen(
                 viewModel = salesChannelViewModel,
+                onNavigateBack = { navController.popBackStack() }
+            )
+        }
+
+        composable(PosRoutes.SETTINGS_SETTLEMENT) {
+            val settlementViewModel = hiltViewModel<SettlementViewModel>()
+            SettlementScreen(
+                viewModel = settlementViewModel,
+                onNavigateBack = { navController.popBackStack() }
+            )
+        }
+
+        composable(PosRoutes.SETTINGS_TABLES) {
+            val tableViewModel = hiltViewModel<TableManagementViewModel>()
+            TableManagementScreen(
+                viewModel = tableViewModel,
                 onNavigateBack = { navController.popBackStack() }
             )
         }

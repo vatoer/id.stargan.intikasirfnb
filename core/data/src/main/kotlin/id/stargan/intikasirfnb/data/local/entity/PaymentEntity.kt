@@ -17,6 +17,7 @@ data class PaymentEntity(
     val amountAmount: String,
     val amountCurrency: String = "IDR",
     val reference: String? = null,
+    val payerIndex: Int? = null,
     // Sync metadata
     val syncStatus: String = "PENDING",
     val syncVersion: Long = 0L,

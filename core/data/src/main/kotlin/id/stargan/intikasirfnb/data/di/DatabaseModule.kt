@@ -19,6 +19,8 @@ import id.stargan.intikasirfnb.data.local.dao.OrderLineDao
 import id.stargan.intikasirfnb.data.local.dao.OutletDao
 import id.stargan.intikasirfnb.data.local.dao.OutletSettingsDao
 import id.stargan.intikasirfnb.data.local.dao.PaymentDao
+import id.stargan.intikasirfnb.data.local.dao.PlatformSettlementDao
+import id.stargan.intikasirfnb.data.local.dao.PriceListDao
 import id.stargan.intikasirfnb.data.local.dao.SaleDao
 import id.stargan.intikasirfnb.data.local.dao.SalesChannelDao
 import id.stargan.intikasirfnb.data.local.dao.TableDao
@@ -61,4 +63,6 @@ object DatabaseModule {
     @Provides fun provideTerminalDao(db: PosDatabase): TerminalDao = db.terminalDao()
     @Provides fun provideTaxConfigDao(db: PosDatabase): TaxConfigDao = db.taxConfigDao()
     @Provides fun provideTerminalSettingsDao(db: PosDatabase): TerminalSettingsDao = db.terminalSettingsDao()
+    @Provides fun providePlatformSettlementDao(db: PosDatabase): PlatformSettlementDao = db.platformSettlementDao()
+    @Provides fun providePriceListDao(db: PosDatabase): PriceListDao = db.priceListDao()
 }

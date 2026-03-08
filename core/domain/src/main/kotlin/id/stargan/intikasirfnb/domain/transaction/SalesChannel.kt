@@ -1,5 +1,6 @@
 package id.stargan.intikasirfnb.domain.transaction
 
+import id.stargan.intikasirfnb.domain.catalog.PriceListId
 import id.stargan.intikasirfnb.domain.identity.TenantId
 import id.stargan.intikasirfnb.domain.shared.Money
 import id.stargan.intikasirfnb.domain.shared.UlidGenerator
@@ -51,9 +52,23 @@ enum class PriceAdjustmentType {
 
 // --- Platform Config (for DELIVERY_PLATFORM channels) ---
 
+/** How commission is calculated */
+enum class CommissionType {
+    FROM_MENU_PRICE,     // Commission based on original menu price
+    FROM_SELLING_PRICE   // Commission based on actual selling price (after markup/discount)
+}
+
+/** How the platform settles payment to the merchant */
+enum class PlatformPaymentMethod {
+    PLATFORM_SETTLEMENT, // Platform collects, then settles periodically (GoFood, GrabFood, ShopeeFood)
+    CASH_ON_DELIVERY     // Driver pays cash to merchant on delivery
+}
+
 data class PlatformConfig(
     val platformName: String,
     val commissionPercent: BigDecimal = BigDecimal.ZERO,
+    val commissionType: CommissionType = CommissionType.FROM_SELLING_PRICE,
+    val paymentMethod: PlatformPaymentMethod = PlatformPaymentMethod.PLATFORM_SETTLEMENT,
     val requiresExternalOrderId: Boolean = true,
     val autoConfirmOrder: Boolean = false
 )
@@ -69,6 +84,7 @@ data class SalesChannel(
     val isActive: Boolean = true,
     val sortOrder: Int = 0,
     val defaultOrderFlow: OrderFlowType = channelType.defaultFlow(),
+    val priceListId: PriceListId? = null,
     val priceAdjustmentType: PriceAdjustmentType? = null,
     val priceAdjustmentValue: BigDecimal? = null,
     val platformConfig: PlatformConfig? = null
@@ -86,14 +102,27 @@ data class SalesChannel(
         }
     }
 
-    // Table management not yet implemented (Phase 2).
-    // When table management is available, this should check channelType == DINE_IN.
-    val requiresTable: Boolean get() = false
+    val requiresTable: Boolean get() = channelType == ChannelType.DINE_IN
 
     val requiresExternalOrderId: Boolean
         get() = platformConfig?.requiresExternalOrderId == true
 
-    fun resolvePrice(basePrice: Money): Money {
+    /**
+     * Resolve effective price for an item on this channel.
+     *
+     * Resolution order:
+     *   1. priceListPrice (from PriceList if channel has priceListId and item is listed) → full override
+     *   2. priceAdjustment on channel (markup/discount from basePrice) → calculated
+     *   3. basePrice as-is
+     *
+     * @param basePrice  MenuItem.basePrice (catalog base price)
+     * @param priceListPrice  Pre-resolved price from PriceList (null if not in list or no priceListId)
+     */
+    fun resolvePrice(basePrice: Money, priceListPrice: Money? = null): Money {
+        // 1. PriceList full override takes priority
+        if (priceListPrice != null) return priceListPrice
+
+        // 2. Channel-level adjustment (markup/discount)
         val type = priceAdjustmentType ?: return basePrice
         val value = priceAdjustmentValue ?: return basePrice
         val adjusted = when (type) {

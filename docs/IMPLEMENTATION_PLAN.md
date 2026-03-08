@@ -3,7 +3,7 @@
 > Living document. Update setiap kali ada perubahan scope, prioritas, atau timeline.
 >
 > **Last updated**: 2026-03-08
-> **Version**: 1.6.0
+> **Version**: 1.7.0
 >
 > **Gap Analysis**: [GAP_ANALYSIS_2026-03-07.md](GAP_ANALYSIS_2026-03-07.md) — snapshot kondisi code vs plan.
 
@@ -37,7 +37,7 @@
 | Phase | Milestone | Target | Status |
 |-------|-----------|--------|--------|
 | 1 | Foundation & Standalone MVP | - | IN_PROGRESS |
-| 2 | Full PoS Features | - | NOT_STARTED |
+| 2 | Full PoS Features | - | IN_PROGRESS |
 | 3 | Cloud Sync Foundation | - | NOT_STARTED |
 | 4 | Multi-Terminal | - | NOT_STARTED |
 | 5 | Multi-Outlet & Multi-Tenant | - | NOT_STARTED |
@@ -267,19 +267,19 @@ Phase 5: Multi-Outlet & Multi-Tenant
 
 | # | Task | Layer | Depends On | Status | Notes |
 |---|------|-------|------------|--------|-------|
-| 2.1.1 | Domain: `Table` entity + `TableStatus` (AVAILABLE, OCCUPIED, RESERVED) | domain | Phase 1 | DONE | Table(id, outletId, name, capacity, currentSaleId, isActive) + TableRepository + Room entity + DAO. Note: TableStatus enum belum ada, pakai currentSaleId != null sebagai "occupied" |
-| 2.1.2 | Domain: 3rd party delivery platform support — `PlatformConfig` (commission%, settlement flow), `PlatformPayment` VO, `SettlementStatus` | domain | 1.5.5 | NOT_STARTED | GoFood, GrabFood, ShopeeFood, dll. |
-| 2.1.2b | Domain: `PriceList` aggregate + `PriceListEntry` — harga per item per channel (full override, bukan hanya markup) | domain | 1.5.5c | NOT_STARTED | Untuk channel yang butuh harga manual per item |
-| 2.1.2c | UI: Platform channel setup wizard (nama platform, komisi%, markup%, payment method) | presentation | 2.1.2 | NOT_STARTED | User bisa tambah GoFood/GrabFood/ShopeeFood dll. |
-| 2.1.2d | Domain: Platform settlement tracking (AR/piutang platform, mark as settled, rekonsiliasi) | domain | 2.1.2 | NOT_STARTED | Track kapan platform bayar ke merchant |
-| 2.1.2e | UI: Settlement reconciliation screen (list pending settlements, mark settled) | presentation | 2.1.2d | NOT_STARTED | |
-| 2.1.3 | Domain: Dine-in flow (table selection, tableId on Sale) | domain | 2.1.1 | PARTIAL | Sale sudah punya tableId field + CreateSaleUseCase validates DINE_IN requires tableId. MISSING: table release on sale complete, TableStatus enum |
-| 2.1.4 | Domain: Split bill support | domain | 1.5.1 | NOT_STARTED | Split by item or equal |
-| 2.1.5 | Domain: Multiple payment methods per sale | domain | 1.5.3 | DONE | Sale.payments is List<Payment>, AddPaymentUseCase appends to list |
+| 2.1.1 | Domain: `Table` entity + `TableStatus` (AVAILABLE, OCCUPIED, RESERVED) | domain | Phase 1 | DONE | Table(id, outletId, name, capacity, currentSaleId, isActive) + TableRepository + Room entity + DAO. TableStatus derived from currentSaleId (AVAILABLE/OCCUPIED/RESERVED) |
+| 2.1.2 | Domain: 3rd party delivery platform support — `PlatformConfig` (commission%, settlement flow), `PlatformPayment` VO, `SettlementStatus` | domain | 1.5.5 | DONE | PlatformConfig VO on SalesChannel. PlatformPayment + PlatformSettlement models with full calculate(). 7 settlement use cases |
+| 2.1.2b | Domain: `PriceList` aggregate + `PriceListEntry` — harga per item per channel (full override, bukan hanya markup) | domain | 1.5.5c | DONE | PriceList + PriceListEntry domain models + PriceListRepository. Full data layer: PriceListEntity, PriceListEntryEntity, DAO, mapper, repo impl, DI |
+| 2.1.2c | UI: Platform channel setup wizard (nama platform, komisi%, markup%, payment method) | presentation | 2.1.2 | DONE | SalesChannelSettingsScreen: 2-step wizard with platform presets (GoFood/GrabFood/ShopeeFood), commission%, payment method selector, pricing adjustments |
+| 2.1.2d | Domain: Platform settlement tracking (AR/piutang platform, mark as settled, rekonsiliasi) | domain | 2.1.2 | DONE | PlatformSettlementRepository with 12 methods incl. analytics. 7 use cases: Create, GetPending, GetSummary, MarkSettled, MarkDisputed, Cancel, BatchSettle |
+| 2.1.2e | UI: Settlement reconciliation screen (list pending settlements, mark settled) | presentation | 2.1.2d | DONE | SettlementScreen with tabs (PENDING/SETTLED/ALL), channel filter, batch settle, dispute/cancel dialogs. SettlementViewModel with full state management |
+| 2.1.3 | Domain: Dine-in flow (table selection, tableId on Sale) | domain | 2.1.1 | DONE | Sale.tableId + AssignTableUseCase + table release in CompleteSaleUseCase & VoidSaleUseCase. TablePickerContent in POS |
+| 2.1.4 | Domain: Split bill support | domain | 1.5.1 | DONE | SplitBill + SplitBillEntry models. 3 strategies: EQUAL, BY_ITEM, BY_AMOUNT. InitSplitBillUseCase (3 methods) + CancelSplitBillUseCase. Payment tracking per payerIndex. JSON serialization for Room |
+| 2.1.5 | Domain: Multiple payment methods per sale | domain | 1.5.3 | DONE | PaymentBreakdown + PaymentBreakdownEntry. Sale helpers: remainingAmount, paymentsByMethod, totalByMethod, cashTotal, nonCashTotal, isMixedPayment. Non-cash validation (cannot exceed remaining) |
 | 2.1.6 | Data: Table Room entity + DAO + repository | data | 2.1.1 | DONE | TableEntity + TableDao + TableRepositoryImpl already in Phase 1 data layer |
-| 2.1.7 | UI: Table map / grid (visual table layout) | presentation | 2.1.6 | NOT_STARTED | Tap table to open/view order |
-| 2.1.8 | UI: Channel selection on new sale (from configured SalesChannels) | presentation | 1.5.5 | NOT_STARTED | Dynamic list, not hardcoded |
-| 2.1.9 | UI: Modifier selection during add-to-cart | presentation | 1.4.3 | NOT_STARTED | Size, topping, add-on dialog |
+| 2.1.7 | UI: Table map / grid (visual table layout) | presentation | 2.1.6 | DONE | TableManagementScreen: grid with section filter, color-coded status, add/edit/delete dialogs, capacity display. TablePickerContent for POS bottom sheet. TableManagementViewModel. Settings → Kelola Meja navigation |
+| 2.1.8 | UI: Channel selection on new sale (from configured SalesChannels) | presentation | 1.5.5 | DONE | ChannelSelectorBar + ChannelChip in PosTopBar. Scrollable LazyRow with icons per type, channel name, order flow subtitle. Auto-switch channel with cart preservation logic |
+| 2.1.9 | UI: Modifier selection during add-to-cart | presentation | 1.4.3 | DONE | ModifierSelectionContent bottom sheet: groups with required/optional badges, single/multi-select per maxSelection, price delta display, running total, validation. PosViewModel loads links on-demand, items with modifiers always new line |
 
 ### 5.2 Workflow / Kitchen Queue
 

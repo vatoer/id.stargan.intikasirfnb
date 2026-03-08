@@ -1059,6 +1059,10 @@ private fun paymentMethodIcon(method: PaymentMethod): ImageVector = when (method
     PaymentMethod.CARD -> Icons.Default.CreditCard
     PaymentMethod.E_WALLET -> Icons.Default.AccountBalanceWallet
     PaymentMethod.TRANSFER -> Icons.Default.SwapHoriz
+    PaymentMethod.PLATFORM_GOFOOD,
+    PaymentMethod.PLATFORM_GRABFOOD,
+    PaymentMethod.PLATFORM_SHOPEEFOOD,
+    PaymentMethod.PLATFORM_OTHER -> Icons.Default.DeliveryDining
     PaymentMethod.OTHER -> Icons.Default.MonetizationOn
 }
 
@@ -1067,5 +1071,9 @@ private fun paymentMethodLabel(method: PaymentMethod) = when (method) {
     PaymentMethod.CARD -> "Kartu"
     PaymentMethod.E_WALLET -> "E-Wallet"
     PaymentMethod.TRANSFER -> "Transfer"
+    PaymentMethod.PLATFORM_GOFOOD -> "GoFood"
+    PaymentMethod.PLATFORM_GRABFOOD -> "GrabFood"
+    PaymentMethod.PLATFORM_SHOPEEFOOD -> "ShopeeFood"
+    PaymentMethod.PLATFORM_OTHER -> "Platform Lain"
     PaymentMethod.OTHER -> "Lainnya"
 }

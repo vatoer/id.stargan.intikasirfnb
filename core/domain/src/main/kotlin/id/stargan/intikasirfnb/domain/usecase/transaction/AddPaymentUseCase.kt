@@ -12,10 +12,18 @@ class AddPaymentUseCase(private val saleRepository: SaleRepository) {
         saleId: SaleId,
         method: PaymentMethod,
         amount: Money,
-        reference: String? = null
+        reference: String? = null,
+        payerIndex: Int? = null
     ): Result<Sale> = runCatching {
         val sale = saleRepository.getById(saleId) ?: error("Sale not found")
-        val payment = Payment(method = method, amount = amount, reference = reference)
+        // Validate payerIndex if split bill is active
+        if (sale.isSplitBill) {
+            requireNotNull(payerIndex) { "payerIndex wajib diisi saat split bill aktif" }
+            requireNotNull(sale.splitBill?.entryFor(payerIndex)) {
+                "Payer index $payerIndex tidak ditemukan di split bill"
+            }
+        }
+        val payment = Payment(method = method, amount = amount, reference = reference, payerIndex = payerIndex)
         val updated = sale.addPayment(payment)
         saleRepository.save(updated)
         updated

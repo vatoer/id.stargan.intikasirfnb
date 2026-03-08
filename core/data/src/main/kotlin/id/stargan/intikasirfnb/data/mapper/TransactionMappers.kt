@@ -17,9 +17,11 @@ import id.stargan.intikasirfnb.domain.transaction.CashierSessionId
 import id.stargan.intikasirfnb.domain.transaction.CashierSessionStatus
 import id.stargan.intikasirfnb.domain.transaction.OrderLine
 import id.stargan.intikasirfnb.domain.transaction.OrderLineId
+import id.stargan.intikasirfnb.domain.transaction.CommissionType
 import id.stargan.intikasirfnb.domain.transaction.Payment
 import id.stargan.intikasirfnb.domain.transaction.PaymentId
 import id.stargan.intikasirfnb.domain.transaction.PaymentMethod
+import id.stargan.intikasirfnb.domain.transaction.PlatformPayment
 import id.stargan.intikasirfnb.domain.transaction.Sale
 import id.stargan.intikasirfnb.domain.transaction.OrderFlowType
 import id.stargan.intikasirfnb.domain.transaction.SaleId
@@ -27,6 +29,9 @@ import id.stargan.intikasirfnb.domain.transaction.SaleStatus
 import id.stargan.intikasirfnb.domain.transaction.SalesChannelId
 import id.stargan.intikasirfnb.domain.transaction.SelectedModifier
 import id.stargan.intikasirfnb.domain.transaction.ServiceChargeLine
+import id.stargan.intikasirfnb.domain.transaction.SplitBill
+import id.stargan.intikasirfnb.domain.transaction.SplitBillEntry
+import id.stargan.intikasirfnb.domain.transaction.SplitType
 import id.stargan.intikasirfnb.domain.transaction.Table
 import id.stargan.intikasirfnb.domain.transaction.TableId
 import id.stargan.intikasirfnb.domain.transaction.TaxLine
@@ -57,6 +62,11 @@ fun SaleEntity.toDomain(
     taxLines = deserializeTaxLines(taxLinesJson),
     serviceCharge = deserializeServiceCharge(serviceChargeRate, serviceChargeAmount, serviceChargeIsIncluded),
     tip = tipAmount?.let { TipLine(Money(BigDecimal(it))) },
+    platformPayment = deserializePlatformPayment(
+        platformGrossAmount, platformCommissionPercent, platformCommissionType,
+        platformCommissionAmount, platformNetAmount, platformName, platformOrderId
+    ),
+    splitBill = deserializeSplitBill(splitBillJson),
     status = SaleStatus.valueOf(status),
     notes = notes,
     createdAtMillis = createdAtMillis,
@@ -82,6 +92,14 @@ fun Sale.toEntity(): SaleEntity = SaleEntity(
     serviceChargeAmount = serviceCharge?.chargeAmount?.amount?.toPlainString(),
     serviceChargeIsIncluded = serviceCharge?.isIncludedInPrice,
     tipAmount = tip?.amount?.amount?.toPlainString(),
+    platformGrossAmount = platformPayment?.grossAmount?.amount?.toPlainString(),
+    platformCommissionPercent = platformPayment?.commissionPercent?.toPlainString(),
+    platformCommissionType = platformPayment?.commissionType?.name,
+    platformCommissionAmount = platformPayment?.commissionAmount?.amount?.toPlainString(),
+    platformNetAmount = platformPayment?.netAmount?.amount?.toPlainString(),
+    platformName = platformPayment?.platformName,
+    platformOrderId = platformPayment?.platformOrderId,
+    splitBillJson = serializeSplitBill(splitBill),
     createdAtMillis = createdAtMillis,
     updatedAtMillis = updatedAtMillis
 )
@@ -124,7 +142,8 @@ fun PaymentEntity.toDomain(): Payment = Payment(
     id = PaymentId(id),
     method = PaymentMethod.valueOf(method),
     amount = Money(BigDecimal(amountAmount), amountCurrency),
-    reference = reference
+    reference = reference,
+    payerIndex = payerIndex
 )
 
 fun Payment.toEntity(saleId: String): PaymentEntity = PaymentEntity(
@@ -133,7 +152,8 @@ fun Payment.toEntity(saleId: String): PaymentEntity = PaymentEntity(
     method = method.name,
     amountAmount = amount.amount.toPlainString(),
     amountCurrency = amount.currencyCode,
-    reference = reference
+    reference = reference,
+    payerIndex = payerIndex
 )
 
 // --- Table ---
@@ -143,6 +163,7 @@ fun TableEntity.toDomain(): Table = Table(
     outletId = OutletId(outletId),
     name = name,
     capacity = capacity,
+    section = section,
     currentSaleId = currentSaleId?.let { SaleId(it) },
     isActive = isActive
 )
@@ -152,6 +173,7 @@ fun Table.toEntity(): TableEntity = TableEntity(
     outletId = outletId.value,
     name = name,
     capacity = capacity,
+    section = section,
     currentSaleId = currentSaleId?.value,
     isActive = isActive
 )
@@ -271,4 +293,79 @@ private fun deserializeServiceCharge(
         baseAmount = Money.zero(),
         chargeAmount = Money(BigDecimal(amount))
     )
+}
+
+// --- PlatformPayment deserialization from flat columns ---
+
+private fun deserializePlatformPayment(
+    grossAmount: String?,
+    commissionPercent: String?,
+    commissionType: String?,
+    commissionAmount: String?,
+    netAmount: String?,
+    platformName: String?,
+    platformOrderId: String?
+): PlatformPayment? {
+    if (grossAmount == null || commissionAmount == null || netAmount == null || platformName == null) return null
+    return PlatformPayment(
+        grossAmount = Money(BigDecimal(grossAmount)),
+        commissionPercent = commissionPercent?.let { BigDecimal(it) } ?: BigDecimal.ZERO,
+        commissionType = commissionType?.let {
+            try { CommissionType.valueOf(it) } catch (_: Exception) { CommissionType.FROM_SELLING_PRICE }
+        } ?: CommissionType.FROM_SELLING_PRICE,
+        commissionAmount = Money(BigDecimal(commissionAmount)),
+        netAmount = Money(BigDecimal(netAmount)),
+        platformName = platformName,
+        platformOrderId = platformOrderId
+    )
+}
+
+// --- SplitBill serialization ---
+
+private fun serializeSplitBill(splitBill: SplitBill?): String? {
+    if (splitBill == null) return null
+    val root = JSONObject()
+    root.put("t", splitBill.type.name)
+    val entries = JSONArray()
+    for (e in splitBill.entries) {
+        val obj = JSONObject()
+        obj.put("pi", e.payerIndex)
+        obj.put("l", e.label)
+        obj.put("sa", e.shareAmount.amount.toPlainString())
+        obj.put("pa", e.paidAmount.amount.toPlainString())
+        if (e.lineIds.isNotEmpty()) {
+            val ids = JSONArray()
+            for (id in e.lineIds) ids.put(id.value)
+            obj.put("li", ids)
+        }
+        entries.put(obj)
+    }
+    root.put("e", entries)
+    return root.toString()
+}
+
+private fun deserializeSplitBill(json: String?): SplitBill? {
+    if (json.isNullOrBlank()) return null
+    return try {
+        val root = JSONObject(json)
+        val type = SplitType.valueOf(root.getString("t"))
+        val arr = root.getJSONArray("e")
+        val entries = (0 until arr.length()).map { i ->
+            val obj = arr.getJSONObject(i)
+            val lineIds = if (obj.has("li")) {
+                val ids = obj.getJSONArray("li")
+                (0 until ids.length()).map { j -> OrderLineId(ids.getString(j)) }
+            } else emptyList()
+            SplitBillEntry(
+                payerIndex = obj.getInt("pi"),
+                label = obj.getString("l"),
+                lineIds = lineIds,
+                shareAmount = Money(BigDecimal(obj.getString("sa"))),
+                paidAmount = Money(BigDecimal(obj.optString("pa", "0")))
+            )
+        }
+        SplitBill(type = type, entries = entries)
+    } catch (_: Exception) {
+        null
+    }
 }

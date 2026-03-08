@@ -976,6 +976,10 @@ private fun paymentMethodLabel(method: PaymentMethod): String = when (method) {
     PaymentMethod.CARD -> "Kartu"
     PaymentMethod.E_WALLET -> "E-Wallet"
     PaymentMethod.TRANSFER -> "Transfer"
+    PaymentMethod.PLATFORM_GOFOOD -> "GoFood"
+    PaymentMethod.PLATFORM_GRABFOOD -> "GrabFood"
+    PaymentMethod.PLATFORM_SHOPEEFOOD -> "ShopeeFood"
+    PaymentMethod.PLATFORM_OTHER -> "Platform Lain"
     PaymentMethod.OTHER -> "Lainnya"
 }
 

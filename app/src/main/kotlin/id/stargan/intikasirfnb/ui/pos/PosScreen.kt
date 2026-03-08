@@ -2,6 +2,7 @@ package id.stargan.intikasirfnb.ui.pos
 
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -32,6 +33,8 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.DeliveryDining
+import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.ConfirmationNumber
 import androidx.compose.material.icons.filled.Kitchen
 import androidx.compose.material.icons.filled.ListAlt
@@ -82,6 +85,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
@@ -89,14 +93,22 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import coil3.compose.AsyncImage
+import id.stargan.intikasirfnb.domain.catalog.MenuItemModifierLink
 import id.stargan.intikasirfnb.domain.catalog.MenuItem
+import id.stargan.intikasirfnb.domain.catalog.ModifierGroup
+import id.stargan.intikasirfnb.domain.catalog.ModifierOption
+import id.stargan.intikasirfnb.domain.catalog.ModifierOptionId
 import id.stargan.intikasirfnb.domain.catalog.ProductId
+import id.stargan.intikasirfnb.domain.shared.Money
 import id.stargan.intikasirfnb.domain.transaction.ChannelType
 import id.stargan.intikasirfnb.domain.transaction.OrderFlowType
+import id.stargan.intikasirfnb.domain.transaction.SelectedModifier
 import id.stargan.intikasirfnb.domain.transaction.OrderLine
 import id.stargan.intikasirfnb.domain.transaction.Sale
 import id.stargan.intikasirfnb.domain.transaction.SaleId
 import id.stargan.intikasirfnb.domain.transaction.SaleStatus
+import id.stargan.intikasirfnb.domain.transaction.Table
+import id.stargan.intikasirfnb.ui.table.TablePickerContent
 import kotlinx.coroutines.launch
 import java.text.NumberFormat
 import java.text.SimpleDateFormat
@@ -139,12 +151,48 @@ fun PosScreen(
     // Open orders bottom sheet
     if (uiState.showOpenOrders) {
         OpenOrdersSheet(
-            openOrders = uiState.openOrders,
+            openOrders = uiState.sortedOpenOrders,
             salesChannels = uiState.salesChannels,
+            sortMode = uiState.orderSortMode,
+            onSortModeChanged = { viewModel.setOrderSortMode(it) },
             onDismiss = { viewModel.toggleOpenOrders() },
             onResumeOrder = { saleId -> viewModel.resumeOpenOrder(saleId) },
             onNewOrder = { viewModel.newOrder() }
         )
+    }
+
+    // Table picker bottom sheet
+    if (uiState.showTablePicker) {
+        ModalBottomSheet(
+            onDismissRequest = { viewModel.hideTablePicker() }
+        ) {
+            TablePickerContent(
+                tables = uiState.tables,
+                sections = uiState.tableSections,
+                selectedSection = uiState.selectedTableSection,
+                onSectionSelected = { viewModel.selectTableSection(it) },
+                onTableSelected = { table -> viewModel.selectTable(table) },
+                onDismiss = { viewModel.hideTablePicker() }
+            )
+        }
+    }
+
+    // Modifier selection bottom sheet
+    val pendingItem = uiState.pendingMenuItem
+    if (uiState.showModifierDialog && pendingItem != null) {
+        ModalBottomSheet(
+            onDismissRequest = { viewModel.dismissModifierDialog() }
+        ) {
+            ModifierSelectionContent(
+                menuItem = pendingItem,
+                modifierGroups = uiState.modifierGroups,
+                modifierLinks = uiState.modifierLinks,
+                onConfirm = { selectedModifiers ->
+                    viewModel.confirmModifierSelection(selectedModifiers)
+                },
+                onDismiss = { viewModel.dismissModifierDialog() }
+            )
+        }
     }
 
     BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
@@ -235,7 +283,7 @@ private fun TabletPosLayout(
                     orderFlow = uiState.effectiveOrderFlow,
                     channelType = uiState.selectedChannel?.channelType,
                     isSendingToKitchen = uiState.isSendingToKitchen,
-                    openOrders = uiState.openOrders,
+                    openOrders = uiState.sortedOpenOrders,
                     salesChannels = uiState.salesChannels,
                     onIncrement = viewModel::incrementLine,
                     onDecrement = viewModel::decrementLine,
@@ -247,6 +295,8 @@ private fun TabletPosLayout(
                     onNewOrder = viewModel::newOrder,
                     onTableChanged = viewModel::setTableNumber,
                     onCustomerNameChanged = viewModel::setCustomerName,
+                    hasTables = uiState.tables.isNotEmpty(),
+                    onShowTablePicker = viewModel::showTablePicker,
                     modifier = Modifier
                         .weight(0.4f)
                         .fillMaxHeight()
@@ -305,7 +355,7 @@ private fun PhonePosLayout(
                     orderFlow = uiState.effectiveOrderFlow,
                     channelType = uiState.selectedChannel?.channelType,
                     isSendingToKitchen = uiState.isSendingToKitchen,
-                    openOrders = uiState.openOrders,
+                    openOrders = uiState.sortedOpenOrders,
                     salesChannels = uiState.salesChannels,
                     onIncrement = viewModel::incrementLine,
                     onDecrement = viewModel::decrementLine,
@@ -317,6 +367,8 @@ private fun PhonePosLayout(
                     onNewOrder = viewModel::newOrder,
                     onTableChanged = viewModel::setTableNumber,
                     onCustomerNameChanged = viewModel::setCustomerName,
+                    hasTables = uiState.tables.isNotEmpty(),
+                    onShowTablePicker = viewModel::showTablePicker,
                     compact = true,
                     modifier = Modifier.fillMaxWidth()
                 )
@@ -395,16 +447,6 @@ private fun PosTopBar(
                 }
             },
             actions = {
-                uiState.salesChannels.forEach { channel ->
-                    val selected = uiState.selectedChannel?.id == channel.id
-                    FilterChip(
-                        selected = selected,
-                        onClick = { onChannelSelected(channel) },
-                        label = { Text(channel.name, style = MaterialTheme.typography.labelSmall) },
-                        modifier = Modifier.padding(horizontal = 2.dp)
-                    )
-                }
-
                 // Open orders button
                 if (openOrdersCount > 0) {
                     IconButton(onClick = onOpenOrdersClicked) {
@@ -426,6 +468,15 @@ private fun PosTopBar(
             )
         )
 
+        // Channel selector bar
+        if (uiState.salesChannels.isNotEmpty()) {
+            ChannelSelectorBar(
+                channels = uiState.salesChannels,
+                selectedChannel = uiState.selectedChannel,
+                onChannelSelected = onChannelSelected
+            )
+        }
+
         // Order flow override chips — show when channel is PAY_FLEXIBLE and no active sale
         val channel = uiState.selectedChannel
         val canOverride = channel?.defaultOrderFlow == OrderFlowType.PAY_FLEXIBLE
@@ -434,7 +485,7 @@ private fun PosTopBar(
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .background(MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.5f))
+                    .background(MaterialTheme.colorScheme.surfaceContainerLow)
                     .padding(horizontal = 12.dp, vertical = 4.dp),
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
                 verticalAlignment = Alignment.CenterVertically
@@ -470,6 +521,119 @@ private fun PosTopBar(
 }
 
 // ============================================================
+// CHANNEL SELECTOR BAR
+// ============================================================
+
+@Composable
+private fun ChannelSelectorBar(
+    channels: List<id.stargan.intikasirfnb.domain.transaction.SalesChannel>,
+    selectedChannel: id.stargan.intikasirfnb.domain.transaction.SalesChannel?,
+    onChannelSelected: (id.stargan.intikasirfnb.domain.transaction.SalesChannel) -> Unit
+) {
+    Surface(
+        color = MaterialTheme.colorScheme.surfaceContainerLow,
+        tonalElevation = 1.dp
+    ) {
+        LazyRow(
+            contentPadding = PaddingValues(horizontal = 8.dp, vertical = 6.dp),
+            horizontalArrangement = Arrangement.spacedBy(6.dp),
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            items(channels) { channel ->
+                val isSelected = selectedChannel?.id == channel.id
+                ChannelChip(
+                    channel = channel,
+                    isSelected = isSelected,
+                    onClick = { onChannelSelected(channel) }
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun ChannelChip(
+    channel: id.stargan.intikasirfnb.domain.transaction.SalesChannel,
+    isSelected: Boolean,
+    onClick: () -> Unit
+) {
+    val icon = channelTypeIcon(channel.channelType)
+    val flowLabel = when (channel.defaultOrderFlow) {
+        OrderFlowType.PAY_FIRST -> "Bayar Dulu"
+        OrderFlowType.PAY_LAST -> "Bayar Akhir"
+        OrderFlowType.PAY_FLEXIBLE -> "Fleksibel"
+    }
+    val subtitle = when (channel.channelType) {
+        ChannelType.DELIVERY_PLATFORM -> channel.platformConfig?.platformName ?: flowLabel
+        else -> flowLabel
+    }
+
+    Card(
+        onClick = onClick,
+        shape = RoundedCornerShape(12.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = if (isSelected)
+                MaterialTheme.colorScheme.primaryContainer
+            else
+                MaterialTheme.colorScheme.surfaceContainerHigh
+        ),
+        elevation = CardDefaults.cardElevation(
+            defaultElevation = if (isSelected) 2.dp else 0.dp
+        ),
+        modifier = Modifier.width(120.dp)
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 10.dp, vertical = 8.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            Icon(
+                imageVector = icon,
+                contentDescription = null,
+                modifier = Modifier.size(20.dp),
+                tint = if (isSelected)
+                    MaterialTheme.colorScheme.primary
+                else
+                    MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            Spacer(modifier = Modifier.height(2.dp))
+            Text(
+                channel.name,
+                style = MaterialTheme.typography.labelMedium,
+                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
+                color = if (isSelected)
+                    MaterialTheme.colorScheme.onPrimaryContainer
+                else
+                    MaterialTheme.colorScheme.onSurface,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                textAlign = TextAlign.Center
+            )
+            Text(
+                subtitle,
+                style = MaterialTheme.typography.labelSmall,
+                color = if (isSelected)
+                    MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.7f)
+                else
+                    MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                textAlign = TextAlign.Center
+            )
+        }
+    }
+}
+
+private fun channelTypeIcon(type: ChannelType): androidx.compose.ui.graphics.vector.ImageVector =
+    when (type) {
+        ChannelType.DINE_IN -> Icons.Default.Restaurant
+        ChannelType.TAKE_AWAY -> Icons.Default.ShoppingCart
+        ChannelType.DELIVERY_PLATFORM -> Icons.Default.DeliveryDining
+        ChannelType.OWN_DELIVERY -> Icons.Default.DeliveryDining
+    }
+
+// ============================================================
 // OPEN ORDERS SHEET
 // ============================================================
 
@@ -478,6 +642,8 @@ private fun PosTopBar(
 private fun OpenOrdersSheet(
     openOrders: List<Sale>,
     salesChannels: List<id.stargan.intikasirfnb.domain.transaction.SalesChannel>,
+    sortMode: OrderSortMode,
+    onSortModeChanged: (OrderSortMode) -> Unit,
     onDismiss: () -> Unit,
     onResumeOrder: (SaleId) -> Unit,
     onNewOrder: () -> Unit
@@ -507,7 +673,28 @@ private fun OpenOrdersSheet(
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
 
-            Spacer(modifier = Modifier.height(12.dp))
+            Spacer(modifier = Modifier.height(8.dp))
+
+            // Sort chips
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                OrderSortMode.entries.forEach { mode ->
+                    val label = when (mode) {
+                        OrderSortMode.TIME -> "Waktu"
+                        OrderSortMode.TABLE -> "Meja"
+                        OrderSortMode.NAME -> "Nama"
+                    }
+                    FilterChip(
+                        selected = sortMode == mode,
+                        onClick = { onSortModeChanged(mode) },
+                        label = { Text(label, style = MaterialTheme.typography.labelSmall) }
+                    )
+                }
+            }
+
+            Spacer(modifier = Modifier.height(8.dp))
 
             LazyColumn(
                 verticalArrangement = Arrangement.spacedBy(8.dp),
@@ -555,11 +742,12 @@ private fun OpenOrdersSheet(
                                             fontWeight = FontWeight.Bold
                                         )
                                     }
-                                    val orderLabel = sale.orderLabel()
                                     val subtitle = buildString {
                                         append(channelName)
-                                        if (orderLabel != null) append(" - $orderLabel")
-                                        append(" - ${timeFormat.format(Date(sale.updatedAtMillis))}")
+                                        sale.tableId?.let { append(" · Meja ${it.value}") }
+                                        sale.customerName?.let { append(" · $it") }
+                                        sale.queueNumber?.let { append(" · #$it") }
+                                        append(" · ${timeFormat.format(Date(sale.updatedAtMillis))}")
                                     }
                                     Text(
                                         subtitle,
@@ -838,6 +1026,8 @@ private fun CartPanel(
     onNewOrder: () -> Unit = {},
     onTableChanged: (String?) -> Unit = {},
     onCustomerNameChanged: (String?) -> Unit = {},
+    hasTables: Boolean = false,
+    onShowTablePicker: () -> Unit = {},
     compact: Boolean = false,
     modifier: Modifier = Modifier
 ) {
@@ -846,11 +1036,21 @@ private fun CartPanel(
 
     Column(modifier = modifier.background(MaterialTheme.colorScheme.surface)) {
         // Order tabs strip — shows active orders as switchable tabs
-        val otherOrders = openOrders.filter { it.id != sale?.id }
-        if (otherOrders.isNotEmpty() || (sale != null && sale.lines.isNotEmpty())) {
+        // Merge current sale into sorted open orders list (order follows sort mode)
+        val allOrders = remember(openOrders, sale) {
+            if (sale != null && sale.lines.isNotEmpty() && openOrders.none { it.id == sale.id }) {
+                openOrders + sale // already sorted from sortedOpenOrders; new sale appended at end
+            } else if (sale != null && sale.lines.isNotEmpty()) {
+                // Replace stale entry with fresh currentSale
+                openOrders.map { if (it.id == sale.id) sale else it }
+            } else {
+                openOrders
+            }
+        }
+        if (allOrders.isNotEmpty()) {
             OrderTabStrip(
-                currentSale = sale,
-                otherOrders = otherOrders,
+                orders = allOrders,
+                activeSaleId = sale?.id,
                 channelMap = channelMap,
                 onResumeOrder = onResumeOrder,
                 onNewOrder = onNewOrder,
@@ -911,6 +1111,8 @@ private fun CartPanel(
                 orderFlow = orderFlow,
                 onTableChanged = onTableChanged,
                 onCustomerNameChanged = onCustomerNameChanged,
+                hasTables = hasTables,
+                onShowTablePicker = onShowTablePicker,
                 compact = compact
             )
         }
@@ -1044,10 +1246,22 @@ private fun OrderInfoBar(
     orderFlow: OrderFlowType,
     onTableChanged: (String?) -> Unit,
     onCustomerNameChanged: (String?) -> Unit,
+    hasTables: Boolean = false,
+    onShowTablePicker: () -> Unit = {},
     compact: Boolean = false
 ) {
     val canEdit = sale.status == SaleStatus.DRAFT || sale.status == SaleStatus.OPEN
     val isDineIn = channelType == ChannelType.DINE_IN
+
+    // Determine if we have saved values to show as labels
+    val hasTable = sale.tableId != null
+    val hasName = sale.customerName != null
+    val hasInfo = hasTable || hasName
+
+    // Editing mode: start in edit if no info yet, otherwise show label
+    var isEditing by remember(sale.id) {
+        mutableStateOf(!hasInfo)
+    }
     var tableText by remember(sale.id) {
         mutableStateOf(sale.tableId?.value ?: "")
     }
@@ -1058,6 +1272,13 @@ private fun OrderInfoBar(
         mutableStateOf(sale.customerName != null)
     }
 
+    // Sync from sale when saved values change externally
+    LaunchedEffect(sale.tableId?.value) { tableText = sale.tableId?.value ?: "" }
+    LaunchedEffect(sale.customerName) {
+        nameText = sale.customerName ?: ""
+        if (sale.customerName != null) showNameField = true
+    }
+
     Column(
         modifier = Modifier
             .fillMaxWidth()
@@ -1065,120 +1286,106 @@ private fun OrderInfoBar(
             .padding(horizontal = 12.dp, vertical = if (compact) 4.dp else 6.dp),
         verticalArrangement = Arrangement.spacedBy(4.dp)
     ) {
-        // Row 1: Table number (dine-in) or Queue number (counter/takeaway)
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            if (isDineIn) {
-                // Table number input
+        // Queue number display (always visible if assigned)
+        val queueNum = sale.queueNumber
+        if (queueNum != null) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
                 Icon(
-                    Icons.Default.TableBar,
+                    Icons.Default.ConfirmationNumber,
                     contentDescription = null,
                     modifier = Modifier.size(16.dp),
-                    tint = MaterialTheme.colorScheme.primary
+                    tint = MaterialTheme.colorScheme.tertiary
                 )
-                OutlinedTextField(
-                    value = tableText,
-                    onValueChange = { tableText = it },
-                    placeholder = { Text("No. Meja", style = MaterialTheme.typography.labelSmall) },
-                    singleLine = true,
-                    enabled = canEdit,
-                    textStyle = MaterialTheme.typography.labelSmall,
-                    modifier = Modifier.weight(1f)
+                Spacer(modifier = Modifier.width(4.dp))
+                Text(
+                    queueNum,
+                    style = MaterialTheme.typography.labelMedium,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.tertiary
                 )
-                // Save button for table
-                if (canEdit && tableText != (sale.tableId?.value ?: "")) {
-                    TextButton(
-                        onClick = {
-                            onTableChanged(tableText.takeIf { it.isNotBlank() })
-                        },
-                        modifier = Modifier.height(32.dp),
-                        contentPadding = PaddingValues(horizontal = 8.dp)
-                    ) {
-                        Text("OK", style = MaterialTheme.typography.labelSmall)
-                    }
-                }
-            }
-
-            // Queue number display (if assigned)
-            val queueNum = sale.queueNumber
-            if (queueNum != null) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Icon(
-                        Icons.Default.ConfirmationNumber,
-                        contentDescription = null,
-                        modifier = Modifier.size(16.dp),
-                        tint = MaterialTheme.colorScheme.tertiary
-                    )
-                    Spacer(modifier = Modifier.width(4.dp))
-                    Text(
-                        queueNum,
-                        style = MaterialTheme.typography.labelMedium,
-                        fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.tertiary
-                    )
-                }
-            }
-
-            // If not dine-in and no fields shown, show "Meja bebas" hint
-            if (!isDineIn && queueNum == null) {
-                Spacer(modifier = Modifier.weight(1f))
-            }
-
-            // Toggle customer name field
-            if (!showNameField && canEdit) {
-                TextButton(
-                    onClick = { showNameField = true },
-                    modifier = Modifier.height(28.dp),
-                    contentPadding = PaddingValues(horizontal = 8.dp)
-                ) {
-                    Icon(
-                        Icons.Default.PersonAdd,
-                        contentDescription = null,
-                        modifier = Modifier.size(14.dp)
-                    )
-                    Spacer(modifier = Modifier.width(4.dp))
-                    Text("Nama", style = MaterialTheme.typography.labelSmall)
-                }
             }
         }
 
-        // Row 2: Customer name (expandable)
-        if (showNameField) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Icon(
-                    Icons.Default.Person,
-                    contentDescription = null,
-                    modifier = Modifier.size(16.dp),
-                    tint = MaterialTheme.colorScheme.primary
+        if (!canEdit) {
+            // Read-only: show label only
+            val label = sale.orderLabel()
+            if (label != null) {
+                Text(
+                    label,
+                    style = MaterialTheme.typography.labelMedium,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
-                OutlinedTextField(
-                    value = nameText,
-                    onValueChange = { nameText = it },
-                    placeholder = { Text("Nama pelanggan", style = MaterialTheme.typography.labelSmall) },
-                    singleLine = true,
-                    enabled = canEdit,
-                    textStyle = MaterialTheme.typography.labelSmall,
-                    modifier = Modifier.weight(1f)
-                )
-                if (canEdit && nameText != (sale.customerName ?: "")) {
-                    TextButton(
-                        onClick = {
-                            onCustomerNameChanged(nameText.takeIf { it.isNotBlank() })
-                        },
-                        modifier = Modifier.height(32.dp),
-                        contentPadding = PaddingValues(horizontal = 8.dp)
+            }
+        } else if (isEditing) {
+            // --- EDIT MODE ---
+
+            // Table selection (dine-in only)
+            if (isDineIn) {
+                if (hasTables) {
+                    // Visual table picker button
+                    OutlinedButton(
+                        onClick = onShowTablePicker,
+                        modifier = Modifier.fillMaxWidth(),
+                        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp)
                     ) {
-                        Text("OK", style = MaterialTheme.typography.labelSmall)
+                        Icon(
+                            Icons.Default.TableBar,
+                            contentDescription = null,
+                            modifier = Modifier.size(16.dp)
+                        )
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text(
+                            if (sale.tableId != null) "Ganti Meja" else "Pilih Meja",
+                            style = MaterialTheme.typography.labelSmall
+                        )
+                    }
+                } else {
+                    // Fallback: free text input when no tables configured
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(
+                            Icons.Default.TableBar,
+                            contentDescription = null,
+                            modifier = Modifier.size(16.dp),
+                            tint = MaterialTheme.colorScheme.primary
+                        )
+                        OutlinedTextField(
+                            value = tableText,
+                            onValueChange = { tableText = it },
+                            placeholder = { Text("No. Meja", style = MaterialTheme.typography.labelSmall) },
+                            singleLine = true,
+                            textStyle = MaterialTheme.typography.labelSmall,
+                            modifier = Modifier.weight(1f)
+                        )
                     }
                 }
-                if (canEdit) {
+            }
+
+            // Customer name input (toggle)
+            if (showNameField) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Icon(
+                        Icons.Default.Person,
+                        contentDescription = null,
+                        modifier = Modifier.size(16.dp),
+                        tint = MaterialTheme.colorScheme.primary
+                    )
+                    OutlinedTextField(
+                        value = nameText,
+                        onValueChange = { nameText = it },
+                        placeholder = { Text("Nama pelanggan", style = MaterialTheme.typography.labelSmall) },
+                        singleLine = true,
+                        textStyle = MaterialTheme.typography.labelSmall,
+                        modifier = Modifier.weight(1f)
+                    )
                     IconButton(
                         onClick = {
                             nameText = ""
@@ -1195,17 +1402,93 @@ private fun OrderInfoBar(
                     }
                 }
             }
-        }
 
-        // Read-only display when not editable
-        if (!canEdit) {
-            val label = sale.orderLabel()
-            if (label != null) {
-                Text(
-                    label,
-                    style = MaterialTheme.typography.labelMedium,
-                    fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
+            // Action row: +Nama toggle & Simpan button
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                if (!showNameField) {
+                    TextButton(
+                        onClick = { showNameField = true },
+                        modifier = Modifier.height(28.dp),
+                        contentPadding = PaddingValues(horizontal = 8.dp)
+                    ) {
+                        Icon(
+                            Icons.Default.PersonAdd,
+                            contentDescription = null,
+                            modifier = Modifier.size(14.dp)
+                        )
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Text("Nama", style = MaterialTheme.typography.labelSmall)
+                    }
+                }
+                Spacer(modifier = Modifier.weight(1f))
+                // Save & close edit mode
+                val hasChanges = (isDineIn && !hasTables && tableText.isNotBlank()) || nameText.isNotBlank()
+                TextButton(
+                    onClick = {
+                        if (isDineIn && !hasTables) onTableChanged(tableText.takeIf { it.isNotBlank() })
+                        if (showNameField) onCustomerNameChanged(nameText.takeIf { it.isNotBlank() })
+                        isEditing = false
+                    },
+                    enabled = hasChanges,
+                    modifier = Modifier.height(32.dp),
+                    contentPadding = PaddingValues(horizontal = 12.dp)
+                ) {
+                    Text("Simpan", style = MaterialTheme.typography.labelSmall)
+                }
+            }
+        } else {
+            // --- DISPLAY LABEL MODE --- clickable to re-enter edit
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(6.dp))
+                    .clickable { isEditing = true }
+                    .padding(vertical = 4.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                if (hasTable) {
+                    Icon(
+                        Icons.Default.TableBar,
+                        contentDescription = null,
+                        modifier = Modifier.size(16.dp),
+                        tint = MaterialTheme.colorScheme.primary
+                    )
+                    Text(
+                        "Meja ${sale.tableId!!.value}",
+                        style = MaterialTheme.typography.labelMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+                }
+                if (hasName) {
+                    if (hasTable) {
+                        Text("·", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                    Icon(
+                        Icons.Default.Person,
+                        contentDescription = null,
+                        modifier = Modifier.size(16.dp),
+                        tint = MaterialTheme.colorScheme.primary
+                    )
+                    Text(
+                        sale.customerName!!,
+                        style = MaterialTheme.typography.labelMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+                }
+                Spacer(modifier = Modifier.weight(1f))
+                // Edit hint icon
+                Icon(
+                    Icons.Default.Edit,
+                    contentDescription = "Edit info",
+                    modifier = Modifier.size(14.dp),
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
                 )
             }
         }
@@ -1218,8 +1501,8 @@ private fun OrderInfoBar(
 
 @Composable
 private fun OrderTabStrip(
-    currentSale: Sale?,
-    otherOrders: List<Sale>,
+    orders: List<Sale>,
+    activeSaleId: SaleId?,
     channelMap: Map<id.stargan.intikasirfnb.domain.transaction.SalesChannelId, id.stargan.intikasirfnb.domain.transaction.SalesChannel>,
     onResumeOrder: (SaleId) -> Unit,
     onNewOrder: () -> Unit,
@@ -1232,25 +1515,14 @@ private fun OrderTabStrip(
         horizontalArrangement = Arrangement.spacedBy(4.dp),
         contentPadding = PaddingValues(horizontal = 8.dp, vertical = if (compact) 4.dp else 6.dp)
     ) {
-        // Current sale tab (highlighted)
-        if (currentSale != null && currentSale.lines.isNotEmpty()) {
-            item(key = "current_${currentSale.id.value}") {
-                OrderTab(
-                    sale = currentSale,
-                    channelName = channelMap[currentSale.channelId]?.code ?: "?",
-                    isActive = true,
-                    onClick = { /* already active */ }
-                )
-            }
-        }
-
-        // Other open orders as tabs
-        items(otherOrders, key = { "tab_${it.id.value}" }) { order ->
+        // All orders in original creation order
+        items(orders, key = { "tab_${it.id.value}" }) { order ->
+            val isActive = order.id == activeSaleId
             OrderTab(
                 sale = order,
                 channelName = channelMap[order.channelId]?.code ?: "?",
-                isActive = false,
-                onClick = { onResumeOrder(order.id) }
+                isActive = isActive,
+                onClick = { if (!isActive) onResumeOrder(order.id) }
             )
         }
 
@@ -1543,6 +1815,313 @@ private fun CartSummary(
                     "BAYAR",
                     style = MaterialTheme.typography.labelLarge,
                     fontWeight = FontWeight.Bold
+                )
+            }
+        }
+    }
+}
+
+// ============================================================
+// MODIFIER SELECTION CONTENT
+// ============================================================
+
+@Composable
+private fun ModifierSelectionContent(
+    menuItem: MenuItem,
+    modifierGroups: List<ModifierGroup>,
+    modifierLinks: List<MenuItemModifierLink>,
+    onConfirm: (List<SelectedModifier>) -> Unit,
+    onDismiss: () -> Unit
+) {
+    // Map links by groupId for quick lookup
+    val linkMap = remember(modifierLinks) {
+        modifierLinks.associateBy { it.modifierGroupId }
+    }
+
+    // State: track selected option IDs per group
+    val selections = remember(modifierGroups) {
+        mutableMapOf<String, MutableList<ModifierOptionId>>().apply {
+            modifierGroups.forEach { group ->
+                put(group.id.value, mutableListOf())
+            }
+        }
+    }
+    // Force recomposition counter
+    var selectionVersion by remember { mutableStateOf(0) }
+
+    // Validation: check all required groups have minimum selections
+    val isValid = remember(selectionVersion) {
+        modifierGroups.all { group ->
+            val link = linkMap[group.id]
+            val selected = selections[group.id.value]?.size ?: 0
+            if (link?.isRequired == true) {
+                selected >= (link.minSelection.coerceAtLeast(1))
+            } else {
+                selected >= link?.minSelection ?: 0
+            }
+        }
+    }
+
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp)
+            .navigationBarsPadding()
+    ) {
+        // Header: menu item name + price
+        Text(
+            menuItem.name,
+            style = MaterialTheme.typography.titleLarge,
+            fontWeight = FontWeight.Bold
+        )
+        Text(
+            idrFormat.format(menuItem.basePrice.amount),
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.primary
+        )
+
+        Spacer(modifier = Modifier.height(12.dp))
+
+        // Scrollable modifier groups
+        LazyColumn(
+            modifier = Modifier.weight(1f, fill = false),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            items(modifierGroups, key = { it.id.value }) { group ->
+                val link = linkMap[group.id]
+                val maxSel = link?.maxSelection ?: 1
+                val minSel = link?.minSelection ?: 0
+                val isRequired = link?.isRequired == true
+                val selectedIds = selections[group.id.value] ?: mutableListOf()
+
+                ModifierGroupSection(
+                    group = group,
+                    isRequired = isRequired,
+                    minSelection = minSel,
+                    maxSelection = maxSel,
+                    selectedOptionIds = selectedIds,
+                    selectionVersion = selectionVersion,
+                    onToggleOption = { optionId ->
+                        val list = selections.getOrPut(group.id.value) { mutableListOf() }
+                        if (list.contains(optionId)) {
+                            list.remove(optionId)
+                        } else {
+                            if (maxSel == 1) {
+                                // Single select: replace
+                                list.clear()
+                                list.add(optionId)
+                            } else if (list.size < maxSel) {
+                                list.add(optionId)
+                            }
+                            // else: max reached, ignore
+                        }
+                        selectionVersion++
+                    }
+                )
+            }
+        }
+
+        Spacer(modifier = Modifier.height(12.dp))
+
+        // Price summary
+        val modifierTotal = remember(selectionVersion) {
+            var total = Money.zero()
+            selections.forEach { (groupIdValue, optionIds) ->
+                val group = modifierGroups.find { it.id.value == groupIdValue }
+                optionIds.forEach { optionId ->
+                    val option = group?.options?.find { it.id == optionId }
+                    if (option != null) total = total + option.priceDelta
+                }
+            }
+            total
+        }
+
+        if (modifierTotal.amount > java.math.BigDecimal.ZERO) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Text(
+                    "Tambahan modifier",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                Text(
+                    "+${idrFormat.format(modifierTotal.amount)}",
+                    style = MaterialTheme.typography.bodySmall,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.primary
+                )
+            }
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Text(
+                    "Total",
+                    style = MaterialTheme.typography.bodyMedium,
+                    fontWeight = FontWeight.Bold
+                )
+                Text(
+                    idrFormat.format((menuItem.basePrice + modifierTotal).amount),
+                    style = MaterialTheme.typography.bodyMedium,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.primary
+                )
+            }
+            Spacer(modifier = Modifier.height(8.dp))
+        }
+
+        // Action buttons
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            OutlinedButton(
+                onClick = onDismiss,
+                modifier = Modifier.weight(1f).height(44.dp)
+            ) {
+                Text("Batal")
+            }
+            Button(
+                onClick = {
+                    // Build SelectedModifier list from selections
+                    val result = mutableListOf<SelectedModifier>()
+                    selections.forEach { (groupIdValue, optionIds) ->
+                        val group = modifierGroups.find { it.id.value == groupIdValue } ?: return@forEach
+                        optionIds.forEach { optionId ->
+                            val option = group.options.find { it.id == optionId } ?: return@forEach
+                            result.add(
+                                SelectedModifier(
+                                    groupName = group.name,
+                                    optionName = option.name,
+                                    priceDelta = option.priceDelta
+                                )
+                            )
+                        }
+                    }
+                    onConfirm(result)
+                },
+                enabled = isValid,
+                modifier = Modifier.weight(1f).height(44.dp)
+            ) {
+                Text("Tambahkan", fontWeight = FontWeight.Bold)
+            }
+        }
+
+        Spacer(modifier = Modifier.height(16.dp))
+    }
+}
+
+@Composable
+private fun ModifierGroupSection(
+    group: ModifierGroup,
+    isRequired: Boolean,
+    minSelection: Int,
+    maxSelection: Int,
+    selectedOptionIds: List<ModifierOptionId>,
+    selectionVersion: Int,
+    onToggleOption: (ModifierOptionId) -> Unit
+) {
+    Column {
+        // Group header
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(6.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    group.name,
+                    style = MaterialTheme.typography.titleSmall,
+                    fontWeight = FontWeight.Bold
+                )
+                if (isRequired) {
+                    Text(
+                        "Wajib",
+                        style = MaterialTheme.typography.labelSmall,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onErrorContainer,
+                        modifier = Modifier
+                            .background(
+                                MaterialTheme.colorScheme.errorContainer,
+                                RoundedCornerShape(4.dp)
+                            )
+                            .padding(horizontal = 6.dp, vertical = 2.dp)
+                    )
+                }
+            }
+            // Selection hint
+            val hint = if (maxSelection == 1) "Pilih 1" else "Pilih $minSelection-$maxSelection"
+            Text(
+                hint,
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
+
+        Spacer(modifier = Modifier.height(6.dp))
+
+        // Options
+        val activeOptions = group.options.filter { it.isActive }.sortedBy { it.sortOrder }
+        activeOptions.forEach { option ->
+            @Suppress("UNUSED_EXPRESSION")
+            selectionVersion // read to trigger recomposition
+            val isSelected = selectedOptionIds.contains(option.id)
+            ModifierOptionRow(
+                option = option,
+                isSelected = isSelected,
+                onClick = { onToggleOption(option.id) }
+            )
+        }
+    }
+}
+
+@Composable
+private fun ModifierOptionRow(
+    option: ModifierOption,
+    isSelected: Boolean,
+    onClick: () -> Unit
+) {
+    Surface(
+        onClick = onClick,
+        shape = RoundedCornerShape(8.dp),
+        color = if (isSelected)
+            MaterialTheme.colorScheme.primaryContainer
+        else
+            MaterialTheme.colorScheme.surfaceContainerHigh,
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 2.dp)
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 12.dp, vertical = 10.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                option.name,
+                style = MaterialTheme.typography.bodyMedium,
+                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
+                color = if (isSelected)
+                    MaterialTheme.colorScheme.onPrimaryContainer
+                else
+                    MaterialTheme.colorScheme.onSurface
+            )
+            if (option.priceDelta.amount > java.math.BigDecimal.ZERO) {
+                Text(
+                    "+${idrFormat.format(option.priceDelta.amount)}",
+                    style = MaterialTheme.typography.labelMedium,
+                    fontWeight = FontWeight.Bold,
+                    color = if (isSelected)
+                        MaterialTheme.colorScheme.primary
+                    else
+                        MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
         }

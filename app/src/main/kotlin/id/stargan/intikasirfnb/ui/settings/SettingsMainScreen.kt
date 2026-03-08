@@ -25,6 +25,8 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import androidx.compose.material.icons.filled.AccountBalance
+import androidx.compose.material.icons.filled.TableBar
 import id.stargan.intikasirfnb.ui.settings.components.SettingsCard
 import id.stargan.intikasirfnb.ui.settings.components.SettingsGroupHeader
 import id.stargan.intikasirfnb.ui.settings.components.SettingsDivider
@@ -41,7 +43,9 @@ fun SettingsMainScreen(
     onNavigateToTip: () -> Unit,
     onNavigateToReceipt: () -> Unit,
     onNavigateToPrinter: () -> Unit,
-    onNavigateToSalesChannels: () -> Unit = {}
+    onNavigateToSalesChannels: () -> Unit = {},
+    onNavigateToSettlement: () -> Unit = {},
+    onNavigateToTables: () -> Unit = {}
 ) {
     val uiState by viewModel.uiState.collectAsState()
 
@@ -95,6 +99,20 @@ fun SettingsMainScreen(
                         title = "Channel Penjualan",
                         subtitle = "Dine In, Take Away, Platform Delivery",
                         onClick = onNavigateToSalesChannels
+                    )
+                    SettingsDivider()
+                    SettingsNavigationItem(
+                        icon = Icons.Default.TableBar,
+                        title = "Kelola Meja",
+                        subtitle = "Denah meja, kapasitas, section",
+                        onClick = onNavigateToTables
+                    )
+                    SettingsDivider()
+                    SettingsNavigationItem(
+                        icon = Icons.Default.AccountBalance,
+                        title = "Rekonsiliasi Platform",
+                        subtitle = "Piutang & pencairan platform delivery",
+                        onClick = onNavigateToSettlement
                     )
                 }
             }

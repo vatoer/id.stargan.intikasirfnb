@@ -56,7 +56,19 @@ enum class SaleStatus {
     VOIDED
 }
 
-enum class PaymentMethod { CASH, CARD, E_WALLET, TRANSFER, OTHER }
+enum class PaymentMethod {
+    CASH, CARD, E_WALLET, TRANSFER,
+    // Platform settlement methods — money collected by platform, settled later
+    PLATFORM_GOFOOD,
+    PLATFORM_GRABFOOD,
+    PLATFORM_SHOPEEFOOD,
+    PLATFORM_OTHER,
+    OTHER;
+
+    /** Whether this payment method is a platform settlement (AR/receivable) */
+    val isPlatformSettlement: Boolean
+        get() = this in listOf(PLATFORM_GOFOOD, PLATFORM_GRABFOOD, PLATFORM_SHOPEEFOOD, PLATFORM_OTHER)
+}
 
 // --- Selected modifier (snapshot of chosen modifiers at time of order) ---
 
@@ -155,13 +167,32 @@ data class OrderLine(
     fun lineTotal(): Money = (effectiveUnitPrice() * quantity) - discountAmount
 }
 
+// --- Payment breakdown (for receipt / reporting) ---
+
+data class PaymentBreakdownEntry(
+    val method: PaymentMethod,
+    val count: Int,
+    val total: Money
+)
+
+data class PaymentBreakdown(
+    val entries: List<PaymentBreakdownEntry>,
+    val totalPaid: Money,
+    val changeDue: Money,
+    val totalAmount: Money
+) {
+    val isMixed: Boolean get() = entries.size > 1
+    fun entryFor(method: PaymentMethod): PaymentBreakdownEntry? = entries.find { it.method == method }
+}
+
 // --- Payment (within Sale aggregate) ---
 
 data class Payment(
     val id: PaymentId = PaymentId.generate(),
     val method: PaymentMethod,
     val amount: Money,
-    val reference: String? = null
+    val reference: String? = null,
+    val payerIndex: Int? = null  // Links to SplitBillEntry.payerIndex when split bill active
 )
 
 // --- Sale (Order) aggregate root ---
@@ -183,6 +214,8 @@ data class Sale(
     val taxLines: List<TaxLine> = emptyList(),
     val serviceCharge: ServiceChargeLine? = null,
     val tip: TipLine? = null,
+    val platformPayment: PlatformPayment? = null,
+    val splitBill: SplitBill? = null,
     val status: SaleStatus = SaleStatus.DRAFT,
     val notes: String? = null,
     val createdAtMillis: Long = System.currentTimeMillis(),
@@ -216,6 +249,52 @@ data class Sale(
     fun changeDue(): Money {
         val diff = totalPaid() - totalAmount()
         return if (diff.amount > BigDecimal.ZERO) diff else Money.zero()
+    }
+
+    /** Remaining amount to pay */
+    fun remainingAmount(): Money {
+        val diff = totalAmount() - totalPaid()
+        return if (diff.amount > BigDecimal.ZERO) diff else Money.zero()
+    }
+
+    // --- Multi-payment helpers ---
+
+    /** Group payments by method */
+    fun paymentsByMethod(): Map<PaymentMethod, List<Payment>> = payments.groupBy { it.method }
+
+    /** Total paid by specific method */
+    fun totalByMethod(method: PaymentMethod): Money =
+        payments.filter { it.method == method }.fold(Money.zero()) { acc, p -> acc + p.amount }
+
+    /** Total of cash payments */
+    fun cashTotal(): Money = totalByMethod(PaymentMethod.CASH)
+
+    /** Total of non-cash payments */
+    fun nonCashTotal(): Money =
+        payments.filter { it.method != PaymentMethod.CASH }.fold(Money.zero()) { acc, p -> acc + p.amount }
+
+    /** Whether sale has mixed payment methods */
+    val isMixedPayment: Boolean get() = payments.map { it.method }.distinct().size > 1
+
+    /** Payment count */
+    val paymentCount: Int get() = payments.size
+
+    /** Payment breakdown for receipt/reporting */
+    fun paymentBreakdown(): PaymentBreakdown {
+        val byMethod = paymentsByMethod()
+        val entries = byMethod.map { (method, pList) ->
+            PaymentBreakdownEntry(
+                method = method,
+                count = pList.size,
+                total = pList.fold(Money.zero()) { acc, p -> acc + p.amount }
+            )
+        }
+        return PaymentBreakdown(
+            entries = entries,
+            totalPaid = totalPaid(),
+            changeDue = changeDue(),
+            totalAmount = totalAmount()
+        )
     }
 
     // --- Tax / SC / Tip mutations (DRAFT or OPEN only) ---
@@ -354,8 +433,23 @@ data class Sale(
         require(status == SaleStatus.DRAFT || status == SaleStatus.OPEN || status == SaleStatus.CONFIRMED) {
             "Cannot add payment in current status"
         }
+        // Non-cash payments cannot exceed remaining amount (only cash can overpay for change)
+        if (payment.method != PaymentMethod.CASH) {
+            val remaining = remainingAmount()
+            require(payment.amount.amount <= remaining.amount) {
+                "Pembayaran non-tunai tidak boleh melebihi sisa tagihan"
+            }
+        }
+        // Update split bill paidAmount tracking if split is active
+        val updatedSplit = if (splitBill != null && payment.payerIndex != null) {
+            splitBill.updateEntry(payment.payerIndex) { entry ->
+                entry.addPaid(payment.amount)
+            }
+        } else splitBill
+
         return copy(
             payments = payments + payment,
+            splitBill = updatedSplit,
             status = if (isFullyPaidAfter(payment)) SaleStatus.PAID else status,
             updatedAtMillis = System.currentTimeMillis()
         )
@@ -365,11 +459,21 @@ data class Sale(
         require(status == SaleStatus.DRAFT || status == SaleStatus.OPEN || status == SaleStatus.CONFIRMED || status == SaleStatus.PAID) {
             "Cannot remove payment in current status"
         }
-        require(payments.any { it.id == paymentId }) { "Payment not found: ${paymentId.value}" }
+        val removed = payments.find { it.id == paymentId }
+            ?: throw IllegalArgumentException("Payment not found: ${paymentId.value}")
         val newPayments = payments.filter { it.id != paymentId }
+
+        // Reverse split bill paidAmount tracking
+        val updatedSplit = if (splitBill != null && removed.payerIndex != null) {
+            splitBill.updateEntry(removed.payerIndex) { entry ->
+                val newPaid = (entry.paidAmount.amount - removed.amount.amount).coerceAtLeast(BigDecimal.ZERO)
+                entry.copy(paidAmount = Money(newPaid, entry.paidAmount.currencyCode))
+            }
+        } else splitBill
+
         return copy(
             payments = newPayments,
-            // Revert to CONFIRMED if was PAID (no longer fully paid)
+            splitBill = updatedSplit,
             status = if (status == SaleStatus.PAID) SaleStatus.CONFIRMED else status,
             updatedAtMillis = System.currentTimeMillis()
         )
@@ -379,6 +483,60 @@ data class Sale(
         val newTotalPaid = totalPaid().amount.add(payment.amount.amount)
         return newTotalPaid.compareTo(totalAmount().amount) >= 0
     }
+
+    // --- Split Bill ---
+
+    fun initSplitEqual(payerCount: Int, labels: List<String>? = null): Sale {
+        require(status == SaleStatus.DRAFT || status == SaleStatus.OPEN || status == SaleStatus.CONFIRMED) {
+            "Cannot split bill in current status"
+        }
+        require(lines.isNotEmpty()) { "Tidak bisa split bill tanpa item" }
+        require(payments.isEmpty()) { "Tidak bisa split bill jika sudah ada pembayaran" }
+        return copy(
+            splitBill = SplitBill.equal(totalAmount(), payerCount, labels),
+            updatedAtMillis = System.currentTimeMillis()
+        )
+    }
+
+    fun initSplitByItem(
+        assignments: Map<Int, List<OrderLineId>>,
+        labels: List<String>? = null
+    ): Sale {
+        require(status == SaleStatus.DRAFT || status == SaleStatus.OPEN || status == SaleStatus.CONFIRMED) {
+            "Cannot split bill in current status"
+        }
+        require(lines.isNotEmpty()) { "Tidak bisa split bill tanpa item" }
+        require(payments.isEmpty()) { "Tidak bisa split bill jika sudah ada pembayaran" }
+        return copy(
+            splitBill = SplitBill.byItem(lines, assignments, totalAmount(), labels),
+            updatedAtMillis = System.currentTimeMillis()
+        )
+    }
+
+    fun initSplitByAmount(amounts: List<Money>, labels: List<String>? = null): Sale {
+        require(status == SaleStatus.DRAFT || status == SaleStatus.OPEN || status == SaleStatus.CONFIRMED) {
+            "Cannot split bill in current status"
+        }
+        require(lines.isNotEmpty()) { "Tidak bisa split bill tanpa item" }
+        require(payments.isEmpty()) { "Tidak bisa split bill jika sudah ada pembayaran" }
+        return copy(
+            splitBill = SplitBill.byAmount(amounts, totalAmount(), labels),
+            updatedAtMillis = System.currentTimeMillis()
+        )
+    }
+
+    fun cancelSplit(): Sale {
+        require(splitBill != null) { "Tidak ada split bill yang aktif" }
+        require(payments.none { it.payerIndex != null }) {
+            "Tidak bisa batal split, sudah ada pembayaran per tamu"
+        }
+        return copy(splitBill = null, updatedAtMillis = System.currentTimeMillis())
+    }
+
+    val isSplitBill: Boolean get() = splitBill != null
+
+    fun paymentsForPayer(payerIndex: Int): List<Payment> =
+        payments.filter { it.payerIndex == payerIndex }
 
     // --- Status transitions ---
 
@@ -429,11 +587,34 @@ data class CashierSession(
 
 // --- Table (F&B dine-in) ---
 
+enum class TableStatus {
+    AVAILABLE,
+    OCCUPIED,
+    RESERVED
+}
+
 data class Table(
     val id: TableId,
     val outletId: OutletId,
     val name: String,
     val capacity: Int = 4,
+    val section: String? = null,
     val currentSaleId: SaleId? = null,
     val isActive: Boolean = true
-)
+) {
+    val status: TableStatus get() = when {
+        currentSaleId != null -> TableStatus.OCCUPIED
+        else -> TableStatus.AVAILABLE
+    }
+
+    val isAvailable: Boolean get() = status == TableStatus.AVAILABLE
+
+    fun occupy(saleId: SaleId): Table {
+        require(isAvailable) { "Meja ${name} sedang digunakan" }
+        return copy(currentSaleId = saleId)
+    }
+
+    fun release(): Table = copy(currentSaleId = null)
+
+    fun transferTo(newSaleId: SaleId): Table = copy(currentSaleId = newSaleId)
+}
