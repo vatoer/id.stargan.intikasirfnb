@@ -177,6 +177,7 @@ data class Sale(
     val externalOrderId: String? = null,
     val cashierId: UserId? = null,
     val customerId: CustomerId? = null,
+    val customerName: String? = null,
     val lines: List<OrderLine> = emptyList(),
     val payments: List<Payment> = emptyList(),
     val taxLines: List<TaxLine> = emptyList(),
@@ -280,6 +281,53 @@ data class Sale(
             lines = lines.filter { it.id != lineId },
             updatedAtMillis = System.currentTimeMillis()
         )
+    }
+
+    // --- Channel switch (DRAFT only, no items sent to kitchen) ---
+
+    fun switchChannel(newChannelId: SalesChannelId, newOrderFlow: OrderFlowType): Sale {
+        require(status == SaleStatus.DRAFT) {
+            "Can only switch channel on draft sale"
+        }
+        require(lines.none { it.isSentToKitchen }) {
+            "Cannot switch channel after items sent to kitchen"
+        }
+        return copy(
+            channelId = newChannelId,
+            orderFlow = newOrderFlow,
+            updatedAtMillis = System.currentTimeMillis()
+        )
+    }
+
+    // --- Order info mutations (DRAFT or OPEN) ---
+
+    fun assignTable(tableId: TableId?): Sale {
+        require(status == SaleStatus.DRAFT || status == SaleStatus.OPEN) {
+            "Cannot change table in current status"
+        }
+        return copy(tableId = tableId, updatedAtMillis = System.currentTimeMillis())
+    }
+
+    fun setCustomerName(name: String?): Sale {
+        require(status == SaleStatus.DRAFT || status == SaleStatus.OPEN) {
+            "Cannot change customer name in current status"
+        }
+        val trimmed = name?.trim()?.takeIf { it.isNotBlank() }
+        return copy(customerName = trimmed, updatedAtMillis = System.currentTimeMillis())
+    }
+
+    fun assignQueueNumber(queueNumber: String): Sale {
+        require(status == SaleStatus.DRAFT || status == SaleStatus.OPEN || status == SaleStatus.CONFIRMED) {
+            "Cannot assign queue number in current status"
+        }
+        return copy(queueNumber = queueNumber, updatedAtMillis = System.currentTimeMillis())
+    }
+
+    /** Display label for kitchen/receipt: table name, queue number, or customer name */
+    fun orderLabel(): String? {
+        return tableId?.let { "Meja ${it.value}" }
+            ?: queueNumber
+            ?: customerName
     }
 
     // --- Kitchen operations ---

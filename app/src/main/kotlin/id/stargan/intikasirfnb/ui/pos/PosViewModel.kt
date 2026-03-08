@@ -16,7 +16,9 @@ import id.stargan.intikasirfnb.domain.transaction.OrderLineId
 import id.stargan.intikasirfnb.domain.transaction.Sale
 import id.stargan.intikasirfnb.domain.transaction.SaleId
 import id.stargan.intikasirfnb.domain.transaction.SaleStatus
+import id.stargan.intikasirfnb.domain.transaction.SaleRepository
 import id.stargan.intikasirfnb.domain.transaction.SalesChannel
+import id.stargan.intikasirfnb.domain.transaction.TableId
 import id.stargan.intikasirfnb.domain.usecase.transaction.AddLineItemUseCase
 import id.stargan.intikasirfnb.domain.usecase.transaction.CreateSaleUseCase
 import id.stargan.intikasirfnb.domain.usecase.transaction.GenerateQueueNumberUseCase
@@ -65,6 +67,7 @@ class PosViewModel @Inject constructor(
     private val sessionManager: SessionManager,
     private val categoryRepository: CategoryRepository,
     private val menuItemRepository: MenuItemRepository,
+    private val saleRepository: SaleRepository,
     private val getSalesChannelsUseCase: GetSalesChannelsUseCase,
     private val createSaleUseCase: CreateSaleUseCase,
     private val addLineItemUseCase: AddLineItemUseCase,
@@ -132,7 +135,55 @@ class PosViewModel @Inject constructor(
     }
 
     fun selectChannel(channel: SalesChannel) {
-        _uiState.update { it.copy(selectedChannel = channel, orderFlowOverride = null) }
+        val current = _uiState.value
+        val sale = current.currentSale
+
+        if (current.selectedChannel?.id == channel.id) return // already selected
+
+        if (sale != null && sale.lines.isNotEmpty()) {
+            if (sale.status == SaleStatus.DRAFT && sale.lines.none { it.isSentToKitchen }) {
+                // DRAFT with no sent items → reuse cart, switch channel on Sale
+                viewModelScope.launch {
+                    try {
+                        val newFlow = current.orderFlowOverride ?: channel.defaultOrderFlow
+                        val updated = sale.switchChannel(channel.id, newFlow)
+                        saleRepository.save(updated)
+                        _uiState.update {
+                            it.copy(
+                                selectedChannel = channel,
+                                orderFlowOverride = null,
+                                currentSale = updated
+                            )
+                        }
+                    } catch (e: Exception) {
+                        _uiState.update { it.copy(errorMessage = e.message) }
+                    }
+                }
+            } else {
+                // OPEN or has sent items → park current, start fresh
+                viewModelScope.launch {
+                    val outlet = sessionManager.getCurrentOutlet()
+                    val openOrders = outlet?.let { getOpenSalesUseCase(it.id) } ?: emptyList()
+                    _uiState.update {
+                        it.copy(
+                            selectedChannel = channel,
+                            orderFlowOverride = null,
+                            currentSale = null,
+                            openOrders = openOrders
+                        )
+                    }
+                }
+            }
+        } else {
+            // No active sale or empty cart → just switch
+            _uiState.update {
+                it.copy(
+                    selectedChannel = channel,
+                    orderFlowOverride = null,
+                    currentSale = null
+                )
+            }
+        }
     }
 
     fun overrideOrderFlow(flow: OrderFlowType?) {
@@ -334,7 +385,13 @@ class PosViewModel @Inject constructor(
     }
 
     fun newOrder() {
-        _uiState.update { it.copy(currentSale = null, showOpenOrders = false) }
+        viewModelScope.launch {
+            val outlet = sessionManager.getCurrentOutlet()
+            val openOrders = outlet?.let { getOpenSalesUseCase(it.id) } ?: emptyList()
+            _uiState.update {
+                it.copy(currentSale = null, showOpenOrders = false, openOrders = openOrders)
+            }
+        }
     }
 
     fun clearCart() {
@@ -345,7 +402,35 @@ class PosViewModel @Inject constructor(
         _uiState.update { it.copy(errorMessage = null) }
     }
 
-    /** Assign queue number to current sale (for PAY_FIRST flow after payment). */
+    // --- Order info: table, customer name, queue number ---
+
+    fun setTableNumber(tableNumber: String?) {
+        viewModelScope.launch {
+            try {
+                val sale = _uiState.value.currentSale ?: return@launch
+                val tableId = tableNumber?.trim()?.takeIf { it.isNotBlank() }?.let { TableId(it) }
+                val updated = sale.assignTable(tableId)
+                saleRepository.save(updated)
+                _uiState.update { it.copy(currentSale = updated) }
+            } catch (e: Exception) {
+                _uiState.update { it.copy(errorMessage = e.message) }
+            }
+        }
+    }
+
+    fun setCustomerName(name: String?) {
+        viewModelScope.launch {
+            try {
+                val sale = _uiState.value.currentSale ?: return@launch
+                val updated = sale.setCustomerName(name)
+                saleRepository.save(updated)
+                _uiState.update { it.copy(currentSale = updated) }
+            } catch (e: Exception) {
+                _uiState.update { it.copy(errorMessage = e.message) }
+            }
+        }
+    }
+
     fun assignQueueNumber(onComplete: (String) -> Unit) {
         viewModelScope.launch {
             try {
@@ -357,7 +442,8 @@ class PosViewModel @Inject constructor(
                 }
                 val outlet = sessionManager.getCurrentOutlet() ?: return@launch
                 val queueNumber = generateQueueNumberUseCase(outlet.id)
-                val updated = sale.copy(queueNumber = queueNumber, updatedAtMillis = System.currentTimeMillis())
+                val updated = sale.assignQueueNumber(queueNumber)
+                saleRepository.save(updated)
                 _uiState.update { it.copy(currentSale = updated) }
                 onComplete(queueNumber)
             } catch (e: Exception) {

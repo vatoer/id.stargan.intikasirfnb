@@ -21,6 +21,7 @@ data class SaleEntity(
     val externalOrderId: String? = null,
     val cashierId: String? = null,
     val customerId: String? = null,
+    val customerName: String? = null,
     val status: String,
     val notes: String? = null,
     // Tax / SC / Tip snapshots

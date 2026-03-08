@@ -32,12 +32,16 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.ConfirmationNumber
 import androidx.compose.material.icons.filled.Kitchen
 import androidx.compose.material.icons.filled.ListAlt
+import androidx.compose.material.icons.filled.Person
+import androidx.compose.material.icons.filled.PersonAdd
 import androidx.compose.material.icons.filled.Remove
 import androidx.compose.material.icons.filled.Restaurant
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.ShoppingCart
+import androidx.compose.material.icons.filled.TableBar
 import androidx.compose.material3.Badge
 import androidx.compose.material3.BadgedBox
 import androidx.compose.material3.BottomSheetScaffold
@@ -60,6 +64,7 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SheetValue
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
@@ -86,6 +91,7 @@ import androidx.compose.ui.unit.dp
 import coil3.compose.AsyncImage
 import id.stargan.intikasirfnb.domain.catalog.MenuItem
 import id.stargan.intikasirfnb.domain.catalog.ProductId
+import id.stargan.intikasirfnb.domain.transaction.ChannelType
 import id.stargan.intikasirfnb.domain.transaction.OrderFlowType
 import id.stargan.intikasirfnb.domain.transaction.OrderLine
 import id.stargan.intikasirfnb.domain.transaction.Sale
@@ -227,13 +233,20 @@ private fun TabletPosLayout(
                 CartPanel(
                     sale = uiState.currentSale,
                     orderFlow = uiState.effectiveOrderFlow,
+                    channelType = uiState.selectedChannel?.channelType,
                     isSendingToKitchen = uiState.isSendingToKitchen,
+                    openOrders = uiState.openOrders,
+                    salesChannels = uiState.salesChannels,
                     onIncrement = viewModel::incrementLine,
                     onDecrement = viewModel::decrementLine,
                     onRemove = viewModel::removeLine,
                     onClearCart = viewModel::clearCart,
                     onPay = { sale -> onNavigateToPayment(sale.id.value) },
                     onSendToKitchen = viewModel::sendToKitchen,
+                    onResumeOrder = viewModel::resumeOpenOrder,
+                    onNewOrder = viewModel::newOrder,
+                    onTableChanged = viewModel::setTableNumber,
+                    onCustomerNameChanged = viewModel::setCustomerName,
                     modifier = Modifier
                         .weight(0.4f)
                         .fillMaxHeight()
@@ -290,13 +303,20 @@ private fun PhonePosLayout(
                 CartPanel(
                     sale = uiState.currentSale,
                     orderFlow = uiState.effectiveOrderFlow,
+                    channelType = uiState.selectedChannel?.channelType,
                     isSendingToKitchen = uiState.isSendingToKitchen,
+                    openOrders = uiState.openOrders,
+                    salesChannels = uiState.salesChannels,
                     onIncrement = viewModel::incrementLine,
                     onDecrement = viewModel::decrementLine,
                     onRemove = viewModel::removeLine,
                     onClearCart = viewModel::clearCart,
                     onPay = { sale -> onNavigateToPayment(sale.id.value) },
                     onSendToKitchen = viewModel::sendToKitchen,
+                    onResumeOrder = viewModel::resumeOpenOrder,
+                    onNewOrder = viewModel::newOrder,
+                    onTableChanged = viewModel::setTableNumber,
+                    onCustomerNameChanged = viewModel::setCustomerName,
                     compact = true,
                     modifier = Modifier.fillMaxWidth()
                 )
@@ -535,8 +555,14 @@ private fun OpenOrdersSheet(
                                             fontWeight = FontWeight.Bold
                                         )
                                     }
+                                    val orderLabel = sale.orderLabel()
+                                    val subtitle = buildString {
+                                        append(channelName)
+                                        if (orderLabel != null) append(" - $orderLabel")
+                                        append(" - ${timeFormat.format(Date(sale.updatedAtMillis))}")
+                                    }
                                     Text(
-                                        "$channelName - ${timeFormat.format(Date(sale.updatedAtMillis))}",
+                                        subtitle,
                                         style = MaterialTheme.typography.bodySmall,
                                         color = MaterialTheme.colorScheme.onSurfaceVariant
                                     )
@@ -798,36 +824,59 @@ private fun MenuItemCard(
 private fun CartPanel(
     sale: Sale?,
     orderFlow: OrderFlowType = OrderFlowType.PAY_FIRST,
+    channelType: ChannelType? = null,
     isSendingToKitchen: Boolean = false,
+    openOrders: List<Sale> = emptyList(),
+    salesChannels: List<id.stargan.intikasirfnb.domain.transaction.SalesChannel> = emptyList(),
     onIncrement: (id.stargan.intikasirfnb.domain.transaction.OrderLineId) -> Unit,
     onDecrement: (id.stargan.intikasirfnb.domain.transaction.OrderLineId) -> Unit,
     onRemove: (id.stargan.intikasirfnb.domain.transaction.OrderLineId) -> Unit,
     onClearCart: () -> Unit,
     onPay: (Sale) -> Unit,
     onSendToKitchen: () -> Unit = {},
+    onResumeOrder: (SaleId) -> Unit = {},
+    onNewOrder: () -> Unit = {},
+    onTableChanged: (String?) -> Unit = {},
+    onCustomerNameChanged: (String?) -> Unit = {},
     compact: Boolean = false,
     modifier: Modifier = Modifier
 ) {
     val showKitchen = orderFlow == OrderFlowType.PAY_LAST || orderFlow == OrderFlowType.PAY_FLEXIBLE
+    val channelMap = remember(salesChannels) { salesChannels.associateBy { it.id } }
 
     Column(modifier = modifier.background(MaterialTheme.colorScheme.surface)) {
+        // Order tabs strip — shows active orders as switchable tabs
+        val otherOrders = openOrders.filter { it.id != sale?.id }
+        if (otherOrders.isNotEmpty() || (sale != null && sale.lines.isNotEmpty())) {
+            OrderTabStrip(
+                currentSale = sale,
+                otherOrders = otherOrders,
+                channelMap = channelMap,
+                onResumeOrder = onResumeOrder,
+                onNewOrder = onNewOrder,
+                compact = compact
+            )
+        }
+
         // Cart header
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 12.dp, vertical = if (compact) 8.dp else 12.dp),
+                .padding(horizontal = 12.dp, vertical = if (compact) 6.dp else 8.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
             Icon(
                 Icons.Default.ShoppingCart,
                 contentDescription = null,
-                modifier = Modifier.size(20.dp),
+                modifier = Modifier.size(18.dp),
                 tint = MaterialTheme.colorScheme.primary
             )
-            Spacer(modifier = Modifier.width(8.dp))
+            Spacer(modifier = Modifier.width(6.dp))
+            // Show channel + status label
+            val channelName = sale?.let { channelMap[it.channelId]?.name }
             Text(
-                "Keranjang",
-                style = MaterialTheme.typography.titleMedium,
+                channelName ?: "Pesanan Baru",
+                style = MaterialTheme.typography.titleSmall,
                 fontWeight = FontWeight.Bold,
                 modifier = Modifier.weight(1f)
             )
@@ -849,9 +898,21 @@ private fun CartPanel(
             }
             if (sale != null && sale.lines.isNotEmpty() && sale.status == SaleStatus.DRAFT) {
                 TextButton(onClick = onClearCart) {
-                    Text("Hapus", color = MaterialTheme.colorScheme.error)
+                    Text("Hapus", color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.labelSmall)
                 }
             }
+        }
+
+        // Order info bar — table number, customer name, queue number
+        if (sale != null && sale.lines.isNotEmpty()) {
+            OrderInfoBar(
+                sale = sale,
+                channelType = channelType,
+                orderFlow = orderFlow,
+                onTableChanged = onTableChanged,
+                onCustomerNameChanged = onCustomerNameChanged,
+                compact = compact
+            )
         }
 
         HorizontalDivider()
@@ -967,6 +1028,323 @@ private fun CartPanel(
                 hasUnsentItems = sale.unsentLines().isNotEmpty(),
                 onPay = { onPay(sale) },
                 onSendToKitchen = onSendToKitchen
+            )
+        }
+    }
+}
+
+// ============================================================
+// ORDER INFO BAR — table, customer name, queue number
+// ============================================================
+
+@Composable
+private fun OrderInfoBar(
+    sale: Sale,
+    channelType: ChannelType?,
+    orderFlow: OrderFlowType,
+    onTableChanged: (String?) -> Unit,
+    onCustomerNameChanged: (String?) -> Unit,
+    compact: Boolean = false
+) {
+    val canEdit = sale.status == SaleStatus.DRAFT || sale.status == SaleStatus.OPEN
+    val isDineIn = channelType == ChannelType.DINE_IN
+    var tableText by remember(sale.id) {
+        mutableStateOf(sale.tableId?.value ?: "")
+    }
+    var nameText by remember(sale.id) {
+        mutableStateOf(sale.customerName ?: "")
+    }
+    var showNameField by remember(sale.id) {
+        mutableStateOf(sale.customerName != null)
+    }
+
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .background(MaterialTheme.colorScheme.surfaceContainerLow)
+            .padding(horizontal = 12.dp, vertical = if (compact) 4.dp else 6.dp),
+        verticalArrangement = Arrangement.spacedBy(4.dp)
+    ) {
+        // Row 1: Table number (dine-in) or Queue number (counter/takeaway)
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            if (isDineIn) {
+                // Table number input
+                Icon(
+                    Icons.Default.TableBar,
+                    contentDescription = null,
+                    modifier = Modifier.size(16.dp),
+                    tint = MaterialTheme.colorScheme.primary
+                )
+                OutlinedTextField(
+                    value = tableText,
+                    onValueChange = { tableText = it },
+                    placeholder = { Text("No. Meja", style = MaterialTheme.typography.labelSmall) },
+                    singleLine = true,
+                    enabled = canEdit,
+                    textStyle = MaterialTheme.typography.labelSmall,
+                    modifier = Modifier.weight(1f)
+                )
+                // Save button for table
+                if (canEdit && tableText != (sale.tableId?.value ?: "")) {
+                    TextButton(
+                        onClick = {
+                            onTableChanged(tableText.takeIf { it.isNotBlank() })
+                        },
+                        modifier = Modifier.height(32.dp),
+                        contentPadding = PaddingValues(horizontal = 8.dp)
+                    ) {
+                        Text("OK", style = MaterialTheme.typography.labelSmall)
+                    }
+                }
+            }
+
+            // Queue number display (if assigned)
+            val queueNum = sale.queueNumber
+            if (queueNum != null) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(
+                        Icons.Default.ConfirmationNumber,
+                        contentDescription = null,
+                        modifier = Modifier.size(16.dp),
+                        tint = MaterialTheme.colorScheme.tertiary
+                    )
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text(
+                        queueNum,
+                        style = MaterialTheme.typography.labelMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.tertiary
+                    )
+                }
+            }
+
+            // If not dine-in and no fields shown, show "Meja bebas" hint
+            if (!isDineIn && queueNum == null) {
+                Spacer(modifier = Modifier.weight(1f))
+            }
+
+            // Toggle customer name field
+            if (!showNameField && canEdit) {
+                TextButton(
+                    onClick = { showNameField = true },
+                    modifier = Modifier.height(28.dp),
+                    contentPadding = PaddingValues(horizontal = 8.dp)
+                ) {
+                    Icon(
+                        Icons.Default.PersonAdd,
+                        contentDescription = null,
+                        modifier = Modifier.size(14.dp)
+                    )
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text("Nama", style = MaterialTheme.typography.labelSmall)
+                }
+            }
+        }
+
+        // Row 2: Customer name (expandable)
+        if (showNameField) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Icon(
+                    Icons.Default.Person,
+                    contentDescription = null,
+                    modifier = Modifier.size(16.dp),
+                    tint = MaterialTheme.colorScheme.primary
+                )
+                OutlinedTextField(
+                    value = nameText,
+                    onValueChange = { nameText = it },
+                    placeholder = { Text("Nama pelanggan", style = MaterialTheme.typography.labelSmall) },
+                    singleLine = true,
+                    enabled = canEdit,
+                    textStyle = MaterialTheme.typography.labelSmall,
+                    modifier = Modifier.weight(1f)
+                )
+                if (canEdit && nameText != (sale.customerName ?: "")) {
+                    TextButton(
+                        onClick = {
+                            onCustomerNameChanged(nameText.takeIf { it.isNotBlank() })
+                        },
+                        modifier = Modifier.height(32.dp),
+                        contentPadding = PaddingValues(horizontal = 8.dp)
+                    ) {
+                        Text("OK", style = MaterialTheme.typography.labelSmall)
+                    }
+                }
+                if (canEdit) {
+                    IconButton(
+                        onClick = {
+                            nameText = ""
+                            showNameField = false
+                            onCustomerNameChanged(null)
+                        },
+                        modifier = Modifier.size(28.dp)
+                    ) {
+                        Icon(
+                            Icons.Default.Close,
+                            contentDescription = "Hapus nama",
+                            modifier = Modifier.size(14.dp)
+                        )
+                    }
+                }
+            }
+        }
+
+        // Read-only display when not editable
+        if (!canEdit) {
+            val label = sale.orderLabel()
+            if (label != null) {
+                Text(
+                    label,
+                    style = MaterialTheme.typography.labelMedium,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+        }
+    }
+}
+
+// ============================================================
+// ORDER TAB STRIP — switchable tabs for active orders
+// ============================================================
+
+@Composable
+private fun OrderTabStrip(
+    currentSale: Sale?,
+    otherOrders: List<Sale>,
+    channelMap: Map<id.stargan.intikasirfnb.domain.transaction.SalesChannelId, id.stargan.intikasirfnb.domain.transaction.SalesChannel>,
+    onResumeOrder: (SaleId) -> Unit,
+    onNewOrder: () -> Unit,
+    compact: Boolean = false
+) {
+    LazyRow(
+        modifier = Modifier
+            .fillMaxWidth()
+            .background(MaterialTheme.colorScheme.surfaceContainerHigh),
+        horizontalArrangement = Arrangement.spacedBy(4.dp),
+        contentPadding = PaddingValues(horizontal = 8.dp, vertical = if (compact) 4.dp else 6.dp)
+    ) {
+        // Current sale tab (highlighted)
+        if (currentSale != null && currentSale.lines.isNotEmpty()) {
+            item(key = "current_${currentSale.id.value}") {
+                OrderTab(
+                    sale = currentSale,
+                    channelName = channelMap[currentSale.channelId]?.code ?: "?",
+                    isActive = true,
+                    onClick = { /* already active */ }
+                )
+            }
+        }
+
+        // Other open orders as tabs
+        items(otherOrders, key = { "tab_${it.id.value}" }) { order ->
+            OrderTab(
+                sale = order,
+                channelName = channelMap[order.channelId]?.code ?: "?",
+                isActive = false,
+                onClick = { onResumeOrder(order.id) }
+            )
+        }
+
+        // "+" button for new order
+        item(key = "new_order") {
+            Surface(
+                onClick = onNewOrder,
+                shape = RoundedCornerShape(8.dp),
+                color = MaterialTheme.colorScheme.surfaceContainerLow,
+                tonalElevation = 0.dp,
+                modifier = Modifier.height(if (compact) 32.dp else 36.dp)
+            ) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier.padding(horizontal = 10.dp)
+                ) {
+                    Icon(
+                        Icons.Default.Add,
+                        contentDescription = "Pesanan Baru",
+                        modifier = Modifier.size(16.dp),
+                        tint = MaterialTheme.colorScheme.primary
+                    )
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text(
+                        "Baru",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.primary,
+                        fontWeight = FontWeight.Medium
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun OrderTab(
+    sale: Sale,
+    channelName: String,
+    isActive: Boolean,
+    onClick: () -> Unit
+) {
+    val itemCount = sale.lines.sumOf { it.quantity }
+    val bgColor = if (isActive)
+        MaterialTheme.colorScheme.primaryContainer
+    else
+        MaterialTheme.colorScheme.surfaceContainerLow
+    val textColor = if (isActive)
+        MaterialTheme.colorScheme.onPrimaryContainer
+    else
+        MaterialTheme.colorScheme.onSurfaceVariant
+
+    Surface(
+        onClick = onClick,
+        shape = RoundedCornerShape(8.dp),
+        color = bgColor,
+        modifier = Modifier.height(36.dp)
+    ) {
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier.padding(horizontal = 8.dp)
+        ) {
+            // Channel code + order label
+            val orderLabel = sale.orderLabel()
+            val tabLabel = if (orderLabel != null) "$channelName $orderLabel" else channelName
+            Text(
+                tabLabel,
+                style = MaterialTheme.typography.labelSmall,
+                fontWeight = FontWeight.Bold,
+                color = textColor,
+                maxLines = 1
+            )
+            Spacer(modifier = Modifier.width(4.dp))
+            // Item count
+            Text(
+                "(${itemCount})",
+                style = MaterialTheme.typography.labelSmall,
+                color = textColor.copy(alpha = 0.7f)
+            )
+            // Status dot for OPEN (sent to kitchen)
+            if (sale.status == SaleStatus.OPEN) {
+                Spacer(modifier = Modifier.width(4.dp))
+                Box(
+                    modifier = Modifier
+                        .size(6.dp)
+                        .background(MaterialTheme.colorScheme.tertiary, RoundedCornerShape(3.dp))
+                )
+            }
+            // Subtotal
+            Spacer(modifier = Modifier.width(6.dp))
+            Text(
+                idrFormat.format(sale.subtotal().amount),
+                style = MaterialTheme.typography.labelSmall,
+                color = textColor.copy(alpha = 0.8f)
             )
         }
     }
