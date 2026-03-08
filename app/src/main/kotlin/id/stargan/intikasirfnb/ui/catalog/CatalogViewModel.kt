@@ -10,10 +10,12 @@ import id.stargan.intikasirfnb.domain.catalog.MenuItem
 import id.stargan.intikasirfnb.domain.catalog.MenuItemRepository
 import id.stargan.intikasirfnb.domain.catalog.ModifierGroup
 import id.stargan.intikasirfnb.domain.catalog.ModifierGroupId
+import id.stargan.intikasirfnb.domain.catalog.MenuItemModifierLink
 import id.stargan.intikasirfnb.domain.catalog.ModifierGroupRepository
 import id.stargan.intikasirfnb.domain.catalog.ProductId
 import id.stargan.intikasirfnb.domain.identity.SessionManager
 import id.stargan.intikasirfnb.domain.identity.TenantId
+import id.stargan.intikasirfnb.domain.shared.UlidGenerator
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -155,6 +157,26 @@ class CatalogViewModel @Inject constructor(
                 _uiState.update {
                     it.copy(errorMessage = "Gagal hapus: modifier mungkin masih digunakan menu item")
                 }
+            }
+        }
+    }
+
+    // --- Modifier Links (assign modifier groups to menu items) ---
+
+    suspend fun getLinksForItem(menuItemId: ProductId): List<MenuItemModifierLink> {
+        return modifierGroupRepository.getLinksForItem(menuItemId)
+    }
+
+    fun saveModifierLinks(menuItemId: ProductId, links: List<MenuItemModifierLink>) {
+        viewModelScope.launch {
+            try {
+                modifierGroupRepository.deleteAllLinksForItem(menuItemId)
+                links.forEach { link ->
+                    modifierGroupRepository.saveLink(link)
+                }
+                reloadMenuItems()
+            } catch (e: Exception) {
+                _uiState.update { it.copy(errorMessage = "Gagal menyimpan modifier: ${e.message}") }
             }
         }
     }

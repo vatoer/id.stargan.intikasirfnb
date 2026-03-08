@@ -31,6 +31,8 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.CheckBox
+import androidx.compose.material.icons.filled.CheckBoxOutlineBlank
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.DeliveryDining
@@ -40,6 +42,8 @@ import androidx.compose.material.icons.filled.Kitchen
 import androidx.compose.material.icons.filled.ListAlt
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.PersonAdd
+import androidx.compose.material.icons.filled.RadioButtonChecked
+import androidx.compose.material.icons.filled.RadioButtonUnchecked
 import androidx.compose.material.icons.filled.Remove
 import androidx.compose.material.icons.filled.Restaurant
 import androidx.compose.material.icons.filled.Search
@@ -153,6 +157,7 @@ fun PosScreen(
         OpenOrdersSheet(
             openOrders = uiState.sortedOpenOrders,
             salesChannels = uiState.salesChannels,
+            tables = uiState.tables,
             sortMode = uiState.orderSortMode,
             onSortModeChanged = { viewModel.setOrderSortMode(it) },
             onDismiss = { viewModel.toggleOpenOrders() },
@@ -177,9 +182,10 @@ fun PosScreen(
         }
     }
 
-    // Modifier selection bottom sheet
+    // Modifier selection bottom sheet (add new or edit existing)
     val pendingItem = uiState.pendingMenuItem
     if (uiState.showModifierDialog && pendingItem != null) {
+        val isEditing = uiState.editingLineId != null
         ModalBottomSheet(
             onDismissRequest = { viewModel.dismissModifierDialog() }
         ) {
@@ -187,6 +193,8 @@ fun PosScreen(
                 menuItem = pendingItem,
                 modifierGroups = uiState.modifierGroups,
                 modifierLinks = uiState.modifierLinks,
+                existingSelections = if (isEditing) uiState.editingModifiers else emptyList(),
+                confirmLabel = if (isEditing) "Simpan Perubahan" else "Tambahkan",
                 onConfirm = { selectedModifiers ->
                     viewModel.confirmModifierSelection(selectedModifiers)
                 },
@@ -288,6 +296,7 @@ private fun TabletPosLayout(
                     onIncrement = viewModel::incrementLine,
                     onDecrement = viewModel::decrementLine,
                     onRemove = viewModel::removeLine,
+                    onEditModifiers = viewModel::editLineModifiers,
                     onClearCart = viewModel::clearCart,
                     onPay = { sale -> onNavigateToPayment(sale.id.value) },
                     onSendToKitchen = viewModel::sendToKitchen,
@@ -296,6 +305,7 @@ private fun TabletPosLayout(
                     onTableChanged = viewModel::setTableNumber,
                     onCustomerNameChanged = viewModel::setCustomerName,
                     hasTables = uiState.tables.isNotEmpty(),
+                    tables = uiState.tables,
                     onShowTablePicker = viewModel::showTablePicker,
                     modifier = Modifier
                         .weight(0.4f)
@@ -360,6 +370,7 @@ private fun PhonePosLayout(
                     onIncrement = viewModel::incrementLine,
                     onDecrement = viewModel::decrementLine,
                     onRemove = viewModel::removeLine,
+                    onEditModifiers = viewModel::editLineModifiers,
                     onClearCart = viewModel::clearCart,
                     onPay = { sale -> onNavigateToPayment(sale.id.value) },
                     onSendToKitchen = viewModel::sendToKitchen,
@@ -368,6 +379,7 @@ private fun PhonePosLayout(
                     onTableChanged = viewModel::setTableNumber,
                     onCustomerNameChanged = viewModel::setCustomerName,
                     hasTables = uiState.tables.isNotEmpty(),
+                    tables = uiState.tables,
                     onShowTablePicker = viewModel::showTablePicker,
                     compact = true,
                     modifier = Modifier.fillMaxWidth()
@@ -642,6 +654,7 @@ private fun channelTypeIcon(type: ChannelType): androidx.compose.ui.graphics.vec
 private fun OpenOrdersSheet(
     openOrders: List<Sale>,
     salesChannels: List<id.stargan.intikasirfnb.domain.transaction.SalesChannel>,
+    tables: List<Table> = emptyList(),
     sortMode: OrderSortMode,
     onSortModeChanged: (OrderSortMode) -> Unit,
     onDismiss: () -> Unit,
@@ -744,7 +757,7 @@ private fun OpenOrdersSheet(
                                     }
                                     val subtitle = buildString {
                                         append(channelName)
-                                        sale.tableId?.let { append(" · Meja ${it.value}") }
+                                        resolveTableName(sale.tableId, tables)?.let { append(" · Meja $it") }
                                         sale.customerName?.let { append(" · $it") }
                                         sale.queueNumber?.let { append(" · #$it") }
                                         append(" · ${timeFormat.format(Date(sale.updatedAtMillis))}")
@@ -1019,6 +1032,7 @@ private fun CartPanel(
     onIncrement: (id.stargan.intikasirfnb.domain.transaction.OrderLineId) -> Unit,
     onDecrement: (id.stargan.intikasirfnb.domain.transaction.OrderLineId) -> Unit,
     onRemove: (id.stargan.intikasirfnb.domain.transaction.OrderLineId) -> Unit,
+    onEditModifiers: (id.stargan.intikasirfnb.domain.transaction.OrderLineId) -> Unit = {},
     onClearCart: () -> Unit,
     onPay: (Sale) -> Unit,
     onSendToKitchen: () -> Unit = {},
@@ -1027,6 +1041,7 @@ private fun CartPanel(
     onTableChanged: (String?) -> Unit = {},
     onCustomerNameChanged: (String?) -> Unit = {},
     hasTables: Boolean = false,
+    tables: List<Table> = emptyList(),
     onShowTablePicker: () -> Unit = {},
     compact: Boolean = false,
     modifier: Modifier = Modifier
@@ -1052,6 +1067,7 @@ private fun CartPanel(
                 orders = allOrders,
                 activeSaleId = sale?.id,
                 channelMap = channelMap,
+                tables = tables,
                 onResumeOrder = onResumeOrder,
                 onNewOrder = onNewOrder,
                 compact = compact
@@ -1112,6 +1128,7 @@ private fun CartPanel(
                 onTableChanged = onTableChanged,
                 onCustomerNameChanged = onCustomerNameChanged,
                 hasTables = hasTables,
+                tables = tables,
                 onShowTablePicker = onShowTablePicker,
                 compact = compact
             )
@@ -1178,7 +1195,8 @@ private fun CartPanel(
                             isSent = true,
                             onIncrement = { onIncrement(line.id) },
                             onDecrement = { onDecrement(line.id) },
-                            onRemove = { onRemove(line.id) }
+                            onRemove = { onRemove(line.id) },
+                            onEditModifiers = { onEditModifiers(line.id) }
                         )
                     }
                 }
@@ -1205,7 +1223,8 @@ private fun CartPanel(
                             isSent = line.isSentToKitchen,
                             onIncrement = { onIncrement(line.id) },
                             onDecrement = { onDecrement(line.id) },
-                            onRemove = { onRemove(line.id) }
+                            onRemove = { onRemove(line.id) },
+                            onEditModifiers = { onEditModifiers(line.id) }
                         )
                     }
                 } else {
@@ -1216,7 +1235,8 @@ private fun CartPanel(
                             isSent = false,
                             onIncrement = { onIncrement(line.id) },
                             onDecrement = { onDecrement(line.id) },
-                            onRemove = { onRemove(line.id) }
+                            onRemove = { onRemove(line.id) },
+                            onEditModifiers = { onEditModifiers(line.id) }
                         )
                     }
                 }
@@ -1247,6 +1267,7 @@ private fun OrderInfoBar(
     onTableChanged: (String?) -> Unit,
     onCustomerNameChanged: (String?) -> Unit,
     hasTables: Boolean = false,
+    tables: List<Table> = emptyList(),
     onShowTablePicker: () -> Unit = {},
     compact: Boolean = false
 ) {
@@ -1308,7 +1329,8 @@ private fun OrderInfoBar(
 
         if (!canEdit) {
             // Read-only: show label only
-            val label = sale.orderLabel()
+            val tableName = resolveTableName(sale.tableId, tables)
+            val label = tableName?.let { "Meja $it" } ?: sale.queueNumber ?: sale.customerName
             if (label != null) {
                 Text(
                     label,
@@ -1459,7 +1481,7 @@ private fun OrderInfoBar(
                         tint = MaterialTheme.colorScheme.primary
                     )
                     Text(
-                        "Meja ${sale.tableId!!.value}",
+                        "Meja ${resolveTableName(sale.tableId, tables) ?: ""}",
                         style = MaterialTheme.typography.labelMedium,
                         fontWeight = FontWeight.Bold,
                         color = MaterialTheme.colorScheme.onSurface
@@ -1504,6 +1526,7 @@ private fun OrderTabStrip(
     orders: List<Sale>,
     activeSaleId: SaleId?,
     channelMap: Map<id.stargan.intikasirfnb.domain.transaction.SalesChannelId, id.stargan.intikasirfnb.domain.transaction.SalesChannel>,
+    tables: List<Table> = emptyList(),
     onResumeOrder: (SaleId) -> Unit,
     onNewOrder: () -> Unit,
     compact: Boolean = false
@@ -1521,6 +1544,7 @@ private fun OrderTabStrip(
             OrderTab(
                 sale = order,
                 channelName = channelMap[order.channelId]?.code ?: "?",
+                tables = tables,
                 isActive = isActive,
                 onClick = { if (!isActive) onResumeOrder(order.id) }
             )
@@ -1562,6 +1586,7 @@ private fun OrderTabStrip(
 private fun OrderTab(
     sale: Sale,
     channelName: String,
+    tables: List<Table> = emptyList(),
     isActive: Boolean,
     onClick: () -> Unit
 ) {
@@ -1585,8 +1610,9 @@ private fun OrderTab(
             verticalAlignment = Alignment.CenterVertically,
             modifier = Modifier.padding(horizontal = 8.dp)
         ) {
-            // Channel code + order label
-            val orderLabel = sale.orderLabel()
+            // Channel code + order label (resolve table name)
+            val tableName = resolveTableName(sale.tableId, tables)
+            val orderLabel = tableName?.let { "Meja $it" } ?: sale.queueNumber ?: sale.customerName
             val tabLabel = if (orderLabel != null) "$channelName $orderLabel" else channelName
             Text(
                 tabLabel,
@@ -1628,7 +1654,8 @@ private fun CartLineItem(
     isSent: Boolean = false,
     onIncrement: () -> Unit,
     onDecrement: () -> Unit,
-    onRemove: () -> Unit
+    onRemove: () -> Unit,
+    onEditModifiers: () -> Unit = {}
 ) {
     Row(
         modifier = Modifier
@@ -1661,11 +1688,14 @@ private fun CartLineItem(
             )
             if (line.selectedModifiers.isNotEmpty()) {
                 Text(
-                    text = line.selectedModifiers.joinToString(", ") { it.optionName },
+                    text = line.selectedModifiers.joinToString(", ") { it.optionName } +
+                            if (!isSent) "  ✎" else "",
                     style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    color = if (!isSent) MaterialTheme.colorScheme.primary
+                           else MaterialTheme.colorScheme.onSurfaceVariant,
                     maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = if (!isSent) Modifier.clickable { onEditModifiers() } else Modifier
                 )
             }
             Text(
@@ -1830,6 +1860,8 @@ private fun ModifierSelectionContent(
     menuItem: MenuItem,
     modifierGroups: List<ModifierGroup>,
     modifierLinks: List<MenuItemModifierLink>,
+    existingSelections: List<SelectedModifier> = emptyList(),
+    confirmLabel: String = "Tambahkan",
     onConfirm: (List<SelectedModifier>) -> Unit,
     onDismiss: () -> Unit
 ) {
@@ -1839,15 +1871,24 @@ private fun ModifierSelectionContent(
     }
 
     // State: track selected option IDs per group
-    val selections = remember(modifierGroups) {
+    // Pre-populate from existingSelections when editing
+    val selections = remember(modifierGroups, existingSelections) {
         mutableMapOf<String, MutableList<ModifierOptionId>>().apply {
             modifierGroups.forEach { group ->
-                put(group.id.value, mutableListOf())
+                val preselected = mutableListOf<ModifierOptionId>()
+                // Match existing selections by group name + option name
+                existingSelections.forEach { sel ->
+                    if (sel.groupName == group.name) {
+                        val option = group.options.find { it.name == sel.optionName }
+                        if (option != null) preselected.add(option.id)
+                    }
+                }
+                put(group.id.value, preselected)
             }
         }
     }
-    // Force recomposition counter
-    var selectionVersion by remember { mutableStateOf(0) }
+    // Force recomposition counter — start at 1 if pre-populated so validation runs
+    var selectionVersion by remember { mutableStateOf(if (existingSelections.isNotEmpty()) 1 else 0) }
 
     // Validation: check all required groups have minimum selections
     val isValid = remember(selectionVersion) {
@@ -2005,7 +2046,7 @@ private fun ModifierSelectionContent(
                 enabled = isValid,
                 modifier = Modifier.weight(1f).height(44.dp)
             ) {
-                Text("Tambahkan", fontWeight = FontWeight.Bold)
+                Text(confirmLabel, fontWeight = FontWeight.Bold)
             }
         }
 
@@ -2055,7 +2096,11 @@ private fun ModifierGroupSection(
                 }
             }
             // Selection hint
-            val hint = if (maxSelection == 1) "Pilih 1" else "Pilih $minSelection-$maxSelection"
+            val hint = when {
+                maxSelection == 1 -> "Pilih 1"
+                minSelection > 0 -> "Pilih min $minSelection, maks $maxSelection"
+                else -> "Pilih maks $maxSelection"
+            }
             Text(
                 hint,
                 style = MaterialTheme.typography.labelSmall,
@@ -2066,6 +2111,7 @@ private fun ModifierGroupSection(
         Spacer(modifier = Modifier.height(6.dp))
 
         // Options
+        val isSingleSelect = maxSelection == 1
         val activeOptions = group.options.filter { it.isActive }.sortedBy { it.sortOrder }
         activeOptions.forEach { option ->
             @Suppress("UNUSED_EXPRESSION")
@@ -2074,7 +2120,20 @@ private fun ModifierGroupSection(
             ModifierOptionRow(
                 option = option,
                 isSelected = isSelected,
+                isSingleSelect = isSingleSelect,
                 onClick = { onToggleOption(option.id) }
+            )
+        }
+
+        // Show selection count for multi-select
+        if (!isSingleSelect) {
+            val count = selectedOptionIds.size
+            Text(
+                "$count / $maxSelection dipilih",
+                style = MaterialTheme.typography.labelSmall,
+                color = if (count > maxSelection) MaterialTheme.colorScheme.error
+                       else MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(top = 4.dp)
             )
         }
     }
@@ -2084,6 +2143,7 @@ private fun ModifierGroupSection(
 private fun ModifierOptionRow(
     option: ModifierOption,
     isSelected: Boolean,
+    isSingleSelect: Boolean = true,
     onClick: () -> Unit
 ) {
     Surface(
@@ -2101,9 +2161,21 @@ private fun ModifierOptionRow(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(horizontal = 12.dp, vertical = 10.dp),
-            horizontalArrangement = Arrangement.SpaceBetween,
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
+            // Selection indicator: radio for single-select, checkbox for multi-select
+            Icon(
+                imageVector = if (isSingleSelect) {
+                    if (isSelected) Icons.Filled.RadioButtonChecked else Icons.Filled.RadioButtonUnchecked
+                } else {
+                    if (isSelected) Icons.Filled.CheckBox else Icons.Filled.CheckBoxOutlineBlank
+                },
+                contentDescription = null,
+                modifier = Modifier.size(20.dp),
+                tint = if (isSelected) MaterialTheme.colorScheme.primary
+                       else MaterialTheme.colorScheme.onSurfaceVariant
+            )
             Text(
                 option.name,
                 style = MaterialTheme.typography.bodyMedium,
@@ -2111,7 +2183,8 @@ private fun ModifierOptionRow(
                 color = if (isSelected)
                     MaterialTheme.colorScheme.onPrimaryContainer
                 else
-                    MaterialTheme.colorScheme.onSurface
+                    MaterialTheme.colorScheme.onSurface,
+                modifier = Modifier.weight(1f)
             )
             if (option.priceDelta.amount > java.math.BigDecimal.ZERO) {
                 Text(
@@ -2132,4 +2205,13 @@ private fun cartQuantities(sale: Sale?): Map<ProductId, Int> {
     if (sale == null) return emptyMap()
     return sale.lines.groupBy { it.productRef.productId }
         .mapValues { (_, lines) -> lines.sumOf { it.quantity } }
+}
+
+/** Resolve tableId to table name from table list; fallback to tableId value */
+private fun resolveTableName(
+    tableId: id.stargan.intikasirfnb.domain.transaction.TableId?,
+    tables: List<Table>
+): String? {
+    if (tableId == null) return null
+    return tables.find { it.id == tableId }?.name ?: tableId.value
 }

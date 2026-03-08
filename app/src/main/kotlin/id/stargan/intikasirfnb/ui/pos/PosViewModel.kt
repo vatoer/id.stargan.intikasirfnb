@@ -72,8 +72,12 @@ data class PosUiState(
     // Modifier selection dialog
     val showModifierDialog: Boolean = false,
     val pendingMenuItem: MenuItem? = null,
+    val pendingModifiers: List<SelectedModifier> = emptyList(), // held while waiting for table
     val modifierGroups: List<ModifierGroup> = emptyList(),
     val modifierLinks: List<MenuItemModifierLink> = emptyList(),
+    // Edit modifier for existing cart line
+    val editingLineId: OrderLineId? = null,
+    val editingModifiers: List<SelectedModifier> = emptyList(),
     val errorMessage: String? = null
 ) {
     /** Open orders sorted by current sort mode */
@@ -293,6 +297,12 @@ class PosViewModel @Inject constructor(
     }
 
     fun confirmModifierSelection(selectedModifiers: List<SelectedModifier>) {
+        // If editing an existing line, delegate to confirmEditModifiers
+        if (_uiState.value.editingLineId != null) {
+            confirmEditModifiers(selectedModifiers)
+            return
+        }
+
         val menuItem = _uiState.value.pendingMenuItem ?: return
         _uiState.update {
             it.copy(
@@ -316,9 +326,77 @@ class PosViewModel @Inject constructor(
             it.copy(
                 showModifierDialog = false,
                 pendingMenuItem = null,
+                editingLineId = null,
+                editingModifiers = emptyList(),
                 modifierGroups = emptyList(),
                 modifierLinks = emptyList()
             )
+        }
+    }
+
+    /** Open modifier edit dialog for an existing cart line */
+    fun editLineModifiers(lineId: OrderLineId) {
+        viewModelScope.launch {
+            try {
+                val sale = _uiState.value.currentSale ?: return@launch
+                val line = sale.lines.find { it.id == lineId } ?: return@launch
+
+                // Only allow editing unsent items
+                if (line.isSentToKitchen) return@launch
+
+                // Load modifier links for the product
+                val links = modifierGroupRepository.getLinksForItem(line.productRef.productId)
+                if (links.isEmpty()) return@launch // no modifiers to edit
+
+                val groups = links.mapNotNull { link ->
+                    modifierGroupRepository.getById(link.modifierGroupId)
+                }.filter { it.isActive }
+
+                // Find the menu item to pass to the dialog
+                val menuItem = _uiState.value.menuItems.find { it.id == line.productRef.productId }
+                    ?: return@launch
+
+                _uiState.update {
+                    it.copy(
+                        showModifierDialog = true,
+                        pendingMenuItem = menuItem,
+                        editingLineId = lineId,
+                        editingModifiers = line.selectedModifiers,
+                        modifierGroups = groups,
+                        modifierLinks = links
+                    )
+                }
+            } catch (e: Exception) {
+                _uiState.update { it.copy(errorMessage = e.message) }
+            }
+        }
+    }
+
+    /** Confirm modifier edit — updates existing line's modifiers */
+    fun confirmEditModifiers(selectedModifiers: List<SelectedModifier>) {
+        val lineId = _uiState.value.editingLineId ?: return
+        val sale = _uiState.value.currentSale ?: return
+        _uiState.update {
+            it.copy(
+                showModifierDialog = false,
+                pendingMenuItem = null,
+                editingLineId = null,
+                editingModifiers = emptyList(),
+                modifierGroups = emptyList(),
+                modifierLinks = emptyList()
+            )
+        }
+        viewModelScope.launch {
+            try {
+                val result = updateLineItemUseCase(
+                    saleId = sale.id,
+                    lineId = lineId,
+                    selectedModifiers = selectedModifiers
+                )
+                _uiState.update { it.copy(currentSale = result.getOrThrow()) }
+            } catch (e: Exception) {
+                _uiState.update { it.copy(errorMessage = e.message) }
+            }
         }
     }
 
@@ -327,9 +405,22 @@ class PosViewModel @Inject constructor(
         val sale = state.currentSale
 
         if (sale == null) {
-            // Create a new draft sale first
-            val outlet = sessionManager.getCurrentOutlet() ?: return
             val channel = state.selectedChannel ?: return
+
+            // Dine In requires table — show picker first, hold pending item
+            if (channel.requiresTable) {
+                _uiState.update {
+                    it.copy(
+                        showTablePicker = true,
+                        pendingMenuItem = menuItem,
+                        pendingModifiers = selectedModifiers
+                    )
+                }
+                return
+            }
+
+            // Create a new draft sale
+            val outlet = sessionManager.getCurrentOutlet() ?: return
             val user = sessionManager.getCurrentUser()
 
             val createResult = createSaleUseCase(
@@ -516,7 +607,9 @@ class PosViewModel @Inject constructor(
     }
 
     fun hideTablePicker() {
-        _uiState.update { it.copy(showTablePicker = false) }
+        _uiState.update {
+            it.copy(showTablePicker = false, pendingMenuItem = null, pendingModifiers = emptyList())
+        }
     }
 
     fun selectTableSection(section: String?) {
@@ -526,7 +619,8 @@ class PosViewModel @Inject constructor(
     fun selectTable(table: Table) {
         viewModelScope.launch {
             try {
-                val sale = _uiState.value.currentSale
+                val state = _uiState.value
+                val sale = state.currentSale
                 if (sale != null) {
                     // Use AssignTableUseCase for proper occupy/release handling
                     val (updatedSale, _) = assignTableUseCase(sale.id, table.id).getOrThrow()
@@ -541,25 +635,35 @@ class PosViewModel @Inject constructor(
                         )
                     }
                 } else {
-                    // No sale yet — create one first, then assign table
+                    // No sale yet — create one with tableId directly
                     val outlet = sessionManager.getCurrentOutlet() ?: return@launch
-                    val channel = _uiState.value.selectedChannel ?: return@launch
+                    val channel = state.selectedChannel ?: return@launch
                     val user = sessionManager.getCurrentUser()
                     val newSale = createSaleUseCase(
                         outletId = outlet.id,
                         channelId = channel.id,
+                        tableId = table.id,
                         cashierId = user?.id,
-                        orderFlowOverride = _uiState.value.orderFlowOverride
+                        orderFlowOverride = state.orderFlowOverride
                     ).getOrThrow()
-                    val (updatedSale, _) = assignTableUseCase(newSale.id, table.id).getOrThrow()
                     val tables = tableRepository.listByOutlet(outlet.id)
                     _uiState.update {
                         it.copy(
-                            currentSale = updatedSale,
+                            currentSale = newSale,
                             tables = tables,
                             showTablePicker = false
                         )
                     }
+                }
+
+                // Process pending item if held (e.g. Dine In: user tapped menu → table picker → selected table)
+                val pendingItem = _uiState.value.pendingMenuItem
+                if (pendingItem != null) {
+                    val pendingMods = _uiState.value.pendingModifiers
+                    _uiState.update {
+                        it.copy(pendingMenuItem = null, pendingModifiers = emptyList())
+                    }
+                    addItemToCartDirect(pendingItem, pendingMods)
                 }
             } catch (e: Exception) {
                 _uiState.update { it.copy(errorMessage = e.message) }
