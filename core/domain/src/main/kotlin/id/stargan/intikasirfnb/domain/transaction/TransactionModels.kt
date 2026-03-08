@@ -49,6 +49,7 @@ value class TableId(val value: String) {
 
 enum class SaleStatus {
     DRAFT,
+    OPEN,       // Sent to kitchen, still accepting additional items
     CONFIRMED,
     PAID,
     COMPLETED,
@@ -143,7 +144,8 @@ data class OrderLine(
     val unitPrice: Money,
     val discountAmount: Money = Money.zero(),
     val selectedModifiers: List<SelectedModifier> = emptyList(),
-    val notes: String? = null
+    val notes: String? = null,
+    val isSentToKitchen: Boolean = false
 ) {
     fun modifierTotal(): Money =
         selectedModifiers.fold(Money.zero()) { acc, m -> acc + m.priceDelta }
@@ -168,7 +170,9 @@ data class Sale(
     val id: SaleId,
     val outletId: OutletId,
     val channelId: SalesChannelId,
+    val orderFlow: OrderFlowType = OrderFlowType.PAY_FIRST,
     val receiptNumber: String? = null,
+    val queueNumber: String? = null,
     val tableId: TableId? = null,
     val externalOrderId: String? = null,
     val cashierId: UserId? = null,
@@ -213,13 +217,15 @@ data class Sale(
         return if (diff.amount > BigDecimal.ZERO) diff else Money.zero()
     }
 
-    // --- Tax / SC / Tip mutations (DRAFT only) ---
+    // --- Tax / SC / Tip mutations (DRAFT or OPEN only) ---
 
     fun applyTotals(
         taxLines: List<TaxLine>,
         serviceCharge: ServiceChargeLine?
     ): Sale {
-        require(status == SaleStatus.DRAFT) { "Cannot apply totals to non-draft sale" }
+        require(status == SaleStatus.DRAFT || status == SaleStatus.OPEN) {
+            "Cannot apply totals in current status"
+        }
         return copy(
             taxLines = taxLines,
             serviceCharge = serviceCharge,
@@ -228,28 +234,32 @@ data class Sale(
     }
 
     fun addTip(tipLine: TipLine): Sale {
-        require(status == SaleStatus.DRAFT || status == SaleStatus.CONFIRMED) {
+        require(status == SaleStatus.DRAFT || status == SaleStatus.OPEN || status == SaleStatus.CONFIRMED) {
             "Cannot add tip in current status"
         }
         return copy(tip = tipLine, updatedAtMillis = System.currentTimeMillis())
     }
 
     fun removeTip(): Sale {
-        require(status == SaleStatus.DRAFT || status == SaleStatus.CONFIRMED) {
+        require(status == SaleStatus.DRAFT || status == SaleStatus.OPEN || status == SaleStatus.CONFIRMED) {
             "Cannot remove tip in current status"
         }
         return copy(tip = null, updatedAtMillis = System.currentTimeMillis())
     }
 
-    // --- Line mutations (DRAFT only) ---
+    // --- Line mutations (DRAFT or OPEN) ---
 
     fun addLine(line: OrderLine): Sale {
-        require(status == SaleStatus.DRAFT) { "Cannot add line to non-draft sale" }
+        require(status == SaleStatus.DRAFT || status == SaleStatus.OPEN) {
+            "Cannot add line in current status"
+        }
         return copy(lines = lines + line, updatedAtMillis = System.currentTimeMillis())
     }
 
     fun updateLine(lineId: OrderLineId, updater: (OrderLine) -> OrderLine): Sale {
-        require(status == SaleStatus.DRAFT) { "Cannot update line on non-draft sale" }
+        require(status == SaleStatus.DRAFT || status == SaleStatus.OPEN) {
+            "Cannot update line in current status"
+        }
         require(lines.any { it.id == lineId }) { "Line not found: ${lineId.value}" }
         return copy(
             lines = lines.map { if (it.id == lineId) updater(it) else it },
@@ -258,18 +268,42 @@ data class Sale(
     }
 
     fun removeLine(lineId: OrderLineId): Sale {
-        require(status == SaleStatus.DRAFT) { "Cannot remove line from non-draft sale" }
-        require(lines.any { it.id == lineId }) { "Line not found: ${lineId.value}" }
+        require(status == SaleStatus.DRAFT || status == SaleStatus.OPEN) {
+            "Cannot remove line in current status"
+        }
+        val line = lines.find { it.id == lineId }
+            ?: throw IllegalArgumentException("Line not found: ${lineId.value}")
+        require(!line.isSentToKitchen) {
+            "Cannot remove line already sent to kitchen"
+        }
         return copy(
             lines = lines.filter { it.id != lineId },
             updatedAtMillis = System.currentTimeMillis()
         )
     }
 
+    // --- Kitchen operations ---
+
+    fun sendToKitchen(): Sale {
+        require(status == SaleStatus.DRAFT || status == SaleStatus.OPEN) {
+            "Cannot send to kitchen in current status"
+        }
+        require(lines.isNotEmpty()) { "Cannot send empty order to kitchen" }
+        val unsentLines = lines.filter { !it.isSentToKitchen }
+        require(unsentLines.isNotEmpty()) { "No new items to send to kitchen" }
+        return copy(
+            lines = lines.map { it.copy(isSentToKitchen = true) },
+            status = SaleStatus.OPEN,
+            updatedAtMillis = System.currentTimeMillis()
+        )
+    }
+
+    fun unsentLines(): List<OrderLine> = lines.filter { !it.isSentToKitchen }
+
     // --- Payment ---
 
     fun addPayment(payment: Payment): Sale {
-        require(status == SaleStatus.DRAFT || status == SaleStatus.CONFIRMED) {
+        require(status == SaleStatus.DRAFT || status == SaleStatus.OPEN || status == SaleStatus.CONFIRMED) {
             "Cannot add payment in current status"
         }
         return copy(
@@ -280,7 +314,7 @@ data class Sale(
     }
 
     fun removePayment(paymentId: PaymentId): Sale {
-        require(status == SaleStatus.DRAFT || status == SaleStatus.CONFIRMED || status == SaleStatus.PAID) {
+        require(status == SaleStatus.DRAFT || status == SaleStatus.OPEN || status == SaleStatus.CONFIRMED || status == SaleStatus.PAID) {
             "Cannot remove payment in current status"
         }
         require(payments.any { it.id == paymentId }) { "Payment not found: ${paymentId.value}" }
@@ -301,7 +335,9 @@ data class Sale(
     // --- Status transitions ---
 
     fun confirm(): Sale {
-        require(status == SaleStatus.DRAFT) { "Can only confirm draft sale" }
+        require(status == SaleStatus.DRAFT || status == SaleStatus.OPEN) {
+            "Can only confirm draft or open sale"
+        }
         require(lines.isNotEmpty()) { "Cannot confirm sale with no lines" }
         return copy(status = SaleStatus.CONFIRMED, updatedAtMillis = System.currentTimeMillis())
     }
@@ -312,7 +348,7 @@ data class Sale(
     }
 
     fun void(): Sale {
-        require(status == SaleStatus.DRAFT || status == SaleStatus.CONFIRMED) {
+        require(status == SaleStatus.DRAFT || status == SaleStatus.OPEN || status == SaleStatus.CONFIRMED) {
             "Cannot void in current status"
         }
         return copy(status = SaleStatus.VOIDED, updatedAtMillis = System.currentTimeMillis())

@@ -64,11 +64,13 @@ object PosRoutes {
     const val CATALOG_MODIFIERS = "catalog/modifiers"
     const val TRANSACTION_HISTORY = "transaction_history"
     const val CASHIER_SESSION = "cashier_session"
-    const val POS = "pos"
+    const val POS = "pos?saleId={saleId}"
+    const val POS_BASE = "pos"
     const val PAYMENT = "pos/payment/{saleId}"
     const val CATALOG_MODIFIER_ADD = "catalog/modifiers/add"
     const val CATALOG_MODIFIER_EDIT = "catalog/modifiers/edit/{groupId}"
 
+    fun pos(saleId: String? = null) = if (saleId != null) "pos?saleId=$saleId" else "pos"
     fun payment(saleId: String) = "pos/payment/$saleId"
     fun menuItemEdit(itemId: String) = "catalog/menu_items/edit/$itemId"
     fun modifierGroupEdit(groupId: String) = "catalog/modifiers/edit/$groupId"
@@ -139,7 +141,13 @@ fun PosNavGraph(debugSeeder: DebugSeeder? = null) {
             val historyViewModel = hiltViewModel<TransactionHistoryViewModel>()
             TransactionHistoryScreen(
                 viewModel = historyViewModel,
-                onNavigateBack = { navController.popBackStack() }
+                onNavigateBack = { navController.popBackStack() },
+                onResumeDraft = { saleId ->
+                    navController.navigate(PosRoutes.pos(saleId))
+                },
+                onResumePayment = { saleId ->
+                    navController.navigate(PosRoutes.payment(saleId))
+                }
             )
         }
 
@@ -150,13 +158,20 @@ fun PosNavGraph(debugSeeder: DebugSeeder? = null) {
                 viewModel = sessionViewModel,
                 onNavigateBack = { navController.popBackStack() },
                 onNavigateToPos = {
-                    navController.navigate(PosRoutes.POS)
+                    navController.navigate(PosRoutes.POS_BASE)
                 }
             )
         }
 
         // --- POS ---
-        composable(PosRoutes.POS) {
+        composable(
+            PosRoutes.POS,
+            arguments = listOf(navArgument("saleId") {
+                type = NavType.StringType
+                nullable = true
+                defaultValue = null
+            })
+        ) {
             val posViewModel = hiltViewModel<PosViewModel>()
             PosScreen(
                 viewModel = posViewModel,
@@ -178,7 +193,7 @@ fun PosNavGraph(debugSeeder: DebugSeeder? = null) {
                 onNewTransaction = {
                     // Pop back to POS and start fresh
                     navController.popBackStack(PosRoutes.POS, inclusive = true)
-                    navController.navigate(PosRoutes.POS)
+                    navController.navigate(PosRoutes.POS_BASE)
                 }
             )
         }

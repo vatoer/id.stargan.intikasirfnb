@@ -61,10 +61,12 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import id.stargan.intikasirfnb.domain.identity.TenantId
 import id.stargan.intikasirfnb.domain.transaction.ChannelType
+import id.stargan.intikasirfnb.domain.transaction.OrderFlowType
 import id.stargan.intikasirfnb.domain.transaction.PlatformConfig
 import id.stargan.intikasirfnb.domain.transaction.PriceAdjustmentType
 import id.stargan.intikasirfnb.domain.transaction.SalesChannel
 import id.stargan.intikasirfnb.domain.transaction.SalesChannelId
+import id.stargan.intikasirfnb.domain.transaction.defaultFlow
 import java.math.BigDecimal
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -194,7 +196,8 @@ private fun SalesChannelCard(
                 Text(channel.name, style = MaterialTheme.typography.titleMedium)
                 Spacer(modifier = Modifier.height(2.dp))
                 Text(
-                    channelTypeLabel(channel.channelType) + " | Kode: ${channel.code}",
+                    channelTypeLabel(channel.channelType) + " | Kode: ${channel.code}" +
+                        " | ${orderFlowLabel(channel.defaultOrderFlow)}",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
@@ -242,6 +245,7 @@ private fun SalesChannelDialog(
     var code by remember { mutableStateOf(channel?.code ?: "") }
     var channelType by remember { mutableStateOf(channel?.channelType ?: ChannelType.DINE_IN) }
     var sortOrder by remember { mutableStateOf(channel?.sortOrder?.toString() ?: "0") }
+    var orderFlow by remember { mutableStateOf(channel?.defaultOrderFlow ?: channelType.defaultFlow()) }
 
     // Price adjustment
     var hasAdjustment by remember { mutableStateOf(channel?.priceAdjustmentType != null) }
@@ -275,7 +279,11 @@ private fun SalesChannelDialog(
                     ChannelType.entries.forEach { type ->
                         FilterChip(
                             selected = channelType == type,
-                            onClick = { channelType = type },
+                            onClick = {
+                                channelType = type
+                                // Auto-update order flow to match channel type default (only for new channels)
+                                if (channel == null) orderFlow = type.defaultFlow()
+                            },
                             label = { Text(channelTypeLabel(type), style = MaterialTheme.typography.labelSmall) },
                             leadingIcon = { Icon(channelTypeIcon(type), contentDescription = null) },
                             colors = FilterChipDefaults.filterChipColors(
@@ -309,6 +317,31 @@ private fun SalesChannelDialog(
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth()
+                )
+
+                HorizontalDivider(modifier = Modifier.padding(vertical = 4.dp))
+
+                // Order flow
+                Text("Alur Pemesanan", style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Medium)
+                FlowRow(
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalArrangement = Arrangement.spacedBy(4.dp)
+                ) {
+                    OrderFlowType.entries.forEach { flow ->
+                        FilterChip(
+                            selected = orderFlow == flow,
+                            onClick = { orderFlow = flow },
+                            label = { Text(orderFlowLabel(flow), style = MaterialTheme.typography.labelSmall) },
+                            colors = FilterChipDefaults.filterChipColors(
+                                selectedContainerColor = MaterialTheme.colorScheme.primaryContainer
+                            )
+                        )
+                    }
+                }
+                Text(
+                    orderFlowDescription(orderFlow),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
 
                 HorizontalDivider(modifier = Modifier.padding(vertical = 4.dp))
@@ -405,6 +438,7 @@ private fun SalesChannelDialog(
                             channelType = channelType,
                             name = name.trim(),
                             code = code.trim().uppercase(),
+                            defaultOrderFlow = orderFlow,
                             isActive = channel?.isActive ?: true,
                             sortOrder = sortOrder.toIntOrNull() ?: 0,
                             priceAdjustmentType = if (hasAdjustment) adjustmentType else null,
@@ -454,4 +488,16 @@ private fun priceAdjustmentLabel(type: PriceAdjustmentType, value: BigDecimal): 
     PriceAdjustmentType.MARKUP_FIXED -> "Markup +Rp ${value.toLong()}"
     PriceAdjustmentType.DISCOUNT_PERCENT -> "Diskon -${value.toPlainString()}%"
     PriceAdjustmentType.DISCOUNT_FIXED -> "Diskon -Rp ${value.toLong()}"
+}
+
+private fun orderFlowLabel(flow: OrderFlowType): String = when (flow) {
+    OrderFlowType.PAY_FIRST -> "Bayar Dulu"
+    OrderFlowType.PAY_LAST -> "Bayar Akhir"
+    OrderFlowType.PAY_FLEXIBLE -> "Fleksibel"
+}
+
+private fun orderFlowDescription(flow: OrderFlowType): String = when (flow) {
+    OrderFlowType.PAY_FIRST -> "Pelanggan bayar di kasir, dapat nomor antrian, lalu pesanan disiapkan."
+    OrderFlowType.PAY_LAST -> "Pesanan dikirim ke dapur dulu, bayar setelah selesai makan."
+    OrderFlowType.PAY_FLEXIBLE -> "Kasir bisa pilih bayar dulu atau bayar akhir per transaksi."
 }

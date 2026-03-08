@@ -21,6 +21,7 @@ data class OrderLineEntity(
     val discountAmount: String = "0",
     val modifierSnapshot: String? = null,
     val notes: String? = null,
+    val isSentToKitchen: Boolean = false,
     // Sync metadata
     val syncStatus: String = "PENDING",
     val syncVersion: Long = 0L,

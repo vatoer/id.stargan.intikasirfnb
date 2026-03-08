@@ -21,6 +21,7 @@ import id.stargan.intikasirfnb.domain.transaction.Payment
 import id.stargan.intikasirfnb.domain.transaction.PaymentId
 import id.stargan.intikasirfnb.domain.transaction.PaymentMethod
 import id.stargan.intikasirfnb.domain.transaction.Sale
+import id.stargan.intikasirfnb.domain.transaction.OrderFlowType
 import id.stargan.intikasirfnb.domain.transaction.SaleId
 import id.stargan.intikasirfnb.domain.transaction.SaleStatus
 import id.stargan.intikasirfnb.domain.transaction.SalesChannelId
@@ -43,7 +44,9 @@ fun SaleEntity.toDomain(
     id = SaleId(id),
     outletId = OutletId(outletId),
     channelId = SalesChannelId(channelId),
+    orderFlow = try { OrderFlowType.valueOf(orderFlow) } catch (_: Exception) { OrderFlowType.PAY_FIRST },
     receiptNumber = receiptNumber,
+    queueNumber = queueNumber,
     tableId = tableId?.let { TableId(it) },
     externalOrderId = externalOrderId,
     cashierId = cashierId?.let { UserId(it) },
@@ -63,7 +66,9 @@ fun Sale.toEntity(): SaleEntity = SaleEntity(
     id = id.value,
     outletId = outletId.value,
     channelId = channelId.value,
+    orderFlow = orderFlow.name,
     receiptNumber = receiptNumber,
+    queueNumber = queueNumber,
     tableId = tableId?.value,
     externalOrderId = externalOrderId,
     cashierId = cashierId?.value,
@@ -93,7 +98,8 @@ fun OrderLineEntity.toDomain(): OrderLine = OrderLine(
     unitPrice = Money(BigDecimal(unitPriceAmount), unitPriceCurrency),
     discountAmount = Money(BigDecimal(discountAmount), unitPriceCurrency),
     selectedModifiers = deserializeModifiers(modifierSnapshot),
-    notes = notes
+    notes = notes,
+    isSentToKitchen = isSentToKitchen
 )
 
 fun OrderLine.toEntity(saleId: String): OrderLineEntity = OrderLineEntity(
@@ -106,7 +112,8 @@ fun OrderLine.toEntity(saleId: String): OrderLineEntity = OrderLineEntity(
     unitPriceCurrency = unitPrice.currencyCode,
     discountAmount = discountAmount.amount.toPlainString(),
     modifierSnapshot = serializeModifiers(selectedModifiers),
-    notes = notes
+    notes = notes,
+    isSentToKitchen = isSentToKitchen
 )
 
 // --- Payment ---

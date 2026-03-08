@@ -66,7 +66,7 @@ import id.stargan.intikasirfnb.data.local.entity.UserEntity
         TaxConfigEntity::class,
         TerminalSettingsEntity::class
     ],
-    version = 11,
+    version = 13,
     exportSchema = true
 )
 abstract class PosDatabase : RoomDatabase() {

@@ -40,6 +40,7 @@ class ConfirmSaleUseCase(
             )
         } else null
 
+        // applyTotals and confirm both accept DRAFT and OPEN status
         val updated = sale.applyTotals(taxLines = taxLines, serviceCharge = serviceCharge).confirm()
         saleRepository.save(updated)
         updated

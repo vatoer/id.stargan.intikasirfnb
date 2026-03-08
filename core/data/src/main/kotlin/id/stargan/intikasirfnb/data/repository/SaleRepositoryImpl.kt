@@ -53,4 +53,20 @@ class SaleRepositoryImpl(
             val payments = paymentDao.getBySaleId(entity.id)
             entity.toDomain(lines, payments)
         }
+
+    override suspend fun listOpenByOutlet(outletId: OutletId): List<Sale> =
+        saleDao.listOpenByOutlet(outletId.value).map { entity ->
+            val lines = orderLineDao.getBySaleId(entity.id)
+            val payments = paymentDao.getBySaleId(entity.id)
+            entity.toDomain(lines, payments)
+        }
+
+    override fun streamOpenByOutlet(outletId: OutletId): Flow<List<Sale>> =
+        saleDao.streamOpenByOutlet(outletId.value).map { list ->
+            list.map { entity ->
+                val lines = orderLineDao.getBySaleId(entity.id)
+                val payments = paymentDao.getBySaleId(entity.id)
+                entity.toDomain(lines, payments)
+            }
+        }
 }

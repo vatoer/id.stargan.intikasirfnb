@@ -36,6 +36,9 @@ import id.stargan.intikasirfnb.domain.usecase.transaction.DeactivateSalesChannel
 import id.stargan.intikasirfnb.domain.usecase.transaction.OpenCashierSessionUseCase
 import id.stargan.intikasirfnb.domain.usecase.transaction.GetSalesByOutletUseCase
 import id.stargan.intikasirfnb.domain.usecase.transaction.RemoveLineItemUseCase
+import id.stargan.intikasirfnb.domain.usecase.transaction.SendToKitchenUseCase
+import id.stargan.intikasirfnb.domain.usecase.transaction.GetOpenSalesUseCase
+import id.stargan.intikasirfnb.domain.usecase.transaction.GenerateQueueNumberUseCase
 import id.stargan.intikasirfnb.domain.usecase.transaction.UpdateLineItemUseCase
 import javax.inject.Singleton
 
@@ -178,6 +181,26 @@ object AppModule {
     fun provideGetSalesByOutletUseCase(
         saleRepository: SaleRepository
     ): GetSalesByOutletUseCase = GetSalesByOutletUseCase(saleRepository)
+
+    // --- Kitchen / Open orders use cases ---
+
+    @Provides
+    @Singleton
+    fun provideSendToKitchenUseCase(
+        saleRepository: SaleRepository
+    ): SendToKitchenUseCase = SendToKitchenUseCase(saleRepository)
+
+    @Provides
+    @Singleton
+    fun provideGetOpenSalesUseCase(
+        saleRepository: SaleRepository
+    ): GetOpenSalesUseCase = GetOpenSalesUseCase(saleRepository)
+
+    @Provides
+    @Singleton
+    fun provideGenerateQueueNumberUseCase(
+        saleRepository: SaleRepository
+    ): GenerateQueueNumberUseCase = GenerateQueueNumberUseCase(saleRepository)
 
     // --- Cashier session use cases ---
 

@@ -24,6 +24,22 @@ enum class ChannelType {
     OWN_DELIVERY
 }
 
+// --- Order Flow Type ---
+// Determines payment & kitchen workflow for each channel
+
+enum class OrderFlowType {
+    PAY_FIRST,      // Counter/Fast-food: Order → Pay → Queue Number → Kitchen → Pickup
+    PAY_LAST,       // Table Service: Order → Kitchen → Serve → Bill → Pay
+    PAY_FLEXIBLE    // Hybrid: Cashier decides per order
+}
+
+fun ChannelType.defaultFlow(): OrderFlowType = when (this) {
+    ChannelType.DINE_IN -> OrderFlowType.PAY_LAST
+    ChannelType.TAKE_AWAY -> OrderFlowType.PAY_FIRST
+    ChannelType.DELIVERY_PLATFORM -> OrderFlowType.PAY_FIRST
+    ChannelType.OWN_DELIVERY -> OrderFlowType.PAY_FIRST
+}
+
 // --- Price Adjustment ---
 
 enum class PriceAdjustmentType {
@@ -52,6 +68,7 @@ data class SalesChannel(
     val code: String,
     val isActive: Boolean = true,
     val sortOrder: Int = 0,
+    val defaultOrderFlow: OrderFlowType = channelType.defaultFlow(),
     val priceAdjustmentType: PriceAdjustmentType? = null,
     val priceAdjustmentValue: BigDecimal? = null,
     val platformConfig: PlatformConfig? = null

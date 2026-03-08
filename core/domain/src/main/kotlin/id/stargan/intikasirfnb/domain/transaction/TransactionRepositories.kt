@@ -17,6 +17,8 @@ interface SaleRepository {
     suspend fun save(sale: Sale)
     fun streamByOutlet(outletId: OutletId): Flow<List<Sale>>
     suspend fun listByOutlet(outletId: OutletId, limit: Int = 100): List<Sale>
+    suspend fun listOpenByOutlet(outletId: OutletId): List<Sale>
+    fun streamOpenByOutlet(outletId: OutletId): Flow<List<Sale>>
 }
 
 interface CashierSessionRepository {

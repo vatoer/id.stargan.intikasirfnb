@@ -2,6 +2,7 @@ package id.stargan.intikasirfnb.domain.usecase.transaction
 
 import id.stargan.intikasirfnb.domain.identity.OutletId
 import id.stargan.intikasirfnb.domain.identity.UserId
+import id.stargan.intikasirfnb.domain.transaction.OrderFlowType
 import id.stargan.intikasirfnb.domain.transaction.Sale
 import id.stargan.intikasirfnb.domain.transaction.SaleId
 import id.stargan.intikasirfnb.domain.transaction.SaleRepository
@@ -18,7 +19,8 @@ class CreateSaleUseCase(
         channelId: SalesChannelId,
         tableId: TableId? = null,
         externalOrderId: String? = null,
-        cashierId: UserId? = null
+        cashierId: UserId? = null,
+        orderFlowOverride: OrderFlowType? = null
     ): Result<Sale> = runCatching {
         val channel = salesChannelRepository.getById(channelId)
             ?: error("Sales channel not found")
@@ -33,6 +35,7 @@ class CreateSaleUseCase(
             id = SaleId.generate(),
             outletId = outletId,
             channelId = channelId,
+            orderFlow = orderFlowOverride ?: channel.defaultOrderFlow,
             tableId = tableId,
             externalOrderId = externalOrderId,
             cashierId = cashierId

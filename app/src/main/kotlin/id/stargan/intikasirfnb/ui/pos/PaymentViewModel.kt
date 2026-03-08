@@ -136,7 +136,7 @@ class PaymentViewModel @Inject constructor(
                 val sale = getSaleByIdUseCase(SaleId(saleId))
                     ?: error("Transaksi tidak ditemukan")
 
-                val confirmed = if (sale.status == SaleStatus.DRAFT) {
+                val confirmed = if (sale.status == SaleStatus.DRAFT || sale.status == SaleStatus.OPEN) {
                     val outlet = sessionManager.getCurrentOutlet()
                         ?: error("Outlet tidak ditemukan")
                     confirmSaleUseCase(SaleId(saleId), outlet.tenantId).getOrThrow()

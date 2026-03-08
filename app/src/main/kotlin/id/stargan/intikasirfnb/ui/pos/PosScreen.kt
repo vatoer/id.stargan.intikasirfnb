@@ -26,18 +26,23 @@ import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Kitchen
+import androidx.compose.material.icons.filled.ListAlt
 import androidx.compose.material.icons.filled.Remove
+import androidx.compose.material.icons.filled.Restaurant
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.ShoppingCart
 import androidx.compose.material3.Badge
 import androidx.compose.material3.BadgedBox
 import androidx.compose.material3.BottomSheetScaffold
 import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
@@ -48,6 +53,8 @@ import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SheetValue
@@ -59,13 +66,16 @@ import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.VerticalDivider
 import androidx.compose.material3.rememberBottomSheetScaffoldState
+import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.material3.rememberStandardBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.layout.ContentScale
@@ -76,10 +86,15 @@ import androidx.compose.ui.unit.dp
 import coil3.compose.AsyncImage
 import id.stargan.intikasirfnb.domain.catalog.MenuItem
 import id.stargan.intikasirfnb.domain.catalog.ProductId
+import id.stargan.intikasirfnb.domain.transaction.OrderFlowType
 import id.stargan.intikasirfnb.domain.transaction.OrderLine
 import id.stargan.intikasirfnb.domain.transaction.Sale
+import id.stargan.intikasirfnb.domain.transaction.SaleId
+import id.stargan.intikasirfnb.domain.transaction.SaleStatus
 import kotlinx.coroutines.launch
 import java.text.NumberFormat
+import java.text.SimpleDateFormat
+import java.util.Date
 import java.util.Locale
 
 private val idrFormat = NumberFormat.getCurrencyInstance(Locale("id", "ID")).apply {
@@ -104,6 +119,26 @@ fun PosScreen(
             snackbarHostState.showSnackbar(it)
             viewModel.clearError()
         }
+    }
+
+    // Show snackbar when kitchen ticket is sent
+    LaunchedEffect(uiState.kitchenTicketResult) {
+        uiState.kitchenTicketResult?.let { result ->
+            val itemCount = result.newLines.sumOf { it.quantity }
+            snackbarHostState.showSnackbar("$itemCount item dikirim ke dapur")
+            viewModel.clearKitchenTicketResult()
+        }
+    }
+
+    // Open orders bottom sheet
+    if (uiState.showOpenOrders) {
+        OpenOrdersSheet(
+            openOrders = uiState.openOrders,
+            salesChannels = uiState.salesChannels,
+            onDismiss = { viewModel.toggleOpenOrders() },
+            onResumeOrder = { saleId -> viewModel.resumeOpenOrder(saleId) },
+            onNewOrder = { viewModel.newOrder() }
+        )
     }
 
     BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
@@ -153,7 +188,10 @@ private fun TabletPosLayout(
             PosTopBar(
                 uiState = uiState,
                 onNavigateBack = onNavigateBack,
-                onChannelSelected = viewModel::selectChannel
+                onChannelSelected = viewModel::selectChannel,
+                onOrderFlowOverride = viewModel::overrideOrderFlow,
+                onOpenOrdersClicked = viewModel::toggleOpenOrders,
+                openOrdersCount = uiState.openOrders.size
             )
         }
     ) { padding ->
@@ -188,11 +226,14 @@ private fun TabletPosLayout(
 
                 CartPanel(
                     sale = uiState.currentSale,
+                    orderFlow = uiState.effectiveOrderFlow,
+                    isSendingToKitchen = uiState.isSendingToKitchen,
                     onIncrement = viewModel::incrementLine,
                     onDecrement = viewModel::decrementLine,
                     onRemove = viewModel::removeLine,
                     onClearCart = viewModel::clearCart,
                     onPay = { sale -> onNavigateToPayment(sale.id.value) },
+                    onSendToKitchen = viewModel::sendToKitchen,
                     modifier = Modifier
                         .weight(0.4f)
                         .fillMaxHeight()
@@ -224,7 +265,6 @@ private fun PhonePosLayout(
     )
 
     val cartItemCount = uiState.currentSale?.lines?.sumOf { it.quantity } ?: 0
-    val cartSubtotal = uiState.currentSale?.subtotal()
 
     BottomSheetScaffold(
         scaffoldState = scaffoldState,
@@ -238,20 +278,25 @@ private fun PhonePosLayout(
             PosTopBar(
                 uiState = uiState,
                 onNavigateBack = onNavigateBack,
-                onChannelSelected = viewModel::selectChannel
+                onChannelSelected = viewModel::selectChannel,
+                onOrderFlowOverride = viewModel::overrideOrderFlow,
+                onOpenOrdersClicked = viewModel::toggleOpenOrders,
+                openOrdersCount = uiState.openOrders.size
             )
         },
         sheetPeekHeight = if (cartItemCount > 0) 80.dp else 0.dp,
         sheetContent = {
-            // Peek bar: summary + tap to expand
             if (cartItemCount > 0) {
                 CartPanel(
                     sale = uiState.currentSale,
+                    orderFlow = uiState.effectiveOrderFlow,
+                    isSendingToKitchen = uiState.isSendingToKitchen,
                     onIncrement = viewModel::incrementLine,
                     onDecrement = viewModel::decrementLine,
                     onRemove = viewModel::removeLine,
                     onClearCart = viewModel::clearCart,
                     onPay = { sale -> onNavigateToPayment(sale.id.value) },
+                    onSendToKitchen = viewModel::sendToKitchen,
                     compact = true,
                     modifier = Modifier.fillMaxWidth()
                 )
@@ -316,32 +361,255 @@ private fun PhonePosLayout(
 private fun PosTopBar(
     uiState: PosUiState,
     onNavigateBack: () -> Unit,
-    onChannelSelected: (id.stargan.intikasirfnb.domain.transaction.SalesChannel) -> Unit
+    onChannelSelected: (id.stargan.intikasirfnb.domain.transaction.SalesChannel) -> Unit,
+    onOrderFlowOverride: (OrderFlowType?) -> Unit,
+    onOpenOrdersClicked: () -> Unit,
+    openOrdersCount: Int
 ) {
-    TopAppBar(
-        title = { Text("POS Kasir") },
-        navigationIcon = {
-            IconButton(onClick = onNavigateBack) {
-                Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Kembali")
-            }
-        },
-        actions = {
-            uiState.salesChannels.forEach { channel ->
-                val selected = uiState.selectedChannel?.id == channel.id
-                FilterChip(
-                    selected = selected,
-                    onClick = { onChannelSelected(channel) },
-                    label = { Text(channel.name, style = MaterialTheme.typography.labelSmall) },
-                    modifier = Modifier.padding(horizontal = 2.dp)
-                )
-            }
-        },
-        colors = TopAppBarDefaults.topAppBarColors(
-            containerColor = MaterialTheme.colorScheme.primaryContainer,
-            titleContentColor = MaterialTheme.colorScheme.onPrimaryContainer
+    Column {
+        TopAppBar(
+            title = { Text("POS Kasir") },
+            navigationIcon = {
+                IconButton(onClick = onNavigateBack) {
+                    Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Kembali")
+                }
+            },
+            actions = {
+                uiState.salesChannels.forEach { channel ->
+                    val selected = uiState.selectedChannel?.id == channel.id
+                    FilterChip(
+                        selected = selected,
+                        onClick = { onChannelSelected(channel) },
+                        label = { Text(channel.name, style = MaterialTheme.typography.labelSmall) },
+                        modifier = Modifier.padding(horizontal = 2.dp)
+                    )
+                }
+
+                // Open orders button
+                if (openOrdersCount > 0) {
+                    IconButton(onClick = onOpenOrdersClicked) {
+                        BadgedBox(
+                            badge = {
+                                Badge(containerColor = MaterialTheme.colorScheme.tertiary) {
+                                    Text("$openOrdersCount")
+                                }
+                            }
+                        ) {
+                            Icon(Icons.Default.ListAlt, contentDescription = "Pesanan Aktif")
+                        }
+                    }
+                }
+            },
+            colors = TopAppBarDefaults.topAppBarColors(
+                containerColor = MaterialTheme.colorScheme.primaryContainer,
+                titleContentColor = MaterialTheme.colorScheme.onPrimaryContainer
+            )
         )
-    )
+
+        // Order flow override chips — show when channel is PAY_FLEXIBLE and no active sale
+        val channel = uiState.selectedChannel
+        val canOverride = channel?.defaultOrderFlow == OrderFlowType.PAY_FLEXIBLE
+            && uiState.currentSale == null
+        if (canOverride) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .background(MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.5f))
+                    .padding(horizontal = 12.dp, vertical = 4.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    "Alur:",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                OrderFlowType.entries.forEach { flow ->
+                    val isSelected = uiState.effectiveOrderFlow == flow
+                    FilterChip(
+                        selected = isSelected,
+                        onClick = {
+                            onOrderFlowOverride(if (flow == channel.defaultOrderFlow) null else flow)
+                        },
+                        label = {
+                            Text(
+                                when (flow) {
+                                    OrderFlowType.PAY_FIRST -> "Bayar Dulu"
+                                    OrderFlowType.PAY_LAST -> "Bayar Akhir"
+                                    OrderFlowType.PAY_FLEXIBLE -> "Fleksibel"
+                                },
+                                style = MaterialTheme.typography.labelSmall
+                            )
+                        },
+                        modifier = Modifier.height(28.dp)
+                    )
+                }
+            }
+        }
+    }
 }
+
+// ============================================================
+// OPEN ORDERS SHEET
+// ============================================================
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun OpenOrdersSheet(
+    openOrders: List<Sale>,
+    salesChannels: List<id.stargan.intikasirfnb.domain.transaction.SalesChannel>,
+    onDismiss: () -> Unit,
+    onResumeOrder: (SaleId) -> Unit,
+    onNewOrder: () -> Unit
+) {
+    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+    val timeFormat = remember { SimpleDateFormat("HH:mm", Locale("id")) }
+    val channelMap = remember(salesChannels) { salesChannels.associateBy { it.id } }
+
+    ModalBottomSheet(
+        onDismissRequest = onDismiss,
+        sheetState = sheetState
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp)
+                .navigationBarsPadding()
+        ) {
+            Text(
+                "Pesanan Aktif",
+                style = MaterialTheme.typography.titleLarge,
+                fontWeight = FontWeight.Bold
+            )
+            Text(
+                "${openOrders.size} pesanan",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+
+            Spacer(modifier = Modifier.height(12.dp))
+
+            LazyColumn(
+                verticalArrangement = Arrangement.spacedBy(8.dp),
+                modifier = Modifier.weight(1f, fill = false)
+            ) {
+                items(openOrders, key = { it.id.value }) { sale ->
+                    val channelName = channelMap[sale.channelId]?.name ?: ""
+                    val itemCount = sale.lines.sumOf { it.quantity }
+                    val sentCount = sale.lines.filter { it.isSentToKitchen }.sumOf { it.quantity }
+                    val unsentCount = sale.lines.filter { !it.isSentToKitchen }.sumOf { it.quantity }
+
+                    Card(
+                        onClick = { onResumeOrder(sale.id) },
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = CardDefaults.cardColors(
+                            containerColor = if (sale.status == SaleStatus.OPEN)
+                                MaterialTheme.colorScheme.tertiaryContainer.copy(alpha = 0.3f)
+                            else MaterialTheme.colorScheme.surfaceVariant
+                        )
+                    ) {
+                        Column(modifier = Modifier.padding(12.dp)) {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Column {
+                                    Row(verticalAlignment = Alignment.CenterVertically) {
+                                        // Status indicator
+                                        val statusColor = if (sale.status == SaleStatus.OPEN)
+                                            MaterialTheme.colorScheme.tertiary
+                                        else MaterialTheme.colorScheme.outline
+                                        Box(
+                                            modifier = Modifier
+                                                .size(8.dp)
+                                                .background(
+                                                    statusColor,
+                                                    RoundedCornerShape(4.dp)
+                                                )
+                                        )
+                                        Spacer(modifier = Modifier.width(6.dp))
+                                        Text(
+                                            sale.receiptNumber ?: sale.id.value.takeLast(6),
+                                            style = MaterialTheme.typography.titleSmall,
+                                            fontWeight = FontWeight.Bold
+                                        )
+                                    }
+                                    Text(
+                                        "$channelName - ${timeFormat.format(Date(sale.updatedAtMillis))}",
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                }
+                                Text(
+                                    idrFormat.format(sale.subtotal().amount),
+                                    style = MaterialTheme.typography.titleSmall,
+                                    fontWeight = FontWeight.Bold,
+                                    color = MaterialTheme.colorScheme.primary
+                                )
+                            }
+
+                            Spacer(modifier = Modifier.height(4.dp))
+
+                            // Items summary
+                            val itemNames = sale.lines.take(3).joinToString(", ") {
+                                "${it.quantity}x ${it.productRef.name}"
+                            }
+                            val more = if (sale.lines.size > 3) " +${sale.lines.size - 3} lainnya" else ""
+                            Text(
+                                itemNames + more,
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
+
+                            // Kitchen status
+                            if (sale.status == SaleStatus.OPEN) {
+                                Row(
+                                    modifier = Modifier.padding(top = 4.dp),
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                ) {
+                                    Text(
+                                        "Terkirim: $sentCount",
+                                        style = MaterialTheme.typography.labelSmall,
+                                        color = MaterialTheme.colorScheme.tertiary
+                                    )
+                                    if (unsentCount > 0) {
+                                        Text(
+                                            "Belum: $unsentCount",
+                                            style = MaterialTheme.typography.labelSmall,
+                                            color = MaterialTheme.colorScheme.error
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            Spacer(modifier = Modifier.height(12.dp))
+
+            OutlinedButton(
+                onClick = onNewOrder,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(44.dp)
+            ) {
+                Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.size(18.dp))
+                Spacer(modifier = Modifier.width(8.dp))
+                Text("Pesanan Baru")
+            }
+
+            Spacer(modifier = Modifier.height(16.dp))
+        }
+    }
+}
+
+// ============================================================
+// MENU PANEL
+// ============================================================
 
 @Composable
 private fun MenuPanel(
@@ -522,17 +790,26 @@ private fun MenuItemCard(
     }
 }
 
+// ============================================================
+// CART PANEL (with dine-in support)
+// ============================================================
+
 @Composable
 private fun CartPanel(
     sale: Sale?,
+    orderFlow: OrderFlowType = OrderFlowType.PAY_FIRST,
+    isSendingToKitchen: Boolean = false,
     onIncrement: (id.stargan.intikasirfnb.domain.transaction.OrderLineId) -> Unit,
     onDecrement: (id.stargan.intikasirfnb.domain.transaction.OrderLineId) -> Unit,
     onRemove: (id.stargan.intikasirfnb.domain.transaction.OrderLineId) -> Unit,
     onClearCart: () -> Unit,
     onPay: (Sale) -> Unit,
+    onSendToKitchen: () -> Unit = {},
     compact: Boolean = false,
     modifier: Modifier = Modifier
 ) {
+    val showKitchen = orderFlow == OrderFlowType.PAY_LAST || orderFlow == OrderFlowType.PAY_FLEXIBLE
+
     Column(modifier = modifier.background(MaterialTheme.colorScheme.surface)) {
         // Cart header
         Row(
@@ -554,7 +831,23 @@ private fun CartPanel(
                 fontWeight = FontWeight.Bold,
                 modifier = Modifier.weight(1f)
             )
-            if (sale != null && sale.lines.isNotEmpty()) {
+            // Show sale status badge for OPEN orders
+            if (sale?.status == SaleStatus.OPEN) {
+                Text(
+                    "AKTIF",
+                    style = MaterialTheme.typography.labelSmall,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onTertiaryContainer,
+                    modifier = Modifier
+                        .background(
+                            MaterialTheme.colorScheme.tertiaryContainer,
+                            RoundedCornerShape(4.dp)
+                        )
+                        .padding(horizontal = 6.dp, vertical = 2.dp)
+                )
+                Spacer(modifier = Modifier.width(8.dp))
+            }
+            if (sale != null && sale.lines.isNotEmpty() && sale.status == SaleStatus.DRAFT) {
                 TextButton(onClick = onClearCart) {
                     Text("Hapus", color = MaterialTheme.colorScheme.error)
                 }
@@ -591,25 +884,90 @@ private fun CartPanel(
                 }
             }
         } else {
-            // Cart items
+            // Cart items - grouped by kitchen status for dine-in
             LazyColumn(
                 modifier = Modifier
                     .weight(1f)
                     .fillMaxWidth(),
                 contentPadding = PaddingValues(horizontal = 12.dp, vertical = 4.dp)
             ) {
-                items(sale.lines, key = { it.id.value }) { line ->
-                    CartLineItem(
-                        line = line,
-                        onIncrement = { onIncrement(line.id) },
-                        onDecrement = { onDecrement(line.id) },
-                        onRemove = { onRemove(line.id) }
-                    )
+                // Sent items (dine-in only)
+                val sentLines = sale.lines.filter { it.isSentToKitchen }
+                val unsentLines = sale.lines.filter { !it.isSentToKitchen }
+
+                if (showKitchen && sentLines.isNotEmpty() && unsentLines.isNotEmpty()) {
+                    // Show section headers only when there are both sent and unsent
+                    item {
+                        Text(
+                            "Sudah dikirim ke dapur",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.tertiary,
+                            fontWeight = FontWeight.Bold,
+                            modifier = Modifier.padding(vertical = 4.dp)
+                        )
+                    }
+                }
+
+                if (showKitchen && sentLines.isNotEmpty()) {
+                    items(sentLines, key = { it.id.value }) { line ->
+                        CartLineItem(
+                            line = line,
+                            isSent = true,
+                            onIncrement = { onIncrement(line.id) },
+                            onDecrement = { onDecrement(line.id) },
+                            onRemove = { onRemove(line.id) }
+                        )
+                    }
+                }
+
+                if (showKitchen && sentLines.isNotEmpty() && unsentLines.isNotEmpty()) {
+                    item {
+                        Spacer(modifier = Modifier.height(4.dp))
+                        Text(
+                            "Belum dikirim",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.error,
+                            fontWeight = FontWeight.Bold,
+                            modifier = Modifier.padding(vertical = 4.dp)
+                        )
+                    }
+                }
+
+                val displayLines = if (showKitchen && sentLines.isNotEmpty()) unsentLines else sale.lines
+                if (!(showKitchen && sentLines.isNotEmpty())) {
+                    // All lines (no grouping needed)
+                    items(displayLines, key = { it.id.value }) { line ->
+                        CartLineItem(
+                            line = line,
+                            isSent = line.isSentToKitchen,
+                            onIncrement = { onIncrement(line.id) },
+                            onDecrement = { onDecrement(line.id) },
+                            onRemove = { onRemove(line.id) }
+                        )
+                    }
+                } else {
+                    // Unsent lines
+                    items(unsentLines, key = { it.id.value }) { line ->
+                        CartLineItem(
+                            line = line,
+                            isSent = false,
+                            onIncrement = { onIncrement(line.id) },
+                            onDecrement = { onDecrement(line.id) },
+                            onRemove = { onRemove(line.id) }
+                        )
+                    }
                 }
             }
 
-            // Totals & pay button
-            CartSummary(sale = sale, onPay = { onPay(sale) })
+            // Totals & action buttons
+            CartSummary(
+                sale = sale,
+                orderFlow = orderFlow,
+                isSendingToKitchen = isSendingToKitchen,
+                hasUnsentItems = sale.unsentLines().isNotEmpty(),
+                onPay = { onPay(sale) },
+                onSendToKitchen = onSendToKitchen
+            )
         }
     }
 }
@@ -617,6 +975,7 @@ private fun CartPanel(
 @Composable
 private fun CartLineItem(
     line: OrderLine,
+    isSent: Boolean = false,
     onIncrement: () -> Unit,
     onDecrement: () -> Unit,
     onRemove: () -> Unit
@@ -627,13 +986,28 @@ private fun CartLineItem(
             .padding(vertical = 6.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
+        // Kitchen status indicator for sent items
+        if (isSent) {
+            Icon(
+                Icons.Default.Kitchen,
+                contentDescription = "Terkirim",
+                modifier = Modifier.size(14.dp),
+                tint = MaterialTheme.colorScheme.tertiary
+            )
+            Spacer(modifier = Modifier.width(4.dp))
+        }
+
         // Item info
         Column(modifier = Modifier.weight(1f)) {
             Text(
                 text = line.productRef.name,
                 style = MaterialTheme.typography.bodyMedium,
                 maxLines = 1,
-                overflow = TextOverflow.Ellipsis
+                overflow = TextOverflow.Ellipsis,
+                color = if (isSent)
+                    MaterialTheme.colorScheme.onSurfaceVariant
+                else
+                    MaterialTheme.colorScheme.onSurface
             )
             if (line.selectedModifiers.isNotEmpty()) {
                 Text(
@@ -653,8 +1027,11 @@ private fun CartLineItem(
 
         // Qty controls
         Row(verticalAlignment = Alignment.CenterVertically) {
-            IconButton(onClick = onDecrement, modifier = Modifier.size(32.dp)) {
-                Icon(Icons.Default.Remove, contentDescription = "Kurangi", modifier = Modifier.size(16.dp))
+            if (!isSent) {
+                // Only show full controls for unsent items
+                IconButton(onClick = onDecrement, modifier = Modifier.size(32.dp)) {
+                    Icon(Icons.Default.Remove, contentDescription = "Kurangi", modifier = Modifier.size(16.dp))
+                }
             }
             Text(
                 text = "${line.quantity}",
@@ -663,16 +1040,18 @@ private fun CartLineItem(
                 modifier = Modifier.width(24.dp),
                 textAlign = TextAlign.Center
             )
-            IconButton(onClick = onIncrement, modifier = Modifier.size(32.dp)) {
-                Icon(Icons.Default.Add, contentDescription = "Tambah", modifier = Modifier.size(16.dp))
-            }
-            IconButton(onClick = onRemove, modifier = Modifier.size(32.dp)) {
-                Icon(
-                    Icons.Default.Delete,
-                    contentDescription = "Hapus",
-                    modifier = Modifier.size(16.dp),
-                    tint = MaterialTheme.colorScheme.error
-                )
+            if (!isSent) {
+                IconButton(onClick = onIncrement, modifier = Modifier.size(32.dp)) {
+                    Icon(Icons.Default.Add, contentDescription = "Tambah", modifier = Modifier.size(16.dp))
+                }
+                IconButton(onClick = onRemove, modifier = Modifier.size(32.dp)) {
+                    Icon(
+                        Icons.Default.Delete,
+                        contentDescription = "Hapus",
+                        modifier = Modifier.size(16.dp),
+                        tint = MaterialTheme.colorScheme.error
+                    )
+                }
             }
         }
     }
@@ -682,8 +1061,13 @@ private fun CartLineItem(
 @Composable
 private fun CartSummary(
     sale: Sale,
-    onPay: () -> Unit
+    orderFlow: OrderFlowType = OrderFlowType.PAY_FIRST,
+    isSendingToKitchen: Boolean = false,
+    hasUnsentItems: Boolean = false,
+    onPay: () -> Unit,
+    onSendToKitchen: () -> Unit = {}
 ) {
+    val showKitchen = orderFlow == OrderFlowType.PAY_LAST || orderFlow == OrderFlowType.PAY_FLEXIBLE
     Column(
         modifier = Modifier
             .fillMaxWidth()
@@ -714,18 +1098,75 @@ private fun CartSummary(
 
         Spacer(modifier = Modifier.height(8.dp))
 
-        Button(
-            onClick = onPay,
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(44.dp),
-            enabled = sale.lines.isNotEmpty()
-        ) {
-            Text(
-                "BAYAR",
-                style = MaterialTheme.typography.labelLarge,
-                fontWeight = FontWeight.Bold
-            )
+        if (showKitchen) {
+            // Kitchen flow: Two buttons - "Kirim ke Dapur" + "Bayar"
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                // Send to Kitchen button
+                Button(
+                    onClick = onSendToKitchen,
+                    modifier = Modifier
+                        .weight(1f)
+                        .height(44.dp),
+                    enabled = hasUnsentItems && !isSendingToKitchen,
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = MaterialTheme.colorScheme.tertiary,
+                        contentColor = MaterialTheme.colorScheme.onTertiary
+                    )
+                ) {
+                    if (isSendingToKitchen) {
+                        CircularProgressIndicator(
+                            modifier = Modifier.size(16.dp),
+                            strokeWidth = 2.dp,
+                            color = MaterialTheme.colorScheme.onTertiary
+                        )
+                    } else {
+                        Icon(
+                            Icons.Default.Restaurant,
+                            contentDescription = null,
+                            modifier = Modifier.size(16.dp)
+                        )
+                    }
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text(
+                        "Dapur",
+                        style = MaterialTheme.typography.labelLarge,
+                        fontWeight = FontWeight.Bold
+                    )
+                }
+
+                // Pay button
+                Button(
+                    onClick = onPay,
+                    modifier = Modifier
+                        .weight(1f)
+                        .height(44.dp),
+                    enabled = sale.lines.isNotEmpty()
+                ) {
+                    Text(
+                        "BAYAR",
+                        style = MaterialTheme.typography.labelLarge,
+                        fontWeight = FontWeight.Bold
+                    )
+                }
+            }
+        } else {
+            // PAY_FIRST: Single "Bayar" button
+            Button(
+                onClick = onPay,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(44.dp),
+                enabled = sale.lines.isNotEmpty()
+            ) {
+                Text(
+                    "BAYAR",
+                    style = MaterialTheme.typography.labelLarge,
+                    fontWeight = FontWeight.Bold
+                )
+            }
         }
     }
 }

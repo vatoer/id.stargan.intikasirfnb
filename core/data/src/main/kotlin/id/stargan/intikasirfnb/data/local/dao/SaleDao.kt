@@ -20,4 +20,10 @@ interface SaleDao {
 
     @Query("SELECT * FROM sales WHERE outletId = :outletId ORDER BY createdAtMillis DESC LIMIT :limit")
     suspend fun listByOutlet(outletId: String, limit: Int): List<SaleEntity>
+
+    @Query("SELECT * FROM sales WHERE outletId = :outletId AND status IN ('DRAFT', 'OPEN') ORDER BY updatedAtMillis DESC")
+    suspend fun listOpenByOutlet(outletId: String): List<SaleEntity>
+
+    @Query("SELECT * FROM sales WHERE outletId = :outletId AND status IN ('DRAFT', 'OPEN') ORDER BY updatedAtMillis DESC")
+    fun streamOpenByOutlet(outletId: String): Flow<List<SaleEntity>>
 }
