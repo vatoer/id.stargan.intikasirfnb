@@ -279,6 +279,20 @@ data class Sale(
         )
     }
 
+    fun removePayment(paymentId: PaymentId): Sale {
+        require(status == SaleStatus.DRAFT || status == SaleStatus.CONFIRMED || status == SaleStatus.PAID) {
+            "Cannot remove payment in current status"
+        }
+        require(payments.any { it.id == paymentId }) { "Payment not found: ${paymentId.value}" }
+        val newPayments = payments.filter { it.id != paymentId }
+        return copy(
+            payments = newPayments,
+            // Revert to CONFIRMED if was PAID (no longer fully paid)
+            status = if (status == SaleStatus.PAID) SaleStatus.CONFIRMED else status,
+            updatedAtMillis = System.currentTimeMillis()
+        )
+    }
+
     private fun isFullyPaidAfter(payment: Payment): Boolean {
         val newTotalPaid = totalPaid().amount.add(payment.amount.amount)
         return newTotalPaid.compareTo(totalAmount().amount) >= 0

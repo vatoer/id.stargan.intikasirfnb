@@ -33,6 +33,13 @@ import kotlinx.coroutines.launch
 import java.math.BigDecimal
 import javax.inject.Inject
 
+/** A payment entry staged locally before final submission */
+data class StagedPayment(
+    val method: PaymentMethod,
+    val amount: Money,
+    val reference: String? = null
+)
+
 data class PaymentUiState(
     val sale: Sale? = null,
     val selectedMethod: PaymentMethod = PaymentMethod.CASH,
@@ -41,6 +48,7 @@ data class PaymentUiState(
     val isProcessing: Boolean = false,
     val isLoading: Boolean = true,
     val isCompleted: Boolean = false,
+    val stagedPayments: List<StagedPayment> = emptyList(),
     val errorMessage: String? = null,
     // Receipt / print state
     val outletSettings: OutletSettings? = null,
@@ -53,35 +61,48 @@ data class PaymentUiState(
 ) {
     val totalAmount: Money get() = sale?.totalAmount() ?: Money.zero()
 
-    val paidAmount: Money get() = sale?.totalPaid() ?: Money.zero()
+    /** Total of staged payments (not yet saved to sale) */
+    val stagedTotal: Money
+        get() = stagedPayments.fold(Money.zero()) { acc, p -> acc + p.amount }
 
+    /** Remaining = total - staged total */
     val remainingAmount: Money
         get() {
-            val diff = totalAmount - paidAmount
+            val diff = totalAmount - stagedTotal
             return if (diff.amount > BigDecimal.ZERO) diff else Money.zero()
         }
-
-    val addedPayments: List<Payment> get() = sale?.payments ?: emptyList()
 
     val amountInputValue: BigDecimal
         get() = amountInput.replace(".", "").replace(",", "").toBigDecimalOrNull() ?: BigDecimal.ZERO
 
+    /** Change due: only for cash, only the cash entry that exceeds remaining */
     val changeDue: Money
         get() {
-            if (selectedMethod != PaymentMethod.CASH) return Money.zero()
-            val input = Money(amountInputValue)
-            val remaining = remainingAmount
-            return if (input.amount > remaining.amount) input - remaining else Money.zero()
+            val overPay = stagedTotal - totalAmount
+            val hasCash = stagedPayments.any { it.method == PaymentMethod.CASH }
+            return if (overPay.amount > BigDecimal.ZERO && hasCash) overPay else Money.zero()
         }
 
-    val canAddPayment: Boolean
+    /** Can add a staged payment entry */
+    val canAddStaged: Boolean
         get() {
-            if (sale == null || remainingAmount.amount <= BigDecimal.ZERO) return false
-            return amountInputValue > BigDecimal.ZERO
+            if (sale == null) return false
+            if (remainingAmount.amount <= BigDecimal.ZERO) return false
+            if (amountInputValue <= BigDecimal.ZERO) return false
+            // Non-cash: can't exceed remaining
+            if (selectedMethod != PaymentMethod.CASH && amountInputValue > remainingAmount.amount) return false
+            return true
         }
 
-    val isFullyPaid: Boolean
-        get() = sale != null && remainingAmount.amount <= BigDecimal.ZERO
+    /** Can process payment: staged payments cover total */
+    val canPay: Boolean
+        get() {
+            if (sale == null) return false
+            return stagedTotal.amount >= totalAmount.amount
+        }
+
+    val isFullyStaged: Boolean
+        get() = sale != null && stagedTotal.amount >= totalAmount.amount
 }
 
 @HiltViewModel
@@ -115,7 +136,6 @@ class PaymentViewModel @Inject constructor(
                 val sale = getSaleByIdUseCase(SaleId(saleId))
                     ?: error("Transaksi tidak ditemukan")
 
-                // If still DRAFT, confirm it (computes tax + SC)
                 val confirmed = if (sale.status == SaleStatus.DRAFT) {
                     val outlet = sessionManager.getCurrentOutlet()
                         ?: error("Outlet tidak ditemukan")
@@ -124,13 +144,10 @@ class PaymentViewModel @Inject constructor(
                     sale
                 }
 
-                // Pre-fill amount with total (remaining = total since no payments yet)
-                val remainingStr = confirmed.totalAmount().amount.toLong().toString()
-
                 _uiState.update {
                     it.copy(
                         sale = confirmed,
-                        amountInput = remainingStr,
+                        amountInput = "",
                         isLoading = false
                     )
                 }
@@ -146,7 +163,12 @@ class PaymentViewModel @Inject constructor(
             state.copy(
                 selectedMethod = method,
                 paymentReference = "",
-                amountInput = remaining.toString()
+                // Non-cash autofill remaining; cash clear for manual entry
+                amountInput = if (method != PaymentMethod.CASH) {
+                    remaining.toString()
+                } else {
+                    ""
+                }
             )
         }
     }
@@ -175,47 +197,85 @@ class PaymentViewModel @Inject constructor(
         _uiState.update { it.copy(amountInput = amount.toString()) }
     }
 
-    fun addPayment() {
+    // --- Stage a payment entry locally ---
+
+    fun addStagedPayment() {
+        _uiState.update { state ->
+            if (!state.canAddStaged) return@update state
+
+            val entry = StagedPayment(
+                method = state.selectedMethod,
+                amount = Money(state.amountInputValue),
+                reference = state.paymentReference.ifBlank { null }
+            )
+
+            val newStaged = state.stagedPayments + entry
+            val newRemaining = state.totalAmount - newStaged.fold(Money.zero()) { acc, p -> acc + p.amount }
+            val remainingPositive = if (newRemaining.amount > BigDecimal.ZERO) newRemaining.amount.toLong() else 0L
+
+            state.copy(
+                stagedPayments = newStaged,
+                amountInput = if (remainingPositive > 0) "" else "",
+                paymentReference = "",
+                selectedMethod = PaymentMethod.CASH
+            )
+        }
+    }
+
+    fun removeStagedPayment(index: Int) {
+        _uiState.update { state ->
+            if (index !in state.stagedPayments.indices) return@update state
+            val newStaged = state.stagedPayments.toMutableList().apply { removeAt(index) }
+            state.copy(
+                stagedPayments = newStaged,
+                amountInput = ""
+            )
+        }
+    }
+
+    // --- Process payment ---
+
+    fun processPayment() {
         viewModelScope.launch {
             val state = _uiState.value
-            if (!state.canAddPayment || state.isProcessing) return@launch
+            if (!state.canPay || state.isProcessing) return@launch
 
             _uiState.update { it.copy(isProcessing = true, errorMessage = null) }
             try {
-                val payAmount = Money(state.amountInputValue)
-                val ref = state.paymentReference.ifBlank { null }
+                val paymentsToAdd = state.stagedPayments.map { staged ->
+                    Triple(staged.method, staged.amount, staged.reference)
+                }
 
-                // Add payment (auto-transitions to PAID if fully paid)
-                val afterPayment = addPaymentUseCase(
-                    saleId = SaleId(saleId),
-                    method = state.selectedMethod,
-                    amount = payAmount,
-                    reference = ref
-                ).getOrThrow()
+                var currentSale: Sale? = null
+                for ((method, amount, ref) in paymentsToAdd) {
+                    currentSale = addPaymentUseCase(
+                        saleId = SaleId(saleId),
+                        method = method,
+                        amount = amount,
+                        reference = ref
+                    ).getOrThrow()
+                }
+
+                val afterPayments = currentSale!!
 
                 // If PAID, complete the sale
-                val result = if (afterPayment.status == SaleStatus.PAID) {
+                val result = if (afterPayments.status == SaleStatus.PAID) {
                     completeSaleUseCase(SaleId(saleId)).getOrThrow()
                 } else {
-                    afterPayment
+                    afterPayments
                 }
 
                 val isCompleted = result.status == SaleStatus.COMPLETED
-                val newRemaining = result.totalAmount() - result.totalPaid()
-                val remainingPositive = if (newRemaining.amount > BigDecimal.ZERO) newRemaining.amount.toLong() else 0L
 
                 _uiState.update {
                     it.copy(
                         sale = result,
                         isProcessing = false,
                         isCompleted = isCompleted,
-                        amountInput = if (!isCompleted) remainingPositive.toString() else it.amountInput,
-                        paymentReference = if (!isCompleted) "" else it.paymentReference,
-                        selectedMethod = if (!isCompleted) PaymentMethod.CASH else it.selectedMethod
+                        stagedPayments = emptyList()
                     )
                 }
 
-                // If completed, load receipt data + auto-print
                 if (isCompleted) {
                     loadReceiptData(result)
                 }
@@ -256,7 +316,6 @@ class PaymentViewModel @Inject constructor(
                 )
             }
 
-            // Auto-print if configured
             if (hasPrinter && terminalSettings.printer.autoPrintReceipt) {
                 printReceipt()
             }

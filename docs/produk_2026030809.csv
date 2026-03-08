@@ -1,0 +1,187 @@
+nama;sku;barcode;kategori;base_unit;varian;tier_harga;satuan_jual;konversi;harga;hpp;stok;deskripsi
+Apel Fuji;PRD-APL01;;Buah Segar;kg;;;;;42000;35000;90;Apel fuji per kilogram
+Apel Fuji;;;;;;Grosir;;;39000;;;
+Aqua 600ml;PRD-AQU01;;Jus & Minuman Kemasan;pcs;;;;;3000;2500;100;Air mineral 600 ml
+Aqua 600ml;;;;;;Grosir;;;2800;;;
+Aqua Galon 19L;PRD-AQG01;;Jus & Minuman Kemasan;gln;;;;;22000;18000;50;Air mineral galon 19 liter
+Aqua Galon 19L;;;;;;Grosir;;;20000;;;
+Bakso Sapi Beku 500g;PRD-BKS01;;Makanan Beku;pcs;;;;;30000;25000;70;Bakso sapi beku 500 gram
+Bakso Sapi Beku 500g;;;;;;Grosir;;;28000;;;
+Baterai AA;PRD-BTR01;;Baterai & Elektronik Kecil;pcs;;;;;15000;12000;75;Baterai alkaline AA 2 pcs
+Baterai AA;;;;;;Grosir;;;14000;;;
+Bawang Merah;PRD-BWM01;;Sayuran Segar;kg;;;;;30000;25000;15;Bawang merah lokal per kg
+Bawang Merah;;;;;;Grosir;;;28000;;;
+Beras Setra Ramos 5kg;PRD-BRS01;;Beras, Minyak & Gula;pcs;;;;;75000;65000;25;Beras premium 5 kilogram
+Beras Setra Ramos 5kg;;;;;;Grosir;;;70000;;;
+Celana Jeans Pria;PRD-CLN01-S;;Fashion Pria;pcs;S;;;;125000;95000;;Celana jeans slim fit
+Celana Jeans Pria;;;;;S;Grosir;;;115000;;;
+Celana Jeans Pria;PRD-CLN01-M;;Fashion Pria;pcs;M;;;;130000;95000;;Celana jeans slim fit
+Celana Jeans Pria;;;;;M;Grosir;;;120000;;;
+Celana Jeans Pria;PRD-CLN01-L;;Fashion Pria;pcs;L;;;;135000;100000;;Celana jeans slim fit
+Celana Jeans Pria;;;;;L;Grosir;;;125000;;;
+Celana Jeans Pria;PRD-CLN01-XL;;Fashion Pria;pcs;XL;;;;140000;105000;;Celana jeans slim fit
+Celana Jeans Pria;;;;;XL;Grosir;;;130000;;;
+Chitato 55g;PRD-CHT01;;Keripik & Chips;pcs;;;;;8000;6500;55;Keripik kentang rasa jagung bakar
+Chitato 55g;;;;;;Grosir;;;7500;;;
+Clear Shampo 80ml;PRD-SHP01;;Shampo & Kondisioner;pcs;;;;;10000;8500;45;Shampo anti ketombe 80 ml
+Clear Shampo 80ml;;;;;;Grosir;;;9500;;;
+Coca Cola 350ml;PRD-CCL01;;Soft Drink & Soda;pcs;;;;;5500;4500;30;Soft drink 350 ml
+Coca Cola 350ml;;;;;;Grosir;;;5000;;;
+Coklat Cadbury;PRD-CDB01-DK;;Coklat & Permen;pcs;Dark Chocolate;;;;10000;8000;;Coklat batang Cadbury
+Coklat Cadbury;;;;;Dark Chocolate;Grosir;;;9500;;;
+Coklat Cadbury;PRD-CDB01-MK;;Coklat & Permen;pcs;Milk Chocolate;;;;9500;7500;;Coklat batang Cadbury
+Coklat Cadbury;;;;;Milk Chocolate;Grosir;;;9000;;;
+Coklat Cadbury;PRD-CDB01-AL;;Coklat & Permen;pcs;Almond;;;;12000;9500;;Coklat batang Cadbury
+Coklat Cadbury;;;;;Almond;Grosir;;;11000;;;
+Dress Wanita;PRD-DRS01-S;;Fashion Wanita;pcs;S;;;;155000;120000;;Dress casual wanita
+Dress Wanita;;;;;S;Grosir;;;145000;;;
+Dress Wanita;PRD-DRS01-M;;Fashion Wanita;pcs;M;;;;155000;120000;;Dress casual wanita
+Dress Wanita;;;;;M;Grosir;;;145000;;;
+Dress Wanita;PRD-DRS01-L;;Fashion Wanita;pcs;L;;;;165000;125000;;Dress casual wanita
+Dress Wanita;;;;;L;Grosir;;;155000;;;
+Es Krim Cone;PRD-ESK01;;Es Krim & Frozen Dessert;pcs;;;;;6500;5000;50;Es krim cone single
+Es Krim Cone;;;;;;Grosir;;;6000;;;
+Good Day Cappuccino;PRD-GDY01;;Kopi;pcs;;;;;2500;2000;25;Kopi sachet cappuccino
+Good Day Cappuccino;;;;;;Grosir;;;2200;;;
+Gula Pasir;PRD-GULA01;;Sembako;kg;;;;;16000;12500;50;Gula pasir lokal curah
+Gula Pasir;;;;;;Grosir;;;15000;;;
+Hemaviton Action;PRD-HMV01;;Suplemen & Herbal;pcs;;;;;18000;15000;20;Suplemen multivitamin
+Hemaviton Action;;;;;;Grosir;;;16500;;;
+Indomie Goreng;PRD-IDM01;8999999000001;Makanan Ringan;pcs;;;;;3500;2800;100;Mie instan goreng
+Indomie Goreng;;;;;;;lsn;12;40000;;;
+Indomie Goreng;;;;;;;dus;40;128000;;;
+Indomie Goreng;;;;;;Grosir;;;3200;;;
+Indomie Goreng;;;;;;Grosir;lsn;12;36000;;;
+Indomie Goreng;;;;;;Grosir;dus;40;116000;;;
+Kaos Polos;PRD-KPS01-S;;Pakaian & Aksesoris;pcs;S;;;;55000;35000;;Kaos polos cotton combed 30s
+Kaos Polos;;;;;S;Grosir;;;48000;;;
+Kaos Polos;PRD-KPS01-M;;Pakaian & Aksesoris;pcs;M;;;;60000;38000;;Kaos polos cotton combed 30s
+Kaos Polos;;;;;M;Grosir;;;52000;;;
+Kaos Polos;PRD-KPS01-L;;Pakaian & Aksesoris;pcs;L;;;;65000;40000;;Kaos polos cotton combed 30s
+Kaos Polos;;;;;L;Grosir;;;56000;;;
+Kaos Polos;PRD-KPS01-XL;;Pakaian & Aksesoris;pcs;XL;;;;70000;43000;;Kaos polos cotton combed 30s
+Kaos Polos;;;;;XL;Grosir;;;60000;;;
+Kecap Bango 135ml;PRD-KCP01;;Saus, Kecap & Sambal;pcs;;;;;10000;8500;15;Kecap manis 135 ml
+Kecap Bango 135ml;;;;;;Grosir;;;9500;;;
+Khong Guan Biscuit;PRD-KHG01;;Kue Kering & Biscuit;pcs;;;;;18000;15000;60;Biskuit assorted 425g
+Khong Guan Biscuit;;;;;;Grosir;;;16500;;;
+Kopi ABC Susu;PRD-ABC01-ORI;;Kopi;pcs;Original;;;;2000;1500;;Kopi instan ABC Susu
+Kopi ABC Susu;;;;;Original;Grosir;;;1800;;;
+Kopi ABC Susu;PRD-ABC01-LS;;Kopi;pcs;Less Sugar;;;;2100;1600;;Kopi instan ABC Susu
+Kopi ABC Susu;;;;;Less Sugar;Grosir;;;1900;;;
+Kopi ABC Susu;PRD-ABC01-MOC;;Kopi;pcs;Mocacinno;;;;2200;1700;;Kopi instan ABC Susu
+Kopi ABC Susu;;;;;Mocacinno;Grosir;;;2000;;;
+Kopi Kapal Api 170g;PRD-KKA01;;Kopi;pcs;;;;;14500;12000;30;Kopi bubuk 170 gram
+Kopi Kapal Api 170g;;;;;;Grosir;;;13500;;;
+Kornet Pronas 340g;PRD-KRN01;;Sarden, Kornet & Kaleng Lain;pcs;;;;;14500;12000;40;Kornet sapi kaleng 340 gram
+Kornet Pronas 340g;;;;;;Grosir;;;13500;;;
+Masako Rasa Ayam;PRD-MSK01;;Bumbu Masak & Penyedap;pcs;;;;;700;500;45;Bumbu penyedap rasa ayam 9g
+Masako Rasa Ayam;;;;;;Grosir;;;600;;;
+Mie Sedap Goreng;PRD-MSD01;;Mie Instan & Goreng;pcs;;;;;3000;2500;70;Mie instan goreng
+Mie Sedap Goreng;;;;;;Grosir;;;2800;;;
+Minyak Goreng Curah;PRD-MNY01;;Sembako;kg;;;;;16500;13000;30;Minyak goreng curah
+Minyak Goreng Curah;;;;;;Grosir;;;15500;;;
+Nugget Ayam 500g;PRD-NGT01;;Makanan Beku;pcs;;;;;27000;22000;55;Nugget ayam beku 500 gram
+Nugget Ayam 500g;;;;;;Grosir;;;25000;;;
+Oralit;PRD-ORL01;;Obat Bebas & OTC;sch;;;;;2500;2000;60;Oralit dehidrasi 1 sachet
+Oralit;;;;;;Grosir;;;2200;;;
+Oreo Original;PRD-ORO01;;Kue Kering & Biscuit;pcs;;;;;10000;8500;40;Biskuit coklat isi krim
+Oreo Original;;;;;;Grosir;;;9500;;;
+Pampers L 4-9kg;PRD-PMP01;;Popok & Tisu Basah;pcs;;;;;55000;45000;15;Popok bayi size L
+Pampers L 4-9kg;;;;;;Grosir;;;50000;;;
+Paracetamol 500mg;PRD-PCT01;;Obat Bebas & OTC;pcs;;;;;6500;5000;40;Obat penurun panas 10 tablet
+Paracetamol 500mg;;;;;;Grosir;;;6000;;;
+Pepsodent;PRD-PEP02-HRB;;Pasta Gigi & Sikat Gigi;pcs;Herbal;;;;14500;11000;;Pasta gigi Pepsodent varian
+Pepsodent;;;;;Herbal;Grosir;;;13500;;;
+Pepsodent;PRD-PEP02-WHT;;Pasta Gigi & Sikat Gigi;pcs;Whitening;;;;15500;12000;;Pasta gigi Pepsodent varian
+Pepsodent;;;;;Whitening;Grosir;;;14500;;;
+Pepsodent;PRD-PEP02-SWK;;Pasta Gigi & Sikat Gigi;pcs;Siwak;;;;16500;13000;;Pasta gigi Pepsodent varian
+Pepsodent;;;;;Siwak;Grosir;;;15500;;;
+Pepsodent 190g;PRD-PEP01;;Pasta Gigi & Sikat Gigi;pcs;;;;;14500;12000;35;Pasta gigi 190 gram
+Pepsodent 190g;;;;;;Grosir;;;13500;;;
+Pisang Ambon;PRD-PSN01;;Buah Segar;kg;;;;;18000;15000;55;Pisang ambon per kilogram
+Pisang Ambon;;;;;;Grosir;;;16500;;;
+Plastik Kresek Roll;PRD-PLK01;;Kertas & Plastik Kemasan;pcs;;;;;10000;8000;80;Plastik kresek hitam roll
+Plastik Kresek Roll;;;;;;Grosir;;;9500;;;
+Pop Mie;PRD-PPM01-GRG;;Mie Instan & Goreng;pcs;Goreng;;;;6000;4500;;Mie cup Pop Mie berbagai rasa
+Pop Mie;;;;;Goreng;Grosir;;;5500;;;
+Pop Mie;PRD-PPM01-SOT;;Mie Instan & Goreng;pcs;Soto;;;;6000;4500;;Mie cup Pop Mie berbagai rasa
+Pop Mie;;;;;Soto;Grosir;;;5500;;;
+Pop Mie;PRD-PPM01-KRI;;Mie Instan & Goreng;pcs;Kari Ayam;;;;6000;4500;;Mie cup Pop Mie berbagai rasa
+Pop Mie;;;;;Kari Ayam;Grosir;;;5500;;;
+Popok Sweety;PRD-SWT01-S;;Popok & Tisu Basah;pcs;S 2-5kg;;;;35000;28000;;Popok bayi Sweety
+Popok Sweety;;;;;S 2-5kg;Grosir;;;32000;;;
+Popok Sweety;PRD-SWT01-M;;Popok & Tisu Basah;pcs;M 5-10kg;;;;40000;32000;;Popok bayi Sweety
+Popok Sweety;;;;;M 5-10kg;Grosir;;;37000;;;
+Popok Sweety;PRD-SWT01-L;;Popok & Tisu Basah;pcs;L 10-14kg;;;;44000;35000;;Popok bayi Sweety
+Popok Sweety;;;;;L 10-14kg;Grosir;;;41000;;;
+Popok Sweety;PRD-SWT01-XL;;Popok & Tisu Basah;pcs;XL 14kg+;;;;48000;38000;;Popok bayi Sweety
+Popok Sweety;;;;;XL 14kg+;Grosir;;;45000;;;
+Red Bull 250ml;PRD-RDB01;;Minuman Energi & Isotonic;pcs;;;;;15000;12000;30;Minuman energi 250 ml
+Red Bull 250ml;;;;;;Grosir;;;14000;;;
+Rinso Deterjen 1kg;PRD-RNS01;;Deterjen Cair & Bubuk;pcs;;;;;22000;18000;20;Deterjen bubuk 1 kilogram
+Rinso Deterjen 1kg;;;;;;Grosir;;;20000;;;
+Rokok Surya 16;PRD-RSY01;;Rokok & Tembakau;pcs;;;;;1500;1100;75;Rokok kretek filter 16 batang
+Rokok Surya 16;;;;;;;pak;20;28000;;;
+Rokok Surya 16;;;;;;Grosir;pak;20;25000;;;
+Roti Tawar Sari Roti;PRD-RTR01;;Roti Tawar & Manis;pcs;;;;;14500;12000;75;Roti tawar isi 10 slice
+Roti Tawar Sari Roti;;;;;;Grosir;;;13500;;;
+Sabun Mandi Batang;PRD-SBN01-PTH;;Perawatan Tubuh;pcs;Putih;;;;3500;2500;;Sabun mandi batang 85gr
+Sabun Mandi Batang;;;;;Putih;;lsn;12;39000;;;
+Sabun Mandi Batang;;;;;Putih;Grosir;;;3000;;;
+Sabun Mandi Batang;;;;;Putih;Grosir;lsn;12;33000;;;
+Sabun Mandi Batang;PRD-SBN01-MRH;;Perawatan Tubuh;pcs;Merah;;;;3800;2800;;Sabun mandi batang 85gr
+Sabun Mandi Batang;;;;;Merah;;lsn;12;43000;;;
+Sabun Mandi Batang;;;;;Merah;Grosir;;;3300;;;
+Sabun Mandi Batang;;;;;Merah;Grosir;lsn;12;37000;;;
+Sambal ABC 135ml;PRD-SMB01;;Saus, Kecap & Sambal;pcs;;;;;9000;7500;90;Sambal extra pedas 135 ml
+Sambal ABC 135ml;;;;;;Grosir;;;8500;;;
+Sandal Jepit;PRD-SDJ01;;Sepatu & Sandal;pcs;;;;;32000;25000;100;Sandal jepit karet
+Sandal Jepit;;;;;;Grosir;;;29000;;;
+Sandal Pria Sport;PRD-SDP01-39;;Sepatu & Sandal;pcs;39;;;;59000;45000;;Sandal pria ukuran nomor
+Sandal Pria Sport;;;;;39;Grosir;;;55000;;;
+Sandal Pria Sport;PRD-SDP01-40;;Sepatu & Sandal;pcs;40;;;;59000;45000;;Sandal pria ukuran nomor
+Sandal Pria Sport;;;;;40;Grosir;;;55000;;;
+Sandal Pria Sport;PRD-SDP01-41;;Sepatu & Sandal;pcs;41;;;;59000;45000;;Sandal pria ukuran nomor
+Sandal Pria Sport;;;;;41;Grosir;;;55000;;;
+Sandal Pria Sport;PRD-SDP01-42;;Sepatu & Sandal;pcs;42;;;;59000;45000;;Sandal pria ukuran nomor
+Sandal Pria Sport;;;;;42;Grosir;;;55000;;;
+Sandal Pria Sport;PRD-SDP01-43;;Sepatu & Sandal;pcs;43;;;;62000;48000;;Sandal pria ukuran nomor
+Sandal Pria Sport;;;;;43;Grosir;;;58000;;;
+Sarden ABC 425g;PRD-SRD01;;Sarden, Kornet & Kaleng Lain;pcs;;;;;18000;15000;75;Ikan sarden kaleng 425 gram
+Sarden ABC 425g;;;;;;Grosir;;;16500;;;
+Shampo Sunsilk;PRD-SSL01-AR;;Shampo & Kondisioner;pcs;Anti Rontok;;;;15000;12000;;Shampo Sunsilk berbagai varian
+Shampo Sunsilk;;;;;Anti Rontok;Grosir;;;14000;;;
+Shampo Sunsilk;PRD-SSL01-SM;;Shampo & Kondisioner;pcs;Smooth & Silky;;;;15000;12000;;Shampo Sunsilk berbagai varian
+Shampo Sunsilk;;;;;Smooth & Silky;Grosir;;;14000;;;
+Shampo Sunsilk;PRD-SSL01-BS;;Shampo & Kondisioner;pcs;Black Shine;;;;16500;13000;;Shampo Sunsilk berbagai varian
+Shampo Sunsilk;;;;;Black Shine;Grosir;;;15500;;;
+SilverQueen 33g;PRD-SVQ01;;Coklat & Permen;pcs;;;;;7000;5500;50;Coklat batang kacang
+SilverQueen 33g;;;;;;Grosir;;;6500;;;
+So Klin Softener 800ml;PRD-SKL01;;Sabun Cuci & Pelicin;pcs;;;;;14500;12000;80;Pelembut pakaian 800 ml
+So Klin Softener 800ml;;;;;;Grosir;;;13500;;;
+Susu Bubuk Dancow 400g;PRD-SDB01;;Susu Bubuk & Formula;pcs;;;;;52000;42000;35;Susu bubuk full cream 400 gram
+Susu Bubuk Dancow 400g;;;;;;Grosir;;;48000;;;
+Susu UHT Full Cream 1L;PRD-SUH01;;Susu Cair & UHT;pcs;;;;;22000;18000;20;Susu UHT full cream 1000 ml
+Susu UHT Full Cream 1L;;;;;;Grosir;;;20500;;;
+Tango Wafer;PRD-TNG01;;Biskuit & Wafer;pcs;;;;;4500;3500;70;Wafer coklat
+Tango Wafer;;;;;;Grosir;;;4000;;;
+Tas Serut;PRD-TSR01;;Tas & Dompet;pcs;;;;;6500;5000;25;Tas serut belanja
+Tas Serut;;;;;;Grosir;;;6000;;;
+Teh Botol Sosro;PRD-TBS01;8999999000002;Minuman;pcs;;;;;5000;3500;25;Teh botol kemasan 350 ml
+Teh Botol Sosro;;;;;;;lsn;12;57000;;;
+Teh Botol Sosro;;;;;;;dus;24;108000;;;
+Teh Botol Sosro;;;;;;Grosir;lsn;12;52000;;;
+Teh Botol Sosro;;;;;;Grosir;dus;24;98000;;;
+Teh Pucuk 350ml;PRD-TPK01;;Teh;pcs;;;;;4500;3500;100;Teh botol 350 ml
+Teh Pucuk 350ml;;;;;;Grosir;;;4000;;;
+Tisu Basah Bayi 80 lembar;PRD-TSB01;;Popok & Tisu Basah;pcs;;;;;22000;18000;90;Tisu basah khusus bayi
+Tisu Basah Bayi 80 lembar;;;;;;Grosir;;;20000;;;
+Tisu Majestic 2 Ply;PRD-TSM01;;Tisu & Tisu Basah;pcs;;;;;14500;12000;35;Tisu 2 ply 200 lembar
+Tisu Majestic 2 Ply;;;;;;Grosir;;;13500;;;
+Tomat Segar;PRD-TOM01;;Sayuran Segar;kg;;;;;10000;8000;45;Tomat segar per kilogram
+Tomat Segar;;;;;;Grosir;;;9500;;;
+Vitamin C 1000mg;PRD-VTC01;;Vitamin Umum;pcs;;;;;30000;25000;60;Vitamin C 1000 mg 30 tablet
+Vitamin C 1000mg;;;;;;Grosir;;;28000;;;
+Yakult;PRD-YAK01;;Susu Cair & UHT;pcs;;;;;2000;1500;80;Minuman probiotik 65 ml
+Yakult;;;;;;Grosir;;;1800;;;

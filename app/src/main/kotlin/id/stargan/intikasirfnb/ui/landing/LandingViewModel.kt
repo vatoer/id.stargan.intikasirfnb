@@ -24,7 +24,7 @@ data class LandingMenuItem(
             LandingMenuItem("pos", "POS / Kasir", "point_of_sale"),
             LandingMenuItem("catalog", "Katalog Menu", "restaurant_menu"),
             LandingMenuItem("customer", "Pelanggan", "people"),
-            LandingMenuItem("report", "Laporan", "assessment"),
+            LandingMenuItem("report", "Riwayat Transaksi", "receipt_long"),
             LandingMenuItem("table", "Meja", "table_restaurant"),
             LandingMenuItem("settings", "Pengaturan", "settings")
         )

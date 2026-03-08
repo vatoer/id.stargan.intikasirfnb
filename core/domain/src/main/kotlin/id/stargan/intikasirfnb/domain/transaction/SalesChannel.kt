@@ -69,7 +69,9 @@ data class SalesChannel(
         }
     }
 
-    val requiresTable: Boolean get() = channelType == ChannelType.DINE_IN
+    // Table management not yet implemented (Phase 2).
+    // When table management is available, this should check channelType == DINE_IN.
+    val requiresTable: Boolean get() = false
 
     val requiresExternalOrderId: Boolean
         get() = platformConfig?.requiresExternalOrderId == true

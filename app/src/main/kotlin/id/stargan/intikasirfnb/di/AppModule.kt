@@ -23,6 +23,7 @@ import id.stargan.intikasirfnb.domain.settings.TaxConfigRepository
 import id.stargan.intikasirfnb.domain.transaction.CashierSessionRepository
 import id.stargan.intikasirfnb.domain.usecase.transaction.AddLineItemUseCase
 import id.stargan.intikasirfnb.domain.usecase.transaction.AddPaymentUseCase
+import id.stargan.intikasirfnb.domain.usecase.transaction.RemovePaymentUseCase
 import id.stargan.intikasirfnb.domain.usecase.transaction.CloseCashierSessionUseCase
 import id.stargan.intikasirfnb.domain.usecase.transaction.CompleteSaleUseCase
 import id.stargan.intikasirfnb.domain.usecase.transaction.ConfirmSaleUseCase
@@ -30,7 +31,10 @@ import id.stargan.intikasirfnb.domain.usecase.transaction.CreateSaleUseCase
 import id.stargan.intikasirfnb.domain.usecase.transaction.GetCurrentCashierSessionUseCase
 import id.stargan.intikasirfnb.domain.usecase.transaction.GetSaleByIdUseCase
 import id.stargan.intikasirfnb.domain.usecase.transaction.GetSalesChannelsUseCase
+import id.stargan.intikasirfnb.domain.usecase.transaction.SaveSalesChannelUseCase
+import id.stargan.intikasirfnb.domain.usecase.transaction.DeactivateSalesChannelUseCase
 import id.stargan.intikasirfnb.domain.usecase.transaction.OpenCashierSessionUseCase
+import id.stargan.intikasirfnb.domain.usecase.transaction.GetSalesByOutletUseCase
 import id.stargan.intikasirfnb.domain.usecase.transaction.RemoveLineItemUseCase
 import id.stargan.intikasirfnb.domain.usecase.transaction.UpdateLineItemUseCase
 import javax.inject.Singleton
@@ -100,6 +104,18 @@ object AppModule {
 
     @Provides
     @Singleton
+    fun provideSaveSalesChannelUseCase(
+        salesChannelRepository: SalesChannelRepository
+    ): SaveSalesChannelUseCase = SaveSalesChannelUseCase(salesChannelRepository)
+
+    @Provides
+    @Singleton
+    fun provideDeactivateSalesChannelUseCase(
+        salesChannelRepository: SalesChannelRepository
+    ): DeactivateSalesChannelUseCase = DeactivateSalesChannelUseCase(salesChannelRepository)
+
+    @Provides
+    @Singleton
     fun provideCreateSaleUseCase(
         saleRepository: SaleRepository,
         salesChannelRepository: SalesChannelRepository
@@ -147,9 +163,21 @@ object AppModule {
 
     @Provides
     @Singleton
+    fun provideRemovePaymentUseCase(
+        saleRepository: SaleRepository
+    ): RemovePaymentUseCase = RemovePaymentUseCase(saleRepository)
+
+    @Provides
+    @Singleton
     fun provideCompleteSaleUseCase(
         saleRepository: SaleRepository
     ): CompleteSaleUseCase = CompleteSaleUseCase(saleRepository)
+
+    @Provides
+    @Singleton
+    fun provideGetSalesByOutletUseCase(
+        saleRepository: SaleRepository
+    ): GetSalesByOutletUseCase = GetSalesByOutletUseCase(saleRepository)
 
     // --- Cashier session use cases ---
 

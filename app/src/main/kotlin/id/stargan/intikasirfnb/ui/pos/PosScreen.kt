@@ -4,17 +4,22 @@ import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.navigationBars
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.grid.GridCells
@@ -31,18 +36,21 @@ import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.ShoppingCart
 import androidx.compose.material3.Badge
 import androidx.compose.material3.BadgedBox
+import androidx.compose.material3.BottomSheetScaffold
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
+import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SheetValue
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
@@ -50,11 +58,14 @@ import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.VerticalDivider
+import androidx.compose.material3.rememberBottomSheetScaffoldState
+import androidx.compose.material3.rememberStandardBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.layout.ContentScale
@@ -64,14 +75,19 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import coil3.compose.AsyncImage
 import id.stargan.intikasirfnb.domain.catalog.MenuItem
+import id.stargan.intikasirfnb.domain.catalog.ProductId
 import id.stargan.intikasirfnb.domain.transaction.OrderLine
 import id.stargan.intikasirfnb.domain.transaction.Sale
+import kotlinx.coroutines.launch
 import java.text.NumberFormat
 import java.util.Locale
 
 private val idrFormat = NumberFormat.getCurrencyInstance(Locale("id", "ID")).apply {
     maximumFractionDigits = 0
 }
+
+// Breakpoint: screens wider than 600dp use split-panel (tablet), narrower use bottom sheet (phone)
+private val TABLET_BREAKPOINT = 600.dp
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -90,8 +106,49 @@ fun PosScreen(
         }
     }
 
+    BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
+        val isTablet = maxWidth >= TABLET_BREAKPOINT
+
+        if (isTablet) {
+            TabletPosLayout(
+                uiState = uiState,
+                snackbarHostState = snackbarHostState,
+                viewModel = viewModel,
+                onNavigateBack = onNavigateBack,
+                onNavigateToPayment = onNavigateToPayment
+            )
+        } else {
+            PhonePosLayout(
+                uiState = uiState,
+                snackbarHostState = snackbarHostState,
+                viewModel = viewModel,
+                onNavigateBack = onNavigateBack,
+                onNavigateToPayment = onNavigateToPayment
+            )
+        }
+    }
+}
+
+// ============================================================
+// TABLET LAYOUT — Split panel (menu 60% + cart 40%)
+// ============================================================
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun TabletPosLayout(
+    uiState: PosUiState,
+    snackbarHostState: SnackbarHostState,
+    viewModel: PosViewModel,
+    onNavigateBack: () -> Unit,
+    onNavigateToPayment: (saleId: String) -> Unit
+) {
     Scaffold(
-        snackbarHost = { SnackbarHost(snackbarHostState) },
+        snackbarHost = {
+            SnackbarHost(
+                hostState = snackbarHostState,
+                modifier = Modifier.navigationBarsPadding()
+            )
+        },
         topBar = {
             PosTopBar(
                 uiState = uiState,
@@ -113,12 +170,15 @@ fun PosScreen(
                     .fillMaxSize()
                     .padding(padding)
             ) {
-                // Left: Menu panel
                 MenuPanel(
                     uiState = uiState,
+                    cartQuantities = cartQuantities(uiState.currentSale),
                     onCategorySelected = viewModel::selectCategory,
                     onSearchChanged = viewModel::updateSearch,
                     onItemClicked = viewModel::addItemToCart,
+                    gridMinSize = 130.dp,
+                    cardHeight = 140.dp,
+                    imageHeight = 70.dp,
                     modifier = Modifier
                         .weight(0.6f)
                         .fillMaxHeight()
@@ -126,20 +186,126 @@ fun PosScreen(
 
                 VerticalDivider()
 
-                // Right: Cart panel
                 CartPanel(
                     sale = uiState.currentSale,
                     onIncrement = viewModel::incrementLine,
                     onDecrement = viewModel::decrementLine,
                     onRemove = viewModel::removeLine,
                     onClearCart = viewModel::clearCart,
-                    onPay = { sale ->
-                        onNavigateToPayment(sale.id.value)
-                    },
+                    onPay = { sale -> onNavigateToPayment(sale.id.value) },
                     modifier = Modifier
                         .weight(0.4f)
                         .fillMaxHeight()
                 )
+            }
+        }
+    }
+}
+
+// ============================================================
+// PHONE LAYOUT — Full-width menu + bottom sheet cart
+// ============================================================
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun PhonePosLayout(
+    uiState: PosUiState,
+    snackbarHostState: SnackbarHostState,
+    viewModel: PosViewModel,
+    onNavigateBack: () -> Unit,
+    onNavigateToPayment: (saleId: String) -> Unit
+) {
+    val scope = rememberCoroutineScope()
+    val sheetState = rememberStandardBottomSheetState(
+        initialValue = SheetValue.PartiallyExpanded
+    )
+    val scaffoldState = rememberBottomSheetScaffoldState(
+        bottomSheetState = sheetState
+    )
+
+    val cartItemCount = uiState.currentSale?.lines?.sumOf { it.quantity } ?: 0
+    val cartSubtotal = uiState.currentSale?.subtotal()
+
+    BottomSheetScaffold(
+        scaffoldState = scaffoldState,
+        snackbarHost = {
+            SnackbarHost(
+                hostState = snackbarHostState,
+                modifier = Modifier.navigationBarsPadding()
+            )
+        },
+        topBar = {
+            PosTopBar(
+                uiState = uiState,
+                onNavigateBack = onNavigateBack,
+                onChannelSelected = viewModel::selectChannel
+            )
+        },
+        sheetPeekHeight = if (cartItemCount > 0) 80.dp else 0.dp,
+        sheetContent = {
+            // Peek bar: summary + tap to expand
+            if (cartItemCount > 0) {
+                CartPanel(
+                    sale = uiState.currentSale,
+                    onIncrement = viewModel::incrementLine,
+                    onDecrement = viewModel::decrementLine,
+                    onRemove = viewModel::removeLine,
+                    onClearCart = viewModel::clearCart,
+                    onPay = { sale -> onNavigateToPayment(sale.id.value) },
+                    compact = true,
+                    modifier = Modifier.fillMaxWidth()
+                )
+            }
+        }
+    ) { padding ->
+        if (uiState.isLoading) {
+            Box(
+                modifier = Modifier.fillMaxSize().padding(padding),
+                contentAlignment = Alignment.Center
+            ) {
+                CircularProgressIndicator()
+            }
+        } else {
+            Box(modifier = Modifier.fillMaxSize().padding(padding)) {
+                MenuPanel(
+                    uiState = uiState,
+                    cartQuantities = cartQuantities(uiState.currentSale),
+                    onCategorySelected = viewModel::selectCategory,
+                    onSearchChanged = viewModel::updateSearch,
+                    onItemClicked = { item ->
+                        viewModel.addItemToCart(item)
+                    },
+                    gridMinSize = 100.dp,
+                    cardHeight = 110.dp,
+                    imageHeight = 50.dp,
+                    gridBottomPadding = if (cartItemCount > 0) 148.dp else 64.dp,
+                    modifier = Modifier.fillMaxSize()
+                )
+
+                // FAB to expand cart
+                if (cartItemCount > 0 && sheetState.currentValue == SheetValue.PartiallyExpanded) {
+                    FloatingActionButton(
+                        onClick = {
+                            scope.launch { sheetState.expand() }
+                        },
+                        containerColor = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier
+                            .align(Alignment.BottomEnd)
+                            .padding(end = 16.dp, bottom = 12.dp)
+                    ) {
+                        BadgedBox(
+                            badge = {
+                                Badge(
+                                    containerColor = MaterialTheme.colorScheme.error
+                                ) {
+                                    Text("$cartItemCount")
+                                }
+                            }
+                        ) {
+                            Icon(Icons.Default.ShoppingCart, contentDescription = "Keranjang")
+                        }
+                    }
+                }
             }
         }
     }
@@ -160,7 +326,6 @@ private fun PosTopBar(
             }
         },
         actions = {
-            // Channel selector chips
             uiState.salesChannels.forEach { channel ->
                 val selected = uiState.selectedChannel?.id == channel.id
                 FilterChip(
@@ -181,9 +346,14 @@ private fun PosTopBar(
 @Composable
 private fun MenuPanel(
     uiState: PosUiState,
+    cartQuantities: Map<ProductId, Int> = emptyMap(),
     onCategorySelected: (id.stargan.intikasirfnb.domain.catalog.CategoryId?) -> Unit,
     onSearchChanged: (String) -> Unit,
     onItemClicked: (MenuItem) -> Unit,
+    gridMinSize: androidx.compose.ui.unit.Dp = 130.dp,
+    cardHeight: androidx.compose.ui.unit.Dp = 140.dp,
+    imageHeight: androidx.compose.ui.unit.Dp = 70.dp,
+    gridBottomPadding: androidx.compose.ui.unit.Dp = 8.dp,
     modifier: Modifier = Modifier
 ) {
     Column(modifier = modifier) {
@@ -244,14 +414,20 @@ private fun MenuPanel(
             }
         } else {
             LazyVerticalGrid(
-                columns = GridCells.Adaptive(minSize = 130.dp),
-                contentPadding = PaddingValues(12.dp),
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                verticalArrangement = Arrangement.spacedBy(8.dp),
+                columns = GridCells.Adaptive(minSize = gridMinSize),
+                contentPadding = PaddingValues(start = 8.dp, end = 8.dp, top = 8.dp, bottom = gridBottomPadding),
+                horizontalArrangement = Arrangement.spacedBy(6.dp),
+                verticalArrangement = Arrangement.spacedBy(6.dp),
                 modifier = Modifier.fillMaxSize()
             ) {
                 items(uiState.filteredItems, key = { it.id.value }) { item ->
-                    MenuItemCard(item = item, onClick = { onItemClicked(item) })
+                    MenuItemCard(
+                        item = item,
+                        cartQty = cartQuantities[item.id] ?: 0,
+                        onClick = { onItemClicked(item) },
+                        cardHeight = cardHeight,
+                        imageHeight = imageHeight
+                    )
                 }
             }
         }
@@ -261,17 +437,24 @@ private fun MenuPanel(
 @Composable
 private fun MenuItemCard(
     item: MenuItem,
-    onClick: () -> Unit
+    cartQty: Int = 0,
+    onClick: () -> Unit,
+    cardHeight: androidx.compose.ui.unit.Dp = 140.dp,
+    imageHeight: androidx.compose.ui.unit.Dp = 70.dp
 ) {
     Card(
         onClick = onClick,
         modifier = Modifier
             .fillMaxWidth()
-            .height(140.dp),
+            .height(cardHeight),
         colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surfaceVariant
+            containerColor = if (cartQty > 0)
+                MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.3f)
+            else
+                MaterialTheme.colorScheme.surfaceVariant
         )
     ) {
+        Box(modifier = Modifier.fillMaxSize()) {
         Column(
             modifier = Modifier.fillMaxSize()
         ) {
@@ -282,19 +465,19 @@ private fun MenuItemCard(
                     contentScale = ContentScale.Crop,
                     modifier = Modifier
                         .fillMaxWidth()
-                        .height(70.dp)
+                        .height(imageHeight)
                 )
             } else {
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .height(70.dp)
+                        .height(imageHeight)
                         .background(MaterialTheme.colorScheme.surfaceContainerHighest),
                     contentAlignment = Alignment.Center
                 ) {
                     Text(
                         text = item.name.take(2).uppercase(),
-                        style = MaterialTheme.typography.titleMedium,
+                        style = MaterialTheme.typography.titleSmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
@@ -303,7 +486,7 @@ private fun MenuItemCard(
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 8.dp, vertical = 6.dp)
+                    .padding(horizontal = 6.dp, vertical = 4.dp)
             ) {
                 Text(
                     text = item.name,
@@ -313,10 +496,27 @@ private fun MenuItemCard(
                 )
                 Text(
                     text = idrFormat.format(item.basePrice.amount),
-                    style = MaterialTheme.typography.labelMedium,
+                    style = MaterialTheme.typography.labelSmall,
                     fontWeight = FontWeight.Bold,
                     color = MaterialTheme.colorScheme.primary
                 )
+            }
+        }
+
+            // Quantity badge
+            if (cartQty > 0) {
+                Badge(
+                    containerColor = MaterialTheme.colorScheme.error,
+                    modifier = Modifier
+                        .align(Alignment.TopEnd)
+                        .padding(4.dp)
+                ) {
+                    Text(
+                        text = "$cartQty",
+                        style = MaterialTheme.typography.labelSmall,
+                        fontWeight = FontWeight.Bold
+                    )
+                }
             }
         }
     }
@@ -330,6 +530,7 @@ private fun CartPanel(
     onRemove: (id.stargan.intikasirfnb.domain.transaction.OrderLineId) -> Unit,
     onClearCart: () -> Unit,
     onPay: (Sale) -> Unit,
+    compact: Boolean = false,
     modifier: Modifier = Modifier
 ) {
     Column(modifier = modifier.background(MaterialTheme.colorScheme.surface)) {
@@ -337,7 +538,7 @@ private fun CartPanel(
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 12.dp, vertical = 12.dp),
+                .padding(horizontal = 12.dp, vertical = if (compact) 8.dp else 12.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
             Icon(
@@ -363,7 +564,6 @@ private fun CartPanel(
         HorizontalDivider()
 
         if (sale == null || sale.lines.isEmpty()) {
-            // Empty cart
             Box(
                 modifier = Modifier
                     .weight(1f)
@@ -489,65 +689,49 @@ private fun CartSummary(
             .fillMaxWidth()
             .background(MaterialTheme.colorScheme.surfaceContainerLow)
             .padding(12.dp)
+            .navigationBarsPadding()
     ) {
         HorizontalDivider()
-        Spacer(modifier = Modifier.height(8.dp))
+        Spacer(modifier = Modifier.height(6.dp))
 
-        // Item count
         val totalItems = sale.lines.sumOf { it.quantity }
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.SpaceBetween
         ) {
             Text(
-                "Total item",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-            Text(
                 "$totalItems item",
-                style = MaterialTheme.typography.bodySmall,
+                style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-        }
-
-        Spacer(modifier = Modifier.height(4.dp))
-
-        // Subtotal
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween
-        ) {
-            Text(
-                "Subtotal",
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.Bold
             )
             Text(
                 idrFormat.format(sale.subtotal().amount),
-                style = MaterialTheme.typography.titleMedium,
+                style = MaterialTheme.typography.bodyMedium,
                 fontWeight = FontWeight.Bold,
                 color = MaterialTheme.colorScheme.primary
             )
         }
 
-        Spacer(modifier = Modifier.height(12.dp))
+        Spacer(modifier = Modifier.height(8.dp))
 
-        // Pay button
         Button(
             onClick = onPay,
             modifier = Modifier
                 .fillMaxWidth()
-                .height(48.dp),
+                .height(44.dp),
             enabled = sale.lines.isNotEmpty()
         ) {
-            Icon(Icons.Default.ShoppingCart, contentDescription = null, modifier = Modifier.size(20.dp))
-            Spacer(modifier = Modifier.width(8.dp))
             Text(
-                "BAYAR  ${idrFormat.format(sale.subtotal().amount)}",
-                style = MaterialTheme.typography.titleSmall,
+                "BAYAR",
+                style = MaterialTheme.typography.labelLarge,
                 fontWeight = FontWeight.Bold
             )
         }
     }
+}
+
+private fun cartQuantities(sale: Sale?): Map<ProductId, Int> {
+    if (sale == null) return emptyMap()
+    return sale.lines.groupBy { it.productRef.productId }
+        .mapValues { (_, lines) -> lines.sumOf { it.quantity } }
 }

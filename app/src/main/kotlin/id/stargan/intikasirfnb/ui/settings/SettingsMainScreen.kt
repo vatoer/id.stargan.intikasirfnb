@@ -9,6 +9,7 @@ import androidx.compose.material.icons.filled.LocalOffer
 import androidx.compose.material.icons.filled.Percent
 import androidx.compose.material.icons.filled.Print
 import androidx.compose.material.icons.filled.Receipt
+import androidx.compose.material.icons.filled.Storefront
 import androidx.compose.material.icons.filled.Store
 import androidx.compose.material.icons.filled.VolunteerActivism
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -39,7 +40,8 @@ fun SettingsMainScreen(
     onNavigateToServiceCharge: () -> Unit,
     onNavigateToTip: () -> Unit,
     onNavigateToReceipt: () -> Unit,
-    onNavigateToPrinter: () -> Unit
+    onNavigateToPrinter: () -> Unit,
+    onNavigateToSalesChannels: () -> Unit = {}
 ) {
     val uiState by viewModel.uiState.collectAsState()
 
@@ -78,6 +80,21 @@ fun SettingsMainScreen(
                         title = "Informasi Toko",
                         subtitle = outletProfileSummary(uiState),
                         onClick = onNavigateToOutletProfile
+                    )
+                }
+            }
+
+            // --- Penjualan ---
+            item {
+                SettingsGroupHeader(title = "Penjualan")
+            }
+            item {
+                SettingsCard {
+                    SettingsNavigationItem(
+                        icon = Icons.Default.Storefront,
+                        title = "Channel Penjualan",
+                        subtitle = "Dine In, Take Away, Platform Delivery",
+                        onClick = onNavigateToSalesChannels
                     )
                 }
             }

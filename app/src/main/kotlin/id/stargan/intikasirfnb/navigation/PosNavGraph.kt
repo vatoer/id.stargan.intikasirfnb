@@ -6,6 +6,7 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
+import androidx.navigation.compose.navigation
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import id.stargan.intikasirfnb.debug.DebugSeeder
@@ -34,6 +35,10 @@ import id.stargan.intikasirfnb.ui.settings.ServiceChargeSettingsScreen
 import id.stargan.intikasirfnb.ui.settings.SettingsMainScreen
 import id.stargan.intikasirfnb.ui.settings.SettingsViewModel
 import id.stargan.intikasirfnb.ui.settings.TaxSettingsScreen
+import id.stargan.intikasirfnb.ui.settings.SalesChannelSettingsScreen
+import id.stargan.intikasirfnb.ui.settings.SalesChannelViewModel
+import id.stargan.intikasirfnb.ui.history.TransactionHistoryScreen
+import id.stargan.intikasirfnb.ui.history.TransactionHistoryViewModel
 import id.stargan.intikasirfnb.ui.settings.TipSettingsScreen
 
 object PosRoutes {
@@ -49,12 +54,15 @@ object PosRoutes {
     const val SETTINGS_TIP = "settings/tip"
     const val SETTINGS_RECEIPT = "settings/receipt"
     const val SETTINGS_PRINTER = "settings/printer"
+    const val SETTINGS_SALES_CHANNELS = "settings/sales_channels"
+    const val CATALOG_GRAPH = "catalog_graph"
     const val CATALOG = "catalog"
     const val CATALOG_CATEGORIES = "catalog/categories"
     const val CATALOG_MENU_ITEMS = "catalog/menu_items"
     const val CATALOG_MENU_ITEM_ADD = "catalog/menu_items/add"
     const val CATALOG_MENU_ITEM_EDIT = "catalog/menu_items/edit/{itemId}"
     const val CATALOG_MODIFIERS = "catalog/modifiers"
+    const val TRANSACTION_HISTORY = "transaction_history"
     const val CASHIER_SESSION = "cashier_session"
     const val POS = "pos"
     const val PAYMENT = "pos/payment/{saleId}"
@@ -113,13 +121,25 @@ fun PosNavGraph(debugSeeder: DebugSeeder? = null) {
                     navController.navigate(PosRoutes.SETTINGS)
                 },
                 onNavigateToCatalog = {
-                    navController.navigate(PosRoutes.CATALOG)
+                    navController.navigate(PosRoutes.CATALOG_GRAPH)
+                },
+                onNavigateToHistory = {
+                    navController.navigate(PosRoutes.TRANSACTION_HISTORY)
                 },
                 onLogout = {
                     navController.navigate(PosRoutes.LOGIN) {
                         popUpTo(0) { inclusive = true }
                     }
                 }
+            )
+        }
+
+        // --- Transaction History ---
+        composable(PosRoutes.TRANSACTION_HISTORY) {
+            val historyViewModel = hiltViewModel<TransactionHistoryViewModel>()
+            TransactionHistoryScreen(
+                viewModel = historyViewModel,
+                onNavigateBack = { navController.popBackStack() }
             )
         }
 
@@ -173,7 +193,8 @@ fun PosNavGraph(debugSeeder: DebugSeeder? = null) {
                 onNavigateToServiceCharge = { navController.navigate(PosRoutes.SETTINGS_SERVICE_CHARGE) },
                 onNavigateToTip = { navController.navigate(PosRoutes.SETTINGS_TIP) },
                 onNavigateToReceipt = { navController.navigate(PosRoutes.SETTINGS_RECEIPT) },
-                onNavigateToPrinter = { navController.navigate(PosRoutes.SETTINGS_PRINTER) }
+                onNavigateToPrinter = { navController.navigate(PosRoutes.SETTINGS_PRINTER) },
+                onNavigateToSalesChannels = { navController.navigate(PosRoutes.SETTINGS_SALES_CHANNELS) }
             )
         }
 
@@ -225,93 +246,114 @@ fun PosNavGraph(debugSeeder: DebugSeeder? = null) {
             )
         }
 
-        // --- Catalog ---
-        composable(PosRoutes.CATALOG) {
-            val catalogViewModel = hiltViewModel<CatalogViewModel>()
-            CatalogMainScreen(
-                viewModel = catalogViewModel,
-                onNavigateBack = { navController.popBackStack() },
-                onNavigateToCategories = { navController.navigate(PosRoutes.CATALOG_CATEGORIES) },
-                onNavigateToMenuItems = { navController.navigate(PosRoutes.CATALOG_MENU_ITEMS) },
-                onNavigateToModifiers = { navController.navigate(PosRoutes.CATALOG_MODIFIERS) }
-            )
-        }
-
-        composable(PosRoutes.CATALOG_CATEGORIES) {
-            val catalogViewModel = hiltViewModel<CatalogViewModel>()
-            CategoryManagementScreen(
-                viewModel = catalogViewModel,
+        composable(PosRoutes.SETTINGS_SALES_CHANNELS) {
+            val salesChannelViewModel = hiltViewModel<SalesChannelViewModel>()
+            SalesChannelSettingsScreen(
+                viewModel = salesChannelViewModel,
                 onNavigateBack = { navController.popBackStack() }
             )
         }
 
-        composable(PosRoutes.CATALOG_MENU_ITEMS) {
-            val catalogViewModel = hiltViewModel<CatalogViewModel>()
-            MenuItemManagementScreen(
-                viewModel = catalogViewModel,
-                onNavigateBack = { navController.popBackStack() },
-                onNavigateToAddItem = { navController.navigate(PosRoutes.CATALOG_MENU_ITEM_ADD) },
-                onNavigateToEditItem = { productId ->
-                    navController.navigate(PosRoutes.menuItemEdit(productId.value))
-                }
-            )
-        }
+        // --- Catalog (nested nav graph — shared ViewModel) ---
+        navigation(
+            startDestination = PosRoutes.CATALOG,
+            route = PosRoutes.CATALOG_GRAPH
+        ) {
+            composable(PosRoutes.CATALOG) {
+                val parentEntry = navController.getBackStackEntry(PosRoutes.CATALOG_GRAPH)
+                val catalogViewModel = hiltViewModel<CatalogViewModel>(parentEntry)
+                CatalogMainScreen(
+                    viewModel = catalogViewModel,
+                    onNavigateBack = { navController.popBackStack() },
+                    onNavigateToCategories = { navController.navigate(PosRoutes.CATALOG_CATEGORIES) },
+                    onNavigateToMenuItems = { navController.navigate(PosRoutes.CATALOG_MENU_ITEMS) },
+                    onNavigateToModifiers = { navController.navigate(PosRoutes.CATALOG_MODIFIERS) }
+                )
+            }
 
-        composable(PosRoutes.CATALOG_MENU_ITEM_ADD) {
-            val catalogViewModel = hiltViewModel<CatalogViewModel>()
-            MenuItemFormScreen(
-                viewModel = catalogViewModel,
-                editItemId = null,
-                onNavigateBack = { navController.popBackStack() }
-            )
-        }
+            composable(PosRoutes.CATALOG_CATEGORIES) {
+                val parentEntry = navController.getBackStackEntry(PosRoutes.CATALOG_GRAPH)
+                val catalogViewModel = hiltViewModel<CatalogViewModel>(parentEntry)
+                CategoryManagementScreen(
+                    viewModel = catalogViewModel,
+                    onNavigateBack = { navController.popBackStack() }
+                )
+            }
 
-        composable(
-            PosRoutes.CATALOG_MENU_ITEM_EDIT,
-            arguments = listOf(navArgument("itemId") { type = NavType.StringType })
-        ) { backStackEntry ->
-            val itemId = backStackEntry.arguments?.getString("itemId") ?: return@composable
-            val catalogViewModel = hiltViewModel<CatalogViewModel>()
-            MenuItemFormScreen(
-                viewModel = catalogViewModel,
-                editItemId = ProductId(itemId),
-                onNavigateBack = { navController.popBackStack() }
-            )
-        }
+            composable(PosRoutes.CATALOG_MENU_ITEMS) {
+                val parentEntry = navController.getBackStackEntry(PosRoutes.CATALOG_GRAPH)
+                val catalogViewModel = hiltViewModel<CatalogViewModel>(parentEntry)
+                MenuItemManagementScreen(
+                    viewModel = catalogViewModel,
+                    onNavigateBack = { navController.popBackStack() },
+                    onNavigateToAddItem = { navController.navigate(PosRoutes.CATALOG_MENU_ITEM_ADD) },
+                    onNavigateToEditItem = { productId ->
+                        navController.navigate(PosRoutes.menuItemEdit(productId.value))
+                    }
+                )
+            }
 
-        // --- Modifier Groups ---
-        composable(PosRoutes.CATALOG_MODIFIERS) {
-            val catalogViewModel = hiltViewModel<CatalogViewModel>()
-            ModifierGroupManagementScreen(
-                viewModel = catalogViewModel,
-                onNavigateBack = { navController.popBackStack() },
-                onNavigateToAddGroup = { navController.navigate(PosRoutes.CATALOG_MODIFIER_ADD) },
-                onNavigateToEditGroup = { groupId ->
-                    navController.navigate(PosRoutes.modifierGroupEdit(groupId.value))
-                }
-            )
-        }
+            composable(PosRoutes.CATALOG_MENU_ITEM_ADD) {
+                val parentEntry = navController.getBackStackEntry(PosRoutes.CATALOG_GRAPH)
+                val catalogViewModel = hiltViewModel<CatalogViewModel>(parentEntry)
+                MenuItemFormScreen(
+                    viewModel = catalogViewModel,
+                    editItemId = null,
+                    onNavigateBack = { navController.popBackStack() }
+                )
+            }
 
-        composable(PosRoutes.CATALOG_MODIFIER_ADD) {
-            val catalogViewModel = hiltViewModel<CatalogViewModel>()
-            ModifierGroupFormScreen(
-                viewModel = catalogViewModel,
-                editGroupId = null,
-                onNavigateBack = { navController.popBackStack() }
-            )
-        }
+            composable(
+                PosRoutes.CATALOG_MENU_ITEM_EDIT,
+                arguments = listOf(navArgument("itemId") { type = NavType.StringType })
+            ) { backStackEntry ->
+                val itemId = backStackEntry.arguments?.getString("itemId") ?: return@composable
+                val parentEntry = navController.getBackStackEntry(PosRoutes.CATALOG_GRAPH)
+                val catalogViewModel = hiltViewModel<CatalogViewModel>(parentEntry)
+                MenuItemFormScreen(
+                    viewModel = catalogViewModel,
+                    editItemId = ProductId(itemId),
+                    onNavigateBack = { navController.popBackStack() }
+                )
+            }
 
-        composable(
-            PosRoutes.CATALOG_MODIFIER_EDIT,
-            arguments = listOf(navArgument("groupId") { type = NavType.StringType })
-        ) { backStackEntry ->
-            val groupId = backStackEntry.arguments?.getString("groupId") ?: return@composable
-            val catalogViewModel = hiltViewModel<CatalogViewModel>()
-            ModifierGroupFormScreen(
-                viewModel = catalogViewModel,
-                editGroupId = ModifierGroupId(groupId),
-                onNavigateBack = { navController.popBackStack() }
-            )
+            // --- Modifier Groups ---
+            composable(PosRoutes.CATALOG_MODIFIERS) {
+                val parentEntry = navController.getBackStackEntry(PosRoutes.CATALOG_GRAPH)
+                val catalogViewModel = hiltViewModel<CatalogViewModel>(parentEntry)
+                ModifierGroupManagementScreen(
+                    viewModel = catalogViewModel,
+                    onNavigateBack = { navController.popBackStack() },
+                    onNavigateToAddGroup = { navController.navigate(PosRoutes.CATALOG_MODIFIER_ADD) },
+                    onNavigateToEditGroup = { groupId ->
+                        navController.navigate(PosRoutes.modifierGroupEdit(groupId.value))
+                    }
+                )
+            }
+
+            composable(PosRoutes.CATALOG_MODIFIER_ADD) {
+                val parentEntry = navController.getBackStackEntry(PosRoutes.CATALOG_GRAPH)
+                val catalogViewModel = hiltViewModel<CatalogViewModel>(parentEntry)
+                ModifierGroupFormScreen(
+                    viewModel = catalogViewModel,
+                    editGroupId = null,
+                    onNavigateBack = { navController.popBackStack() }
+                )
+            }
+
+            composable(
+                PosRoutes.CATALOG_MODIFIER_EDIT,
+                arguments = listOf(navArgument("groupId") { type = NavType.StringType })
+            ) { backStackEntry ->
+                val groupId = backStackEntry.arguments?.getString("groupId") ?: return@composable
+                val parentEntry = navController.getBackStackEntry(PosRoutes.CATALOG_GRAPH)
+                val catalogViewModel = hiltViewModel<CatalogViewModel>(parentEntry)
+                ModifierGroupFormScreen(
+                    viewModel = catalogViewModel,
+                    editGroupId = ModifierGroupId(groupId),
+                    onNavigateBack = { navController.popBackStack() }
+                )
+            }
         }
     }
 }

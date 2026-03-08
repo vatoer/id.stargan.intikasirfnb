@@ -4,21 +4,21 @@
 >
 > **Last updated**: 2026-03-08
 > **Current Phase**: Phase 1 — Foundation & Standalone MVP (IN_PROGRESS)
-> **Active Sprint**: Session open/close complete — next: Transaction history, License & Activation
+> **Active Sprint**: Core PoS flow complete (menu→cart→payment→receipt→print). Next: Transaction history, License & Activation
 
 ---
 
 ## Quick Status
 
 ```
-Phase 1: Foundation & Standalone MVP    [################....] 79%   IN_PROGRESS
+Phase 1: Foundation & Standalone MVP    [###############.....] 73%   IN_PROGRESS (86% excl. License)
 Phase 2: Full PoS Features             [#...................] 5%    NOT_STARTED (early models scaffolded)
 Phase 3: Cloud Sync Foundation          [....................] 0%    NOT_STARTED
 Phase 4: Multi-Terminal                 [....................] 0%    NOT_STARTED
 Phase 5: Multi-Outlet & Multi-Tenant    [....................] 0%    NOT_STARTED
 ```
 
-> Progress bar: `#` = done, `.` = remaining.
+> Progress bar: `#` = done, `.` = remaining. Phase 1: 72 DONE, 1 PARTIAL, 25 NOT_STARTED (14 are License & Activation).
 
 ---
 
@@ -26,9 +26,9 @@ Phase 5: Multi-Outlet & Multi-Tenant    [....................] 0%    NOT_STARTED
 
 | Item | Detail |
 |------|--------|
-| **Working on** | Session open/close DONE. Next: Transaction history |
+| **Working on** | Core PoS flow DONE (POS screen + Payment + Receipt + Session + Printing). Responsive layout (phone/tablet) DONE |
 | **Blocked by** | — |
-| **Next up** | 1. Transaction history  2. License & Activation  3. Phase 2 features |
+| **Next up** | 1. Transaction history (1.5.17)  2. License & Activation (1.7.*)  3. NumberingSequence logic (1.3.9)  4. Phase 2 features |
 | **Decisions needed** | — |
 
 ---
@@ -95,15 +95,15 @@ Phase 5: Multi-Outlet & Multi-Tenant    [....................] 0%    NOT_STARTED
 | Task | Status | Notes |
 |------|--------|-------|
 | Domain (Sale, OrderLine, Payment, CashierSession) | DONE | Sale aggregate root with state machine (DRAFT→CONFIRMED→PAID→COMPLETED/VOIDED). OrderLine with OrderLineId(ULID), SelectedModifier, effectiveUnitPrice(), modifierTotal(). Payment with PaymentId(ULID). CashierSession with CashierSessionId(ULID) PK, terminalId column, closing reconciliation (closingCash, expectedCash, cashDifference). Sale: addLine, updateLine, removeLine, confirm, addPayment, complete, void, subtotal, totalAmount, changeDue. 17 use cases |
-| SalesChannel aggregate | DONE | SalesChannel entity replaces hardcoded OrderChannel enum. ChannelType(DINE_IN, TAKE_AWAY, DELIVERY_PLATFORM, OWN_DELIVERY), PriceAdjustmentType (4 types), PlatformConfig VO, resolvePrice(). Factory methods: dineIn(), takeAway(). Pre-seeded during onboarding. 3 use cases: Get/Save/Deactivate |
+| SalesChannel aggregate | DONE | SalesChannel entity replaces OrderChannel enum. ChannelType(4), PriceAdjustmentType(4), PlatformConfig VO, resolvePrice(). Factory: dineIn(), takeAway(). Pre-seeded during onboarding. 3 use cases. requiresTable deferred to Phase 2 (always false). **UI: SalesChannelSettingsScreen** — CRUD with type selector, pricing adjustments, platform config. Accessed via Settings → Penjualan |
 | TaxLine / ServiceChargeLine / TipLine | DONE | TaxLine.compute() (inclusive/exclusive), ServiceChargeLine.compute(), TipLine VO. Sale.applyTotals(), Sale.addTip()/removeTip(). Sale.taxTotal(), inclusiveTaxTotal(), serviceChargeAmount(), totalAmount() includes all. ConfirmSaleUseCase computes tax+SC from active TaxConfig + OutletSettings at confirmation time. CalculateSaleTotalsUseCase for preview. AddTipUseCase. All displayed in Payment + Receipt screens |
 | State machine + invariants | DONE | Full state machine: DRAFT→CONFIRMED→PAID→COMPLETED, DRAFT/CONFIRMED→VOIDED. Channel validation dynamic via SalesChannel entity. Tax/SC computed at confirmation. Payment auto-transitions to PAID via isFullyPaidAfter(). Invariants: no mutations on non-DRAFT (except tip/payment on CONFIRMED), non-empty lines required for confirm |
 | Data layer | DONE | Entities + DAOs + mappers + repos (incl. Table, SalesChannel). SaleRepositoryImpl uses withTransaction for atomic save. DB v10, 20 tables |
-| UI: PoS main screen | DONE | Split layout: menu grid (left, category filter + search + LazyVerticalGrid) + cart panel (right, qty +/-, remove, subtotal, BAYAR button). SalesChannel selector in TopBar. Auto-creates draft Sale on first item tap, increments qty if same item tapped again. PosViewModel with 5 transaction use cases. Navigation wired from LandingScreen |
-| UI: Payment screen | DONE | Split layout: order summary (left 45%) + payment input (right 55%). 5 payment methods (Tunai/Kartu/E-Wallet/Transfer/Lainnya) via FilterChip. Cash: quick denomination buttons (Uang Pas + smart roundups), kembalian card. Non-cash: reference input field. Flow: ConfirmSale (computes tax+SC) → AddPayment (auto PAID) → CompleteSale. Success screen with payment details + "Transaksi Baru" button. PaymentViewModel with SavedStateHandle for saleId nav arg. 4 new use case DI providers |
-| UI: Receipt | DONE | Receipt preview screen (card layout: header/outlet info, line items with modifiers/notes/discount, tax/SC/tip breakdown, grand total, payment details + kembalian, footer). Print integration via ReceiptViewModel: loads OutletSettings + TerminalSettings, builds ESC/POS bytes via buildSaleReceipt(), auto-prints if autoPrintReceipt=true. Print button + print count indicator. "Transaksi Baru" button. Navigation: Payment → Receipt/{saleId} → fresh POS |
+| UI: PoS main screen | DONE | Responsive layout: phone (BottomSheetScaffold cart with FAB badge, 100dp cards) vs tablet (60/40 split). Category filter + search + SalesChannel selector. Auto-creates DRAFT on first item tap. navigationBarsPadding() |
+| UI: Payment screen | DONE | Responsive (phone: column + fixed bar, tablet: side-by-side). 5 methods. Cash: quick denominations + kembalian. Non-cash: autofill remaining. Multi-payment always on (no split toggle) — stage→review→BAYAR. RemovePaymentUseCase. Receipt + print merged into success screen |
+| UI: Receipt | DONE | Merged into Payment success screen. Receipt card: outlet header, items, tax/SC/tip, payment + kembalian, footer. buildSaleReceipt() ESC/POS. Auto-print if configured. Print count badge ("Dicetak 2x"). Multi-copy |
 | UI: Session open/close | DONE | CashierSessionScreen: active session view (details + "Mulai Transaksi" + "Tutup Sesi") + no-session view ("Buka Sesi Kasir"). Open dialog: opening float input with IDR preview. Close dialog: expected cash display, actual cash input, selisih calculation (lebih/kurang/sesuai), notes field. CashierSessionViewModel with 3 use cases (Open/Close/GetCurrent). Navigation: Landing "POS" → CashierSession → POS. DI providers in AppModule |
-| Receipt printing | DONE | ESC/POS builder (domain) with raster bitmap (GS v 0), BluetoothPrinterService (SPP, 1.5s flush delay), PrinterServiceFactory (BT discovery, BroadcastReceiver, StateFlow). ReceiptConfig-driven test print + sale receipt print. buildSaleReceipt() in domain/printer: full receipt with header (logo/name/address/NPWP), order info, line items (modifiers/notes/discount), tax/SC/tip, payment, kembalian, footer. Auto-print on receipt screen load. Multi-copy support |
+| Receipt printing | DONE | ESC/POS builder + raster bitmap (GS v 0). BluetoothPrinterService (SPP, 1.5s flush). buildSaleReceipt(): full receipt header/items/tax/payment/footer. Auto-print on payment complete. Multi-copy. LogoBitmapProcessor (Floyd-Steinberg dithering) |
 | Tests | DONE | 50 tests: SaleTest(34) — state machine, ID uniqueness, modifiers, updateLine/removeLine, subtotal/changeDue, multi-payment, discount, CashierSession reconciliation. SalesChannelTest(16) — factories, validation, price resolution (4 types), enum completeness |
 
 ### 1.7 License & Activation (AppReg)
@@ -130,7 +130,7 @@ Phase 5: Multi-Outlet & Multi-Tenant    [....................] 0%    NOT_STARTED
 | Task | Status | Notes |
 |------|--------|-------|
 | Landing page | DONE | 6-item grid with icons |
-| Navigation graph | DONE | Auth + Settings + Catalog + PoS + Payment + Receipt + Session routes. 22 routes total |
+| Navigation graph | DONE | All Phase 1 routes: auth + settings + catalog + PoS + payment + session. 22+ routes total |
 | Theme & design system | DONE | Material 3, light/dark, green palette |
 | Splash + first-run | DONE | CheckOnboardingNeededUseCase |
 
@@ -152,15 +152,16 @@ Phase 5: Multi-Outlet & Multi-Tenant    [....................] 0%    NOT_STARTED
 
 | Metric | Current | Target |
 |--------|---------|--------|
-| Phase 1 tasks DONE | 73/92 (79%) | 92/92 (100%) |
-| Phase 1 tasks PARTIAL | 0/92 (0%) | 0 |
+| Phase 1 tasks DONE | 72/98 (73%) | 98/98 (100%) |
+| Phase 1 tasks DONE (excl License) | 72/84 (86%) | 84/84 (100%) |
+| Phase 1 tasks PARTIAL | 1/98 (1%) | 0 |
 | Domain unit tests | 157 (all passing) | >= 80% coverage |
 | Data test coverage | 0% | >= 60% |
 | Open blockers | 1 (B3: destructive migration) | 0 |
 | ADRs documented | 7 | — |
 | Bounded contexts (domain models) | 9/13 | 13 |
 | Use cases implemented | 42 | — |
-| UI screens implemented | 23 (auth + settings + catalog + PoS + Payment + Receipt + Session) | ~25 (Phase 1 complete) |
+| UI screens implemented | 23 (auth + settings + catalog + PoS + Payment/Receipt + Session) | ~25 (Phase 1 complete) |
 | Room tables | 20 | — |
 | Room DB version | 10 | — |
 
@@ -189,6 +190,9 @@ Phase 5: Multi-Outlet & Multi-Tenant    [....................] 0%    NOT_STARTED
 | 2026-03-08 | First transaction end-to-end complete | Full flow working: Landing → POS (browse menu, add to cart) → Payment (confirm sale with tax/SC, select method, pay) → Receipt (preview + print) → new transaction. All domain use cases wired through UI |
 | 2026-03-08 | Session open/close UI complete | CashierSessionScreen with open/close dialogs, CashierSessionViewModel with 3 use cases, navigation gate before POS (Landing → Session → POS). Open dialog: opening float input. Close dialog: expected vs actual cash with selisih calculation + notes. 3 new DI providers in AppModule |
 | 2026-03-08 | Payment screen + confirmation complete | Split layout: order summary (left, line items + tax/SC breakdown + total) + payment input (right, method selector + cash/reference input + pay button). Full payment flow: ConfirmSale (tax+SC computation) → AddPayment (auto PAID) → CompleteSale (COMPLETED). Cash: quick denomination buttons with smart roundups, kembalian display. Non-cash: reference input per method. Success screen with check icon, payment details, kembalian, "Transaksi Baru" button. PaymentViewModel with SavedStateHandle for saleId navigation arg. 4 new use case DI providers (GetSaleById, ConfirmSale, AddPayment, CompleteSale). Navigation: POS → Payment/{saleId} → back to fresh POS on complete |
+| 2026-03-08 | Responsive POS layout (phone/tablet) | BoxWithConstraints with 600dp breakpoint. Phone: BottomSheetScaffold (peek bar cart summary, FAB with cart badge, 100dp menu cards). Tablet: 60/40 split panel (140dp cards). navigationBarsPadding() on all bottom-anchored elements (snackbar, cart summary, FAB, payment bar). Cart summary shrunk fonts for 8-digit amounts |
+| 2026-03-08 | 2-step split payment | Modern F&B PoS pattern: StagedPayment (local, not persisted) → stage multiple entries → review with remove → BAYAR batch commit. Non-cash autofills remaining amount. RemovePaymentUseCase + Sale.removePayment() added for domain completeness. Receipt preview merged into payment success screen |
+| 2026-03-08 | Dine In channel fix | SalesChannel.requiresTable deferred to Phase 2 (always returns false). Table management not yet implemented — prevents "Table is required for Dine In" error |
 
 ---
 
@@ -198,11 +202,15 @@ Phase 5: Multi-Outlet & Multi-Tenant    [....................] 0%    NOT_STARTED
 |--------|-----------|--------------|
 | DONE | Architecture gaps closed (SalesChannel migration) | B2 resolved |
 | DONE | Catalog UI working (CRUD categories + menu items + modifiers) | — |
-| DONE | PoS main screen (menu grid + cart) | Catalog UI |
-| DONE | Payment screen + confirmation | PoS screen |
-| DONE | Receipt UI + print integration | Payment screen |
+| DONE | PoS main screen (responsive phone/tablet) | Catalog UI |
+| DONE | Payment screen + 2-step split payment | PoS screen |
+| DONE | Receipt + print merged into payment success | Payment screen |
 | DONE | First transaction end-to-end (PoS → payment → receipt print) | All done |
 | DONE | Session open/close UI | Transaction domain |
+| DONE | Responsive layout (phone BottomSheet + tablet split) | — |
+| — | Transaction history (1.5.17) | Transaction domain |
+| — | Numbering sequence (1.3.9) | Settings domain |
+| — | License & Activation (1.7.*) | External: AppReg server |
 | — | Phase 1: Standalone MVP release | All 1.x tasks |
 
 ---
@@ -239,6 +247,9 @@ Decisions made during implementation. For full rationale, see [ADR/](adr/).
 - **2026-03-08**: Receipt UI + print integration implemented. Key design decisions: (1) Separate ReceiptScreen (not embedded in PaymentSuccess) — allows clean navigation (Payment → Receipt → fresh POS), receipt can be re-visited or printed multiple times. (2) `buildSaleReceipt()` function in domain/printer — pure Kotlin, mirrors TestReceiptBuilder pattern but takes real Sale object. Renders: outlet header (logo/name/address/phone/NPWP), order info (receipt number/date/cashier/channel/table), line items (name, qty x unitPrice, modifiers, notes, discount), subtotals (subtotal/tax lines/SC/tip), grand total, payment info (method/amount/reference/kembalian), footer (thank you, social media, custom text), auto-cut + cash drawer. (3) ReceiptViewModel loads OutletSettings + TerminalSettings separately from PaymentViewModel — decoupled concerns (payment flow vs print flow). Uses same PrinterServiceFactory + LogoBitmapProcessor pattern from SettingsViewModel. (4) Auto-print on screen load if `printer.autoPrintReceipt == true` — reduces cashier taps. (5) Multi-copy via `printer.receiptCopies` config. (6) Print status tracking (IDLE/PRINTING/SUCCESS/ERROR) with print count badge ("Dicetak 2x"). (7) Receipt preview as centered Card with 400dp max width — looks like a real receipt on screen. (8) Print button disabled with "Printer Belum Diatur" message if no printer configured. (9) Navigation: Payment.onPaymentComplete → Receipt/{saleId} (replaces Payment in backstack), Receipt.onDone → pop to POS inclusive + navigate fresh POS.
 - **2026-03-08**: Payment screen + confirmation implemented. Key design decisions: (1) Split-panel layout (45% order summary / 55% payment input) — order summary shows line items with unit price x qty, tax/SC breakdown (from ConfirmSaleUseCase), grand total. (2) ConfirmSaleUseCase called on screen load — transitions DRAFT→CONFIRMED with computed TaxLine/ServiceChargeLine snapshots. This ensures tax+SC are always current even if settings changed after cart was built. (3) Cash payment: smart quick-cash denomination buttons via `buildQuickCashAmounts()` — rounds up total to nearest 1K/5K/10K/20K/50K/100K + adds common larger bills. "Uang Pas" button for exact amount. Kembalian (change due) displayed in tertiary container. (4) Non-cash methods: reference/approval input field with per-method placeholder label (no amount input needed — full amount assumed). (5) Payment flow is atomic: AddPaymentUseCase auto-transitions to PAID via `Sale.isFullyPaidAfter()`, then CompleteSaleUseCase transitions PAID→COMPLETED. (6) Success screen uses full-screen centered layout with CheckCircle icon, payment summary card, and "Transaksi Baru" button that pops back to fresh POS screen via `popBackStack(POS, inclusive=true) + navigate(POS)`. (7) PaymentViewModel uses `SavedStateHandle` to receive saleId from navigation argument — follows Android best practice for nav args in ViewModels. (8) `formatCashDisplay()` uses Indonesian number format for thousand separators in cash input. (9) Back navigation disabled on success screen to prevent returning to completed sale.
 - **2026-03-08**: PoS main screen implemented. Key design decisions: (1) Split-panel layout with Row weights (0.6 menu / 0.4 cart) — designed for tablet landscape, works on phone portrait too. (2) Auto-create DRAFT Sale on first item tap — no explicit "new order" step, reduces friction. (3) Same-item re-tap increments qty (matched by productId + empty modifiers) instead of adding duplicate line. (4) SalesChannel selector as FilterChip in TopBar — quick switching between Dine In / Take Away / Delivery. (5) Cart panel with qty +/- controls, per-line remove, clear all — uses domain use cases (UpdateLineItem, RemoveLineItem) that persist to Room on every change. (6) Transaction use cases injected via AppModule @Provides — use cases don't have @Inject constructors, following existing pattern. (7) IDR currency formatting via NumberFormat.getCurrencyInstance(Locale("id", "ID")). (8) Menu item cards show AsyncImage (Coil) or 2-letter initials as fallback. (9) "BAYAR" button callback ready for Payment screen (onNavigateToPayment with saleId).
+- **2026-03-08**: Responsive POS layout implemented. Phone uses BottomSheetScaffold with peek bar (80dp) cart summary + FAB with cart badge. Tablet keeps 60/40 split panel. BoxWithConstraints with 600dp breakpoint. Phone menu cards shrunk to 100dp/50dp (vs 140dp/80dp on tablet). Cart summary font sizes reduced for 8-digit IDR amounts. navigationBarsPadding() added to all bottom-anchored elements (snackbar hosts, cart summary pay button, payment action bars, FAB) to prevent Android nav bar overlap.
+- **2026-03-08**: Payment screen redesigned with 2-step split payment flow following modern F&B PoS best practice. StagedPayment data class (local, not persisted to DB) allows cashier to stage multiple payment entries (Tunai + Kartu, etc), review them, remove mistakes, then commit all at once via BAYAR button. Non-cash methods now autofill remaining amount (editable). RemovePaymentUseCase + Sale.removePayment() added to domain for completeness. Receipt preview merged into payment success screen (was separate ReceiptScreen). PrintStatus enum: IDLE/PRINTING/SUCCESS/ERROR.
+- **2026-03-08**: SalesChannel.requiresTable deferred to Phase 2. Was hardcoded `channelType == DINE_IN` which caused "Table is required for Dine In" error since table management doesn't exist yet. Now always returns false — table selection will be required when table management is implemented in Phase 2.
 - **2026-03-07**: Catalog modifier architecture refactored from embedded JSON (Option A) to separate entities (Option B). Rationale: FnB modifiers (Size, Sugar Level, Ice Level) are reused across many items — embedded JSON causes duplication nightmare and makes "rename modifier" require updating 20+ items. New schema: modifier_groups (tenant-scoped, reusable), modifier_options (FK CASCADE from group), menu_item_modifier_groups (junction with per-item overrides: isRequired, minSelection, maxSelection). OrderLine.modifierSnapshot remains JSON (transaction snapshot pattern unchanged). MenuItem gained imageUri field. DB v9.
 
 ---

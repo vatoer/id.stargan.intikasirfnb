@@ -3,7 +3,7 @@
 > Living document. Update setiap kali ada perubahan scope, prioritas, atau timeline.
 >
 > **Last updated**: 2026-03-08
-> **Version**: 1.5.0
+> **Version**: 1.6.0
 >
 > **Gap Analysis**: [GAP_ANALYSIS_2026-03-07.md](GAP_ANALYSIS_2026-03-07.md) — snapshot kondisi code vs plan.
 
@@ -184,23 +184,23 @@ Phase 5: Multi-Outlet & Multi-Tenant
 | 1.5.5b | Domain: VOs (`SaleId`, `SalesChannelId`, `PaymentMethod`, `PriceAdjustmentType`) | domain | 1.1.7 | DONE | All ULID-based: SaleId, SalesChannelId, OrderLineId, PaymentId, CashierSessionId, TableId. PriceAdjustmentType(MARKUP_PERCENT, MARKUP_FIXED, DISCOUNT_PERCENT, DISCOUNT_FIXED) |
 | 1.5.5c | Domain: Channel pricing logic — base price + markup/discount per channel | domain | 1.5.5, 1.4.2 | DONE | resolvePrice(basePrice) on SalesChannel entity. 4 adjustment types. CreateSaleUseCase validates channel rules dynamically |
 | 1.5.5d | Data: Room entity + DAO + repository impl for SalesChannel | data | 1.5.5, 1.1.4 | DONE | SalesChannelEntity with flattened PlatformConfig columns. SalesChannelDao (CRUD + countByTenant). SalesChannelRepositoryImpl + mapper. Pre-seed Dine In + Take Away via CompleteOnboardingUseCase. DB v10, 20 tables |
-| 1.5.5e | UI: Sales channel management screen (CRUD channels, set pricing, platform config) | presentation | 1.5.5c | NOT_STARTED | |
+| 1.5.5e | UI: Sales channel management screen (CRUD channels, set pricing, platform config) | presentation | 1.5.5c | DONE | SalesChannelSettingsScreen: list with type icon, name, code, adjustment info, platform config. Add/edit dialog: ChannelType selector (FilterChips), name, code, sortOrder, price adjustment toggle (4 types), PlatformConfig section (delivery only). SalesChannelViewModel (HiltViewModel). Navigation: Settings → Penjualan → Channel Penjualan. 2 new DI providers (Save/Deactivate) |
 | 1.5.6 | Domain: `ProductSnapshot` VO (ACL from Catalog, **price = channel-adjusted price**) | domain | 1.4.2, 1.5.5c | DONE | ProductRef(productId, name, price, taxCode) with ProductRef.from(menuItem) factory |
-| 1.5.6b | Domain: `TaxLine`, `ServiceChargeLine`, `TipLine` VOs on Sale | domain | 1.5.1, 1.3.4b-d | NOT_STARTED | Tax/SC/tip snapshot di transaksi |
-| 1.5.6c | Domain: `CalculateSaleTotalsUseCase` — hitung subtotal, tax lines, SC, grandTotal | domain | 1.5.6b, 1.3.6 | NOT_STARTED | Resolves TaxConfig + SC config per channel |
-| 1.5.6d | Domain: `AddTipUseCase` — tambah tip ke Sale | domain | 1.5.6b | NOT_STARTED | ADDED_TO_BILL or SEPARATE_CASH |
+| 1.5.6b | Domain: `TaxLine`, `ServiceChargeLine`, `TipLine` VOs on Sale | domain | 1.5.1, 1.3.4b-d | DONE | TaxLine.compute() (inclusive/exclusive), ServiceChargeLine.compute(), TipLine VO. Sale.applyTotals(), taxTotal(), inclusiveTaxTotal(), serviceChargeAmount(), totalAmount() includes all |
+| 1.5.6c | Domain: `CalculateSaleTotalsUseCase` — hitung subtotal, tax lines, SC, grandTotal | domain | 1.5.6b, 1.3.6 | DONE | Resolves active TaxConfig + OutletSettings SC at confirmation. ConfirmSaleUseCase computes tax+SC snapshot. CalculateSaleTotalsUseCase for preview |
+| 1.5.6d | Domain: `AddTipUseCase` — tambah tip ke Sale | domain | 1.5.6b | DONE | Sale.addTip()/removeTip(). AddTipUseCase. Displayed in Payment + Receipt screens |
 | 1.5.7 | Domain: Events (`SaleCreated`, `LineItemAdded`, `PaymentReceived`, `SaleCompleted`, `SaleVoided`) | domain | 1.5.1 | NOT_STARTED | No event infrastructure |
-| 1.5.8 | Domain: Invariants (payment >= grandTotal incl tax/SC/tip, valid transitions, price snapshot) | domain | 1.5.1-3, 1.5.6b | PARTIAL | State machine transitions enforced via Sale methods. MISSING: tax/SC/tip in total calculation |
+| 1.5.8 | Domain: Invariants (payment >= grandTotal incl tax/SC/tip, valid transitions, price snapshot) | domain | 1.5.1-3, 1.5.6b | DONE | State machine transitions enforced. Tax/SC/tip computed at confirmation. Payment auto-transitions to PAID via isFullyPaidAfter(). Channel validation dynamic via SalesChannel entity |
 | 1.5.9 | Domain: Repository interfaces (`SaleRepository`, `CashierSessionRepository`) | domain | 1.5.1, 1.5.4 | DONE | + TableRepository |
 | 1.5.10 | Domain: Use cases (CreateSale, AddLineItem, AddPayment, CompleteSale, VoidSale, OpenSession, CloseSession) | domain | 1.5.9 | DONE | 17 use cases: CreateSale, AddLineItem, UpdateLineItem, RemoveLineItem, AddPayment, ConfirmSale, CompleteSale, VoidSale, GetSaleById, GetSalesByOutlet, OpenCashierSession, CloseCashierSession, GetCurrentCashierSession, GetTablesByOutlet, GetSalesChannels, SaveSalesChannel, DeactivateSalesChannel |
 | 1.5.11 | Data: Room entities + DAOs for Sale, OrderLine, Payment, CashierSession, SalesChannel | data | 1.5.9, 1.1.4 | DONE | SaleEntity (channelId, receiptNumber, notes), OrderLineEntity (notes, modifiers JSON), PaymentEntity (PaymentId), CashierSessionEntity (CashierSessionId PK, closing fields), SalesChannelEntity (flattened PlatformConfig), TableEntity + DAOs. Sync metadata on all. DB v10 |
 | 1.5.12 | Data: Repository implementations + mappers | data | 1.5.11 | DONE | SaleRepositoryImpl (atomic withTransaction: 3 DAOs), CashierSessionRepoImpl (getById, listByOutlet), SalesChannelRepoImpl, TableRepoImpl + TransactionMappers (SelectedModifier JSON via org.json) + SalesChannelMapper |
-| 1.5.13 | UI: PoS main screen (menu grid + cart) | presentation | 1.5.10, 1.4.7 | NOT_STARTED | Core PoS experience — domain ready, UI missing |
-| 1.5.14 | UI: Payment screen (method selection, amount, change) | presentation | 1.5.10 | NOT_STARTED | |
-| 1.5.15 | UI: Receipt view (on-screen preview) | presentation | 1.5.10, 1.3.6 | NOT_STARTED | Use receipt template from Settings |
-| 1.5.16 | UI: Open/close cashier session flow | presentation | 1.5.10 | NOT_STARTED | |
+| 1.5.13 | UI: PoS main screen (menu grid + cart) | presentation | 1.5.10, 1.4.7 | DONE | Responsive layout: phone (BottomSheetScaffold cart, FAB) vs tablet (60/40 split panel). Category filter, search, SalesChannel selector. Auto-creates DRAFT Sale on first item tap |
+| 1.5.14 | UI: Payment screen (method selection, amount, change) | presentation | 1.5.10 | DONE | Responsive layout. 5 payment methods. Cash: quick denomination buttons + kembalian. Non-cash: autofill remaining amount. 2-step split payment (stage→review→BAYAR). ConfirmSale→AddPayment→CompleteSale flow |
+| 1.5.15 | UI: Receipt view (on-screen preview) | presentation | 1.5.10, 1.3.6 | DONE | Merged into Payment success screen. Receipt card: outlet header, line items, tax/SC/tip breakdown, payment info, kembalian. Print button + auto-print |
+| 1.5.16 | UI: Open/close cashier session flow | presentation | 1.5.10 | DONE | CashierSessionScreen: open dialog (float input), close dialog (expected vs actual cash, selisih, notes). Navigation gate before POS |
 | 1.5.17 | UI: Transaction history list | presentation | 1.5.10 | NOT_STARTED | |
-| 1.5.18 | Receipt printing (Bluetooth thermal printer) | infra | 1.5.15, 1.3.2 | PARTIAL | ESC/POS builder (domain) with raster bitmap (GS v 0 command), BluetoothPrinterService (SPP UUID, 10s timeout, 1.5s flush delay), PrinterServiceFactory (BT discovery via BroadcastReceiver, StateFlow). ReceiptConfig-driven buildTestReceipt (header/footer/logo/NPWP/socialMedia). LogoBitmapProcessor: Floyd-Steinberg dithering, .bin cache. Test print working. Not yet integrated with actual sale receipts |
+| 1.5.18 | Receipt printing (Bluetooth thermal printer) | infra | 1.5.15, 1.3.2 | DONE | ESC/POS builder with raster bitmap (GS v 0). BluetoothPrinterService (SPP, 1.5s flush delay). buildSaleReceipt(): full receipt with header/items/tax/SC/tip/payment/footer. Auto-print on payment complete. Multi-copy support. LogoBitmapProcessor with Floyd-Steinberg dithering |
 | 1.5.19 | Unit tests: Sale aggregate, state machine, invariants, SalesChannel | test | 1.5.1-8 | DONE | 50 tests: SaleTest(34) — state machine, ID uniqueness, modifiers, updateLine/removeLine, subtotal/changeDue, multi-payment, discount, CashierSession reconciliation. SalesChannelTest(16) — factories, validation, price resolution (4 types), enum completeness |
 | 1.5.20 | Integration tests: transaction flow end-to-end | test | 1.5.11-12 | NOT_STARTED | |
 
@@ -209,7 +209,7 @@ Phase 5: Multi-Outlet & Multi-Tenant
 | # | Task | Layer | Depends On | Status | Notes |
 |---|------|-------|------------|--------|-------|
 | 1.6.1 | Landing page / home screen (navigation hub) | presentation | 1.1.5 | DONE | 6-item grid: PoS, Katalog, Pelanggan, Laporan, Meja, Pengaturan. Shows user/outlet name, logout |
-| 1.6.2 | Navigation graph (all Phase 1 screens) | presentation | 1.6.1 | PARTIAL | Auth + Settings + Catalog complete incl. menu item add/edit + modifier group add/edit with navArguments (splash→onboarding→login→outlet→landing→settings/*, catalog/*). MISSING: navigation to PoS screens |
+| 1.6.2 | Navigation graph (all Phase 1 screens) | presentation | 1.6.1 | DONE | All Phase 1 routes: auth (splash→onboarding→login→outlet→landing), settings/*, catalog/*, PoS (session→pos→payment/{saleId}). 22+ routes total |
 | 1.6.3 | App theme & design system (colors, typography, components) | presentation | 1.1.1 | DONE | Material 3, light/dark mode, green palette (#1B5E20) |
 | 1.6.4 | Splash screen + first-run detection | presentation | 1.2.11 | DONE | SplashScreen → CheckOnboardingNeededUseCase → route to onboarding or login |
 | 1.6.5 | Integrate license check into startup flow | presentation | 1.7.13, 1.6.4 | NOT_STARTED | Splash → License check → Activation or Onboarding/Login. See [4.7](#47-license--activation-appreg-integration) |
@@ -246,11 +246,11 @@ Phase 5: Multi-Outlet & Multi-Tenant
 - [ ] License activation via serial number (AppReg)
 - [ ] Offline license verification (Ed25519) at startup
 - [x] CRUD kategori dan menu item
-- [ ] Buka sesi kasir dengan modal awal
-- [ ] Buat transaksi: pilih item, bayar cash, cetak receipt (termasuk tax, service charge)
-- [ ] Tax, service charge, dan tip terhitung otomatis berdasarkan Settings
+- [x] Buka sesi kasir dengan modal awal
+- [x] Buat transaksi: pilih item, bayar cash, cetak receipt (termasuk tax, service charge)
+- [x] Tax, service charge, dan tip terhitung otomatis berdasarkan Settings
 - [ ] Lihat history transaksi
-- [ ] Tutup sesi kasir dengan rekapitulasi
+- [x] Tutup sesi kasir dengan rekapitulasi
 - [x] Semua data persist di Room (survive app restart)
 - [x] Semua entity mempunyai sync metadata (ULID, syncStatus, terminalId)
 - [ ] Unit test coverage: domain logic >= 80%
