@@ -11,6 +11,7 @@ import id.stargan.intikasirfnb.data.local.PosDatabase
 import id.stargan.intikasirfnb.data.local.dao.CashierSessionDao
 import id.stargan.intikasirfnb.data.local.dao.CategoryDao
 import id.stargan.intikasirfnb.data.local.dao.CustomerDao
+import id.stargan.intikasirfnb.data.local.dao.KitchenTicketDao
 import id.stargan.intikasirfnb.data.local.dao.MenuItemDao
 import id.stargan.intikasirfnb.data.local.dao.MenuItemModifierGroupDao
 import id.stargan.intikasirfnb.data.local.dao.ModifierGroupDao
@@ -65,4 +66,5 @@ object DatabaseModule {
     @Provides fun provideTerminalSettingsDao(db: PosDatabase): TerminalSettingsDao = db.terminalSettingsDao()
     @Provides fun providePlatformSettlementDao(db: PosDatabase): PlatformSettlementDao = db.platformSettlementDao()
     @Provides fun providePriceListDao(db: PosDatabase): PriceListDao = db.priceListDao()
+    @Provides fun provideKitchenTicketDao(db: PosDatabase): KitchenTicketDao = db.kitchenTicketDao()
 }

@@ -523,7 +523,18 @@ class PosViewModel @Inject constructor(
             try {
                 val sale = _uiState.value.currentSale ?: return@launch
                 _uiState.update { it.copy(isSendingToKitchen = true) }
-                val result = sendToKitchenUseCase(sale.id)
+                val state = _uiState.value
+                val tableName = sale.tableId?.let { tableId ->
+                    state.tables.find { it.id == tableId }?.name
+                }
+                val channelName = sale.channelId.let { channelId ->
+                    state.salesChannels.find { it.id == channelId }?.name
+                }
+                val result = sendToKitchenUseCase(
+                    saleId = sale.id,
+                    tableName = tableName,
+                    channelName = channelName
+                )
                 val ticketResult = result.getOrThrow()
                 // Refresh open orders
                 val outlet = sessionManager.getCurrentOutlet()

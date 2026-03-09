@@ -45,7 +45,11 @@ import id.stargan.intikasirfnb.domain.usecase.transaction.DeactivateSalesChannel
 import id.stargan.intikasirfnb.domain.usecase.transaction.OpenCashierSessionUseCase
 import id.stargan.intikasirfnb.domain.usecase.transaction.GetSalesByOutletUseCase
 import id.stargan.intikasirfnb.domain.usecase.transaction.RemoveLineItemUseCase
+import id.stargan.intikasirfnb.domain.shared.DomainEventBus
 import id.stargan.intikasirfnb.domain.usecase.transaction.SendToKitchenUseCase
+import id.stargan.intikasirfnb.domain.usecase.workflow.GetActiveKitchenTicketsUseCase
+import id.stargan.intikasirfnb.domain.usecase.workflow.UpdateKitchenTicketStatusUseCase
+import id.stargan.intikasirfnb.domain.workflow.KitchenTicketRepository
 import id.stargan.intikasirfnb.domain.usecase.transaction.GetOpenSalesUseCase
 import id.stargan.intikasirfnb.domain.usecase.transaction.GenerateQueueNumberUseCase
 import id.stargan.intikasirfnb.domain.usecase.transaction.AssignTableUseCase
@@ -208,8 +212,23 @@ object AppModule {
     @Provides
     @Singleton
     fun provideSendToKitchenUseCase(
-        saleRepository: SaleRepository
-    ): SendToKitchenUseCase = SendToKitchenUseCase(saleRepository)
+        saleRepository: SaleRepository,
+        kitchenTicketRepository: KitchenTicketRepository,
+        eventBus: DomainEventBus
+    ): SendToKitchenUseCase = SendToKitchenUseCase(saleRepository, kitchenTicketRepository, eventBus)
+
+    @Provides
+    @Singleton
+    fun provideUpdateKitchenTicketStatusUseCase(
+        kitchenTicketRepository: KitchenTicketRepository,
+        eventBus: DomainEventBus
+    ): UpdateKitchenTicketStatusUseCase = UpdateKitchenTicketStatusUseCase(kitchenTicketRepository, eventBus)
+
+    @Provides
+    @Singleton
+    fun provideGetActiveKitchenTicketsUseCase(
+        kitchenTicketRepository: KitchenTicketRepository
+    ): GetActiveKitchenTicketsUseCase = GetActiveKitchenTicketsUseCase(kitchenTicketRepository)
 
     @Provides
     @Singleton

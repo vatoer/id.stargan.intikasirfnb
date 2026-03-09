@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "417681376108",
+    "project_id": "aio-multipos",
+    "storage_bucket": "aio-multipos.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:417681376108:android:41d170c33917b03c6f2949",
+        "android_client_info": {
+          "package_name": "id.stargan.intikasirfnb"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAjfibi7tAEWLoyJE5LiHO8AUO0yXbsk9w"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

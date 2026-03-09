@@ -5,6 +5,7 @@ import dagger.Provides
 import dagger.hilt.InstallIn
 import dagger.hilt.components.SingletonComponent
 import id.stargan.intikasirfnb.data.local.dao.CashierSessionDao
+import id.stargan.intikasirfnb.data.local.dao.KitchenTicketDao
 import id.stargan.intikasirfnb.data.local.dao.CategoryDao
 import id.stargan.intikasirfnb.data.local.dao.CustomerDao
 import id.stargan.intikasirfnb.data.local.dao.MenuItemDao
@@ -26,6 +27,7 @@ import id.stargan.intikasirfnb.data.local.dao.UserDao
 import id.stargan.intikasirfnb.data.repository.CashierSessionRepositoryImpl
 import id.stargan.intikasirfnb.data.repository.CategoryRepositoryImpl
 import id.stargan.intikasirfnb.data.repository.CustomerRepositoryImpl
+import id.stargan.intikasirfnb.data.repository.KitchenTicketRepositoryImpl
 import id.stargan.intikasirfnb.data.repository.MenuItemRepositoryImpl
 import id.stargan.intikasirfnb.data.repository.ModifierGroupRepositoryImpl
 import id.stargan.intikasirfnb.data.repository.OutletRepositoryImpl
@@ -63,6 +65,9 @@ import id.stargan.intikasirfnb.domain.catalog.PriceListRepository
 import id.stargan.intikasirfnb.domain.transaction.PlatformSettlementRepository
 import id.stargan.intikasirfnb.domain.transaction.SalesChannelRepository
 import id.stargan.intikasirfnb.domain.transaction.TableRepository
+import id.stargan.intikasirfnb.domain.workflow.KitchenTicketRepository
+import id.stargan.intikasirfnb.domain.shared.DomainEventBus
+import id.stargan.intikasirfnb.data.event.InProcessDomainEventBus
 import id.stargan.intikasirfnb.domain.sync.SyncEngine
 import id.stargan.intikasirfnb.data.sync.NoOpSyncEngine
 import javax.inject.Singleton
@@ -162,6 +167,15 @@ object RepositoryModule {
     @Singleton
     fun providePlatformSettlementRepository(dao: PlatformSettlementDao): PlatformSettlementRepository =
         PlatformSettlementRepositoryImpl(dao)
+
+    @Provides
+    @Singleton
+    fun provideKitchenTicketRepository(dao: KitchenTicketDao): KitchenTicketRepository =
+        KitchenTicketRepositoryImpl(dao)
+
+    @Provides
+    @Singleton
+    fun provideDomainEventBus(): DomainEventBus = InProcessDomainEventBus()
 
     @Provides
     @Singleton
