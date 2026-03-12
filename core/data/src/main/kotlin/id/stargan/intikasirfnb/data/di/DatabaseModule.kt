@@ -8,6 +8,9 @@ import dagger.hilt.InstallIn
 import dagger.hilt.android.qualifiers.ApplicationContext
 import dagger.hilt.components.SingletonComponent
 import id.stargan.intikasirfnb.data.local.PosDatabase
+import id.stargan.intikasirfnb.data.local.dao.AddOnGroupDao
+import id.stargan.intikasirfnb.data.local.dao.AddOnItemDao
+import id.stargan.intikasirfnb.data.local.dao.MenuItemAddOnGroupDao
 import id.stargan.intikasirfnb.data.local.dao.CashierSessionDao
 import id.stargan.intikasirfnb.data.local.dao.CategoryDao
 import id.stargan.intikasirfnb.data.local.dao.CustomerDao
@@ -67,4 +70,7 @@ object DatabaseModule {
     @Provides fun providePlatformSettlementDao(db: PosDatabase): PlatformSettlementDao = db.platformSettlementDao()
     @Provides fun providePriceListDao(db: PosDatabase): PriceListDao = db.priceListDao()
     @Provides fun provideKitchenTicketDao(db: PosDatabase): KitchenTicketDao = db.kitchenTicketDao()
+    @Provides fun provideAddOnGroupDao(db: PosDatabase): AddOnGroupDao = db.addOnGroupDao()
+    @Provides fun provideAddOnItemDao(db: PosDatabase): AddOnItemDao = db.addOnItemDao()
+    @Provides fun provideMenuItemAddOnGroupDao(db: PosDatabase): MenuItemAddOnGroupDao = db.menuItemAddOnGroupDao()
 }

@@ -3,6 +3,9 @@ package id.stargan.intikasirfnb.data.local
 import androidx.room.Database
 import androidx.room.RoomDatabase
 import id.stargan.intikasirfnb.data.local.dao.CashierSessionDao
+import id.stargan.intikasirfnb.data.local.dao.AddOnGroupDao
+import id.stargan.intikasirfnb.data.local.dao.AddOnItemDao
+import id.stargan.intikasirfnb.data.local.dao.MenuItemAddOnGroupDao
 import id.stargan.intikasirfnb.data.local.dao.KitchenTicketDao
 import id.stargan.intikasirfnb.data.local.dao.SalesChannelDao
 import id.stargan.intikasirfnb.data.local.dao.CategoryDao
@@ -26,6 +29,9 @@ import id.stargan.intikasirfnb.data.local.dao.TerminalDao
 import id.stargan.intikasirfnb.data.local.dao.TerminalSettingsDao
 import id.stargan.intikasirfnb.data.local.dao.UserDao
 import id.stargan.intikasirfnb.data.local.entity.CashierSessionEntity
+import id.stargan.intikasirfnb.data.local.entity.AddOnGroupEntity
+import id.stargan.intikasirfnb.data.local.entity.AddOnItemEntity
+import id.stargan.intikasirfnb.data.local.entity.MenuItemAddOnGroupEntity
 import id.stargan.intikasirfnb.data.local.entity.KitchenTicketEntity
 import id.stargan.intikasirfnb.data.local.entity.KitchenTicketItemEntity
 import id.stargan.intikasirfnb.data.local.entity.SalesChannelEntity
@@ -77,9 +83,12 @@ import id.stargan.intikasirfnb.data.local.entity.UserEntity
         PriceListEntity::class,
         PriceListEntryEntity::class,
         KitchenTicketEntity::class,
-        KitchenTicketItemEntity::class
+        KitchenTicketItemEntity::class,
+        AddOnGroupEntity::class,
+        AddOnItemEntity::class,
+        MenuItemAddOnGroupEntity::class
     ],
-    version = 19,
+    version = 20,
     exportSchema = true
 )
 abstract class PosDatabase : RoomDatabase() {
@@ -106,4 +115,7 @@ abstract class PosDatabase : RoomDatabase() {
     abstract fun platformSettlementDao(): PlatformSettlementDao
     abstract fun priceListDao(): PriceListDao
     abstract fun kitchenTicketDao(): KitchenTicketDao
+    abstract fun addOnGroupDao(): AddOnGroupDao
+    abstract fun addOnItemDao(): AddOnItemDao
+    abstract fun menuItemAddOnGroupDao(): MenuItemAddOnGroupDao
 }

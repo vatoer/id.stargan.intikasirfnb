@@ -32,9 +32,10 @@ Diagram: [F&B Context dalam base](diagrams/fnb-01-fnb-context-overview.mmd).
 | **Platform Config** | Konfigurasi per delivery platform: nama, komisi%, tipe komisi, metode pembayaran (settlement/COD), auto-confirm. |
 | **Settlement** | Proses pembayaran dari platform ke merchant. Status: PENDING → SETTLED. Perlu rekonsiliasi. |
 | **Meja (Table)** | Representasi meja fisik; satu meja bisa punya satu Order aktif (dine in). |
-| **MenuItem** | Item yang dijual (makanan/minuman); punya harga, kategori, modifier, dan opsional **Resep**. |
-| **Modifier / Add-on** | Opsi pada MenuItem (level pedas, tambah telur, size); bisa berimbas harga. |
-| **Order Line / Baris Pesanan** | Satu entri di Order: MenuItem + qty + modifier + price snapshot. |
+| **MenuItem** | Item yang dijual (makanan/minuman); punya harga, kategori, modifier, add-on, dan opsional **Resep**. |
+| **Modifier** | Kustomisasi penyajian item, selection-based (pilih dari opsi). Contoh: Level Pedas, Level Gula, Ukuran, Matang/Rare. Harga bisa +0 (preferensi saja) atau ada delta harga. Reusable lintas menu item via ModifierGroup. |
+| **Add-on** | Item tambahan di atas base item, quantity-based (1x, 2x, 3x). Contoh: Extra Cheese, Extra Shot Espresso, Topping Boba, Extra Patty. Selalu punya harga sendiri. Bisa link ke inventory untuk stock deduction. Reusable lintas menu item via AddOnGroup. |
+| **Order Line / Baris Pesanan** | Satu entri di Order: MenuItem + qty + modifier snapshot + add-on snapshot + price snapshot. |
 | **Resep (Recipe)** | Opsional: daftar **Bahan (Ingredient)** + qty per porsi untuk satu MenuItem; dipakai untuk COGS dan pengurangan stok. |
 | **Bahan (Ingredient)** | Item di Inventory yang dipakai di Resep (bahan baku). |
 | **Tiket Dapur (Kitchen Ticket)** | Satu unit kerja ke dapur/bar; dibuat dari Order (atau subset order line) untuk disiapkan. |
@@ -166,8 +167,11 @@ Harga efektif per OrderLine:
       - DISCOUNT_PERCENT: basePrice × (1 - adjustmentValue/100)
       - DISCOUNT_FIXED:   basePrice - adjustmentValue
    c. Jika keduanya null → pakai base price (Dine In, Take Away default)
-3. Modifier price delta ditambahkan di atas harga efektif channel
-4. Simpan sebagai priceSnapshot di OrderLine (frozen at transaction time)
+3. Modifier price delta ditambahkan di atas harga efektif channel → effectiveUnitPrice
+4. Add-on dihitung terpisah: Σ(addOnItem.price × addOnItem.qty) → addOnTotal
+5. Simpan sebagai priceSnapshot + modifierSnapshot + addOnSnapshot di OrderLine (frozen)
+6. lineTotal = (effectiveUnitPrice × orderQty) + addOnTotal - discount
+   Catatan: addOnTotal TIDAK dikali orderQty (best practice modern PoS)
 ```
 
 ```kotlin
@@ -176,6 +180,7 @@ fun resolvePrice(
     menuItem: MenuItem,
     channel: SalesChannel,
     modifiers: List<Modifier>,
+    addOns: List<SelectedAddOn>,
     priceListRepository: PriceListRepository,
 ): Money {
     // 1. Base price
@@ -190,10 +195,14 @@ fun resolvePrice(
         else -> applyAdjustment(basePrice, channel)
     }
 
-    // 3. Modifier delta
+    // 3. Modifier delta (selection-based, added to unit price)
     val modifierDelta = modifiers.sumOf { it.priceDelta.amount }
 
+    // 4. Add-on total (qty-based, calculated separately)
+    val addOnTotal = addOns.sumOf { it.unitPrice.amount * it.quantity.toBigDecimal() }
+
     return channelPrice + Money(modifierDelta, channelPrice.currency)
+        + Money(addOnTotal, channelPrice.currency)
 }
 ```
 

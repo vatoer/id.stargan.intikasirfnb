@@ -1,5 +1,5 @@
 graph TB
-    subgraph "Modifier Architecture"
+    subgraph "Modifier Architecture (Selection-based)"
         MG[ModifierGroup<br/>e.g., Level Pedas]
         MO1[ModifierOption<br/>Tidak Pedas +0]
         MO2[ModifierOption<br/>Sedang +0]
@@ -22,3 +22,7 @@ graph TB
     MI2 -->|MenuItemModifierLink| LINK2
     LINK1 --> MG
     LINK2 --> MG
+
+    subgraph "Lihat juga"
+        NOTE["Add-on System (qty-based):<br/>fnb-07-addon-system.mmd"]
+    end

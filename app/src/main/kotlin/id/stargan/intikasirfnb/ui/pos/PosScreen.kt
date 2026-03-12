@@ -97,6 +97,10 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import coil3.compose.AsyncImage
+import id.stargan.intikasirfnb.domain.catalog.AddOnGroup
+import id.stargan.intikasirfnb.domain.catalog.AddOnItem
+import id.stargan.intikasirfnb.domain.catalog.AddOnItemId
+import id.stargan.intikasirfnb.domain.catalog.MenuItemAddOnLink
 import id.stargan.intikasirfnb.domain.catalog.MenuItemModifierLink
 import id.stargan.intikasirfnb.domain.catalog.MenuItem
 import id.stargan.intikasirfnb.domain.catalog.ModifierGroup
@@ -106,6 +110,7 @@ import id.stargan.intikasirfnb.domain.catalog.ProductId
 import id.stargan.intikasirfnb.domain.shared.Money
 import id.stargan.intikasirfnb.domain.transaction.ChannelType
 import id.stargan.intikasirfnb.domain.transaction.OrderFlowType
+import id.stargan.intikasirfnb.domain.transaction.SelectedAddOn
 import id.stargan.intikasirfnb.domain.transaction.SelectedModifier
 import id.stargan.intikasirfnb.domain.transaction.OrderLine
 import id.stargan.intikasirfnb.domain.transaction.Sale
@@ -182,21 +187,23 @@ fun PosScreen(
         }
     }
 
-    // Modifier selection bottom sheet (add new or edit existing)
+    // Modifier + Add-on selection bottom sheet (add new or edit existing)
     val pendingItem = uiState.pendingMenuItem
     if (uiState.showModifierDialog && pendingItem != null) {
         val isEditing = uiState.editingLineId != null
         ModalBottomSheet(
             onDismissRequest = { viewModel.dismissModifierDialog() }
         ) {
-            ModifierSelectionContent(
+            ModifierAndAddOnSelectionContent(
                 menuItem = pendingItem,
                 modifierGroups = uiState.modifierGroups,
                 modifierLinks = uiState.modifierLinks,
-                existingSelections = if (isEditing) uiState.editingModifiers else emptyList(),
+                addOnGroups = uiState.addOnGroups,
+                existingModifierSelections = if (isEditing) uiState.editingModifiers else emptyList(),
+                existingAddOnSelections = if (isEditing) uiState.editingAddOns else emptyList(),
                 confirmLabel = if (isEditing) "Simpan Perubahan" else "Tambahkan",
-                onConfirm = { selectedModifiers ->
-                    viewModel.confirmModifierSelection(selectedModifiers)
+                onConfirm = { selectedModifiers, selectedAddOns ->
+                    viewModel.confirmModifierAndAddOnSelection(selectedModifiers, selectedAddOns)
                 },
                 onDismiss = { viewModel.dismissModifierDialog() }
             )
@@ -1686,17 +1693,34 @@ private fun CartLineItem(
                 else
                     MaterialTheme.colorScheme.onSurface
             )
-            if (line.selectedModifiers.isNotEmpty()) {
-                Text(
-                    text = line.selectedModifiers.joinToString(", ") { it.optionName } +
-                            if (!isSent) "  ✎" else "",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = if (!isSent) MaterialTheme.colorScheme.primary
-                           else MaterialTheme.colorScheme.onSurfaceVariant,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
+            val hasCustomizations = line.selectedModifiers.isNotEmpty() || line.selectedAddOns.isNotEmpty()
+            if (hasCustomizations) {
+                Column(
                     modifier = if (!isSent) Modifier.clickable { onEditModifiers() } else Modifier
-                )
+                ) {
+                    if (line.selectedModifiers.isNotEmpty()) {
+                        Text(
+                            text = line.selectedModifiers.joinToString(", ") { it.optionName } +
+                                    if (!isSent && line.selectedAddOns.isEmpty()) "  \u270E" else "",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = if (!isSent) MaterialTheme.colorScheme.primary
+                                   else MaterialTheme.colorScheme.onSurfaceVariant,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                    }
+                    line.selectedAddOns.forEach { addOn ->
+                        Text(
+                            text = "+ ${addOn.addOnName} x${addOn.quantity} @${idrFormat.format(addOn.unitPrice.amount)}" +
+                                    if (!isSent && addOn == line.selectedAddOns.last()) "  \u270E" else "",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = if (!isSent) MaterialTheme.colorScheme.tertiary
+                                   else MaterialTheme.colorScheme.onSurfaceVariant,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                    }
+                }
             }
             Text(
                 text = idrFormat.format(line.lineTotal().amount),
@@ -1852,17 +1876,19 @@ private fun CartSummary(
 }
 
 // ============================================================
-// MODIFIER SELECTION CONTENT
+// MODIFIER + ADD-ON SELECTION CONTENT (combined bottom sheet)
 // ============================================================
 
 @Composable
-private fun ModifierSelectionContent(
+private fun ModifierAndAddOnSelectionContent(
     menuItem: MenuItem,
     modifierGroups: List<ModifierGroup>,
     modifierLinks: List<MenuItemModifierLink>,
-    existingSelections: List<SelectedModifier> = emptyList(),
+    addOnGroups: List<AddOnGroup> = emptyList(),
+    existingModifierSelections: List<SelectedModifier> = emptyList(),
+    existingAddOnSelections: List<SelectedAddOn> = emptyList(),
     confirmLabel: String = "Tambahkan",
-    onConfirm: (List<SelectedModifier>) -> Unit,
+    onConfirm: (List<SelectedModifier>, List<SelectedAddOn>) -> Unit,
     onDismiss: () -> Unit
 ) {
     // Map links by groupId for quick lookup
@@ -1870,14 +1896,12 @@ private fun ModifierSelectionContent(
         modifierLinks.associateBy { it.modifierGroupId }
     }
 
-    // State: track selected option IDs per group
-    // Pre-populate from existingSelections when editing
-    val selections = remember(modifierGroups, existingSelections) {
+    // Modifier state: track selected option IDs per group
+    val selections = remember(modifierGroups, existingModifierSelections) {
         mutableMapOf<String, MutableList<ModifierOptionId>>().apply {
             modifierGroups.forEach { group ->
                 val preselected = mutableListOf<ModifierOptionId>()
-                // Match existing selections by group name + option name
-                existingSelections.forEach { sel ->
+                existingModifierSelections.forEach { sel ->
                     if (sel.groupName == group.name) {
                         val option = group.options.find { it.name == sel.optionName }
                         if (option != null) preselected.add(option.id)
@@ -1887,10 +1911,25 @@ private fun ModifierSelectionContent(
             }
         }
     }
-    // Force recomposition counter — start at 1 if pre-populated so validation runs
-    var selectionVersion by remember { mutableStateOf(if (existingSelections.isNotEmpty()) 1 else 0) }
 
-    // Validation: check all required groups have minimum selections
+    // Add-on state: track qty per add-on item
+    val addOnQuantities = remember(addOnGroups, existingAddOnSelections) {
+        mutableMapOf<String, Int>().apply {
+            // Pre-populate from existing selections
+            existingAddOnSelections.forEach { sel ->
+                addOnGroups.forEach { group ->
+                    group.items.find { it.name == sel.addOnName }?.let { item ->
+                        put(item.id.value, sel.quantity)
+                    }
+                }
+            }
+        }
+    }
+
+    val hasPreselection = existingModifierSelections.isNotEmpty() || existingAddOnSelections.isNotEmpty()
+    var selectionVersion by remember { mutableStateOf(if (hasPreselection) 1 else 0) }
+
+    // Validation: check all required modifier groups have minimum selections
     val isValid = remember(selectionVersion) {
         modifierGroups.all { group ->
             val link = linkMap[group.id]
@@ -1902,6 +1941,34 @@ private fun ModifierSelectionContent(
             }
         }
     }
+
+    // Price calculations
+    val modifierTotal = remember(selectionVersion) {
+        var total = Money.zero()
+        selections.forEach { (groupIdValue, optionIds) ->
+            val group = modifierGroups.find { it.id.value == groupIdValue }
+            optionIds.forEach { optionId ->
+                val option = group?.options?.find { it.id == optionId }
+                if (option != null) total = total + option.priceDelta
+            }
+        }
+        total
+    }
+
+    val addOnTotal = remember(selectionVersion) {
+        var total = Money.zero()
+        addOnQuantities.forEach { (itemId, qty) ->
+            if (qty > 0) {
+                addOnGroups.forEach { group ->
+                    val item = group.items.find { it.id.value == itemId }
+                    if (item != null) total = total + (item.price * qty)
+                }
+            }
+        }
+        total
+    }
+
+    val combinedExtra = modifierTotal + addOnTotal
 
     Column(
         modifier = Modifier
@@ -1923,12 +1990,13 @@ private fun ModifierSelectionContent(
 
         Spacer(modifier = Modifier.height(12.dp))
 
-        // Scrollable modifier groups
+        // Scrollable modifier + add-on groups
         LazyColumn(
             modifier = Modifier.weight(1f, fill = false),
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
-            items(modifierGroups, key = { it.id.value }) { group ->
+            // Modifier groups
+            items(modifierGroups, key = { "mod_${it.id.value}" }) { group ->
                 val link = linkMap[group.id]
                 val maxSel = link?.maxSelection ?: 1
                 val minSel = link?.minSelection ?: 0
@@ -1948,51 +2016,81 @@ private fun ModifierSelectionContent(
                             list.remove(optionId)
                         } else {
                             if (maxSel == 1) {
-                                // Single select: replace
                                 list.clear()
                                 list.add(optionId)
                             } else if (list.size < maxSel) {
                                 list.add(optionId)
                             }
-                            // else: max reached, ignore
                         }
                         selectionVersion++
                     }
                 )
+            }
+
+            // Add-on groups
+            if (addOnGroups.isNotEmpty()) {
+                item(key = "addon_divider") {
+                    if (modifierGroups.isNotEmpty()) {
+                        HorizontalDivider(
+                            modifier = Modifier.padding(vertical = 4.dp),
+                            color = MaterialTheme.colorScheme.outlineVariant
+                        )
+                    }
+                }
+
+                items(addOnGroups, key = { "ao_${it.id.value}" }) { group ->
+                    AddOnGroupSection(
+                        group = group,
+                        quantities = addOnQuantities,
+                        selectionVersion = selectionVersion,
+                        onQuantityChange = { itemId, qty ->
+                            addOnQuantities[itemId.value] = qty
+                            selectionVersion++
+                        }
+                    )
+                }
             }
         }
 
         Spacer(modifier = Modifier.height(12.dp))
 
         // Price summary
-        val modifierTotal = remember(selectionVersion) {
-            var total = Money.zero()
-            selections.forEach { (groupIdValue, optionIds) ->
-                val group = modifierGroups.find { it.id.value == groupIdValue }
-                optionIds.forEach { optionId ->
-                    val option = group?.options?.find { it.id == optionId }
-                    if (option != null) total = total + option.priceDelta
+        if (combinedExtra.amount > java.math.BigDecimal.ZERO) {
+            if (modifierTotal.amount > java.math.BigDecimal.ZERO) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Text(
+                        "Modifier",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Text(
+                        "+${idrFormat.format(modifierTotal.amount)}",
+                        style = MaterialTheme.typography.bodySmall,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.primary
+                    )
                 }
             }
-            total
-        }
-
-        if (modifierTotal.amount > java.math.BigDecimal.ZERO) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween
-            ) {
-                Text(
-                    "Tambahan modifier",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-                Text(
-                    "+${idrFormat.format(modifierTotal.amount)}",
-                    style = MaterialTheme.typography.bodySmall,
-                    fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.primary
-                )
+            if (addOnTotal.amount > java.math.BigDecimal.ZERO) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Text(
+                        "Add-on",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Text(
+                        "+${idrFormat.format(addOnTotal.amount)}",
+                        style = MaterialTheme.typography.bodySmall,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.tertiary
+                    )
+                }
             }
             Row(
                 modifier = Modifier.fillMaxWidth(),
@@ -2004,7 +2102,7 @@ private fun ModifierSelectionContent(
                     fontWeight = FontWeight.Bold
                 )
                 Text(
-                    idrFormat.format((menuItem.basePrice + modifierTotal).amount),
+                    idrFormat.format((menuItem.basePrice + combinedExtra).amount),
                     style = MaterialTheme.typography.bodyMedium,
                     fontWeight = FontWeight.Bold,
                     color = MaterialTheme.colorScheme.primary
@@ -2026,13 +2124,13 @@ private fun ModifierSelectionContent(
             }
             Button(
                 onClick = {
-                    // Build SelectedModifier list from selections
-                    val result = mutableListOf<SelectedModifier>()
+                    // Build SelectedModifier list
+                    val modResult = mutableListOf<SelectedModifier>()
                     selections.forEach { (groupIdValue, optionIds) ->
                         val group = modifierGroups.find { it.id.value == groupIdValue } ?: return@forEach
                         optionIds.forEach { optionId ->
                             val option = group.options.find { it.id == optionId } ?: return@forEach
-                            result.add(
+                            modResult.add(
                                 SelectedModifier(
                                     groupName = group.name,
                                     optionName = option.name,
@@ -2041,7 +2139,26 @@ private fun ModifierSelectionContent(
                             )
                         }
                     }
-                    onConfirm(result)
+                    // Build SelectedAddOn list
+                    val aoResult = mutableListOf<SelectedAddOn>()
+                    addOnQuantities.forEach { (itemId, qty) ->
+                        if (qty > 0) {
+                            addOnGroups.forEach { group ->
+                                val item = group.items.find { it.id.value == itemId }
+                                if (item != null) {
+                                    aoResult.add(
+                                        SelectedAddOn(
+                                            addOnName = item.name,
+                                            quantity = qty,
+                                            unitPrice = item.price,
+                                            totalPrice = item.price * qty
+                                        )
+                                    )
+                                }
+                            }
+                        }
+                    }
+                    onConfirm(modResult, aoResult)
                 },
                 enabled = isValid,
                 modifier = Modifier.weight(1f).height(44.dp)
@@ -2051,6 +2168,154 @@ private fun ModifierSelectionContent(
         }
 
         Spacer(modifier = Modifier.height(16.dp))
+    }
+}
+
+// ============================================================
+// ADD-ON SECTION COMPOSABLES
+// ============================================================
+
+@Composable
+private fun AddOnGroupSection(
+    group: AddOnGroup,
+    quantities: Map<String, Int>,
+    selectionVersion: Int,
+    onQuantityChange: (AddOnItemId, Int) -> Unit
+) {
+    Column {
+        // Group header
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(6.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    group.name,
+                    style = MaterialTheme.typography.titleSmall,
+                    fontWeight = FontWeight.Bold
+                )
+                Text(
+                    "Add-on",
+                    style = MaterialTheme.typography.labelSmall,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onTertiaryContainer,
+                    modifier = Modifier
+                        .background(
+                            MaterialTheme.colorScheme.tertiaryContainer,
+                            RoundedCornerShape(4.dp)
+                        )
+                        .padding(horizontal = 6.dp, vertical = 2.dp)
+                )
+            }
+            Text(
+                "Opsional",
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
+
+        Spacer(modifier = Modifier.height(6.dp))
+
+        // Items with qty stepper
+        val activeItems = group.items.filter { it.isActive }.sortedBy { it.sortOrder }
+        activeItems.forEach { item ->
+            @Suppress("UNUSED_EXPRESSION")
+            selectionVersion // read to trigger recomposition
+            val qty = quantities[item.id.value] ?: 0
+            AddOnItemRow(
+                item = item,
+                quantity = qty,
+                onQuantityChange = { newQty -> onQuantityChange(item.id, newQty) }
+            )
+        }
+    }
+}
+
+@Composable
+private fun AddOnItemRow(
+    item: AddOnItem,
+    quantity: Int,
+    onQuantityChange: (Int) -> Unit
+) {
+    val isSelected = quantity > 0
+    Surface(
+        shape = RoundedCornerShape(8.dp),
+        color = if (isSelected)
+            MaterialTheme.colorScheme.tertiaryContainer
+        else
+            MaterialTheme.colorScheme.surfaceContainerHigh,
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 2.dp)
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 12.dp, vertical = 8.dp),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            // Item name
+            Text(
+                item.name,
+                style = MaterialTheme.typography.bodyMedium,
+                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
+                color = if (isSelected)
+                    MaterialTheme.colorScheme.onTertiaryContainer
+                else
+                    MaterialTheme.colorScheme.onSurface,
+                modifier = Modifier.weight(1f)
+            )
+            // Price
+            Text(
+                idrFormat.format(item.price.amount),
+                style = MaterialTheme.typography.labelMedium,
+                fontWeight = FontWeight.Bold,
+                color = if (isSelected)
+                    MaterialTheme.colorScheme.tertiary
+                else
+                    MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            // Qty stepper
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(2.dp)
+            ) {
+                IconButton(
+                    onClick = { if (quantity > 0) onQuantityChange(quantity - 1) },
+                    enabled = quantity > 0,
+                    modifier = Modifier.size(28.dp)
+                ) {
+                    Icon(
+                        Icons.Default.Remove,
+                        contentDescription = "Kurangi",
+                        modifier = Modifier.size(16.dp)
+                    )
+                }
+                Text(
+                    "$quantity",
+                    style = MaterialTheme.typography.bodyMedium,
+                    fontWeight = FontWeight.Bold,
+                    modifier = Modifier.width(24.dp),
+                    textAlign = TextAlign.Center
+                )
+                IconButton(
+                    onClick = { if (quantity < item.maxQty) onQuantityChange(quantity + 1) },
+                    enabled = quantity < item.maxQty,
+                    modifier = Modifier.size(28.dp)
+                ) {
+                    Icon(
+                        Icons.Default.Add,
+                        contentDescription = "Tambah",
+                        modifier = Modifier.size(16.dp)
+                    )
+                }
+            }
+        }
     }
 }
 

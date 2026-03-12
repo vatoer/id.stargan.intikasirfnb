@@ -1,0 +1,48 @@
+graph TB
+    subgraph "Add-on Architecture"
+        AG1[AddOnGroup<br/>e.g., Topping]
+        AI1[AddOnItem<br/>Extra Cheese 5K<br/>maxQty=3]
+        AI2[AddOnItem<br/>Extra Patty 10K<br/>maxQty=2]
+        AI3[AddOnItem<br/>Telur Mata Sapi 4K<br/>maxQty=3]
+
+        AG2[AddOnGroup<br/>e.g., Extra Shot]
+        AI4[AddOnItem<br/>Espresso Shot 6K<br/>maxQty=3]
+        AI5[AddOnItem<br/>Hazelnut Syrup 5K<br/>maxQty=2]
+
+        MI1[MenuItem: Burger Classic]
+        MI2[MenuItem: Americano]
+        MI3[MenuItem: Nasi Goreng]
+
+        LINK1[Link: sortOrder=1]
+        LINK2[Link: sortOrder=1]
+        LINK3[Link: sortOrder=1]
+    end
+
+    AG1 --> AI1
+    AG1 --> AI2
+    AG1 --> AI3
+    AG2 --> AI4
+    AG2 --> AI5
+
+    MI1 -->|MenuItemAddOnLink| LINK1
+    MI2 -->|MenuItemAddOnLink| LINK2
+    MI3 -->|MenuItemAddOnLink| LINK3
+    LINK1 --> AG1
+    LINK2 --> AG2
+    LINK3 --> AG1
+
+    subgraph "Perbedaan dgn Modifier"
+        NOTE1["Modifier: selection-based<br/>(pilih 1 dari N opsi)"]
+        NOTE2["Add-on: quantity-based<br/>(pilih 0-N, masing2 punya qty)"]
+    end
+
+    subgraph "Order Snapshot"
+        OL[OrderLine: Burger Classic x2]
+        SM[SelectedModifier<br/>Level Pedas: Extra Pedas +3K]
+        SA1[SelectedAddOn<br/>Extra Cheese x2 @5K = 10K]
+        SA2[SelectedAddOn<br/>Extra Patty x1 @10K = 10K]
+    end
+
+    OL --> SM
+    OL --> SA1
+    OL --> SA2

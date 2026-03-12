@@ -1,0 +1,63 @@
+%% Modifier & Add-on 3-Layer Assignment Flow
+%% Best Practice Modern F&B PoS
+
+flowchart TB
+    subgraph LAYER1["Layer 1: Pengaturan Grup (Catalog Settings)"]
+        direction TB
+        subgraph ModGroups["Modifier Groups (Selection-based)"]
+            MG1["Level Pedas<br/>Tdk Pedas · Sedang · Pedas · Extra"]
+            MG2["Level Gula<br/>Normal · Less Sugar · No Sugar"]
+            MG3["Ukuran<br/>Regular · Large · XL"]
+            MG4["Matang<br/>Rare · Medium · Well Done"]
+        end
+        subgraph AddGroups["Add-on Groups (Qty-based)"]
+            AG1["Topping<br/>Extra Cheese · Extra Patty · Telur"]
+            AG2["Extra Shot<br/>Espresso · Hazelnut · Vanilla"]
+            AG3["Side Dish<br/>Kentang Goreng · Onion Ring"]
+            AG4["Saus<br/>Sambal · Mayo · BBQ"]
+        end
+    end
+
+    subgraph LAYER2["Layer 2: Assignment per Menu Item (Form Edit)"]
+        direction TB
+
+        subgraph NasiGoreng["Nasi Goreng"]
+            NG_MOD["✅ Level Pedas (wajib, pilih 1)<br/>✅ Ukuran (wajib, pilih 1)"]
+            NG_ADD["✅ Topping<br/>✅ Side Dish"]
+            NG_NO["❌ Level Gula<br/>❌ Extra Shot<br/>❌ Matang"]
+        end
+
+        subgraph EsTeh["Es Teh Manis"]
+            ET_MOD["✅ Level Gula (wajib, pilih 1)<br/>✅ Ukuran (wajib, pilih 1)"]
+            ET_ADD["(tidak ada add-on)"]
+            ET_NO["❌ Level Pedas<br/>❌ Matang"]
+        end
+
+        subgraph Americano["Americano"]
+            AM_MOD["✅ Ukuran (wajib, pilih 1)"]
+            AM_ADD["✅ Extra Shot"]
+            AM_NO["❌ Level Pedas<br/>❌ Level Gula"]
+        end
+
+        subgraph AirMineral["Air Mineral"]
+            AIRM_NONE["(tidak ada modifier/add-on)<br/>→ langsung ke cart"]
+        end
+    end
+
+    subgraph LAYER3["Layer 3: Transaksi (POS Screen)"]
+        direction TB
+        TAP_NG["Tap 'Nasi Goreng'"]
+        SHEET_NG["Bottom Sheet:<br/>Modifier: Level Pedas, Ukuran<br/>Add-on: Topping, Side Dish"]
+        TAP_NG --> SHEET_NG
+
+        TAP_ET["Tap 'Es Teh Manis'"]
+        SHEET_ET["Bottom Sheet:<br/>Modifier: Level Gula, Ukuran<br/>(tanpa add-on)"]
+        TAP_ET --> SHEET_ET
+
+        TAP_AM["Tap 'Air Mineral'"]
+        DIRECT["Langsung masuk cart<br/>(tanpa bottom sheet)"]
+        TAP_AM --> DIRECT
+    end
+
+    LAYER1 -->|"Grup tersedia<br/>(reusable pool)"| LAYER2
+    LAYER2 -->|"Hanya yang di-assign<br/>yang tampil"| LAYER3

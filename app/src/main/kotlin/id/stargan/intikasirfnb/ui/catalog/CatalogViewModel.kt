@@ -3,9 +3,13 @@ package id.stargan.intikasirfnb.ui.catalog
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
+import id.stargan.intikasirfnb.domain.catalog.AddOnGroup
+import id.stargan.intikasirfnb.domain.catalog.AddOnGroupId
+import id.stargan.intikasirfnb.domain.catalog.AddOnGroupRepository
 import id.stargan.intikasirfnb.domain.catalog.Category
 import id.stargan.intikasirfnb.domain.catalog.CategoryId
 import id.stargan.intikasirfnb.domain.catalog.CategoryRepository
+import id.stargan.intikasirfnb.domain.catalog.MenuItemAddOnLink
 import id.stargan.intikasirfnb.domain.catalog.MenuItem
 import id.stargan.intikasirfnb.domain.catalog.MenuItemRepository
 import id.stargan.intikasirfnb.domain.catalog.ModifierGroup
@@ -27,6 +31,7 @@ data class CatalogUiState(
     val categories: List<Category> = emptyList(),
     val menuItems: List<MenuItem> = emptyList(),
     val modifierGroups: List<ModifierGroup> = emptyList(),
+    val addOnGroups: List<AddOnGroup> = emptyList(),
     val tenantId: TenantId? = null,
     val isLoading: Boolean = true,
     val errorMessage: String? = null
@@ -37,7 +42,8 @@ class CatalogViewModel @Inject constructor(
     private val sessionManager: SessionManager,
     private val categoryRepository: CategoryRepository,
     private val menuItemRepository: MenuItemRepository,
-    private val modifierGroupRepository: ModifierGroupRepository
+    private val modifierGroupRepository: ModifierGroupRepository,
+    private val addOnGroupRepository: AddOnGroupRepository
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(CatalogUiState())
@@ -57,12 +63,14 @@ class CatalogViewModel @Inject constructor(
                 val categories = categoryRepository.listByTenant(tenantId)
                 val menuItems = menuItemRepository.listByTenant(tenantId)
                 val modifierGroups = modifierGroupRepository.listByTenant(tenantId)
+                val addOnGroups = addOnGroupRepository.listByTenant(tenantId)
 
                 _uiState.update {
                     it.copy(
                         categories = categories,
                         menuItems = menuItems,
                         modifierGroups = modifierGroups,
+                        addOnGroups = addOnGroups,
                         tenantId = tenantId,
                         isLoading = false
                     )
@@ -118,6 +126,7 @@ class CatalogViewModel @Inject constructor(
         viewModelScope.launch {
             try {
                 modifierGroupRepository.deleteAllLinksForItem(id)
+                addOnGroupRepository.deleteAllLinksForItem(id)
                 menuItemRepository.delete(id)
                 reloadMenuItems()
             } catch (e: Exception) {
@@ -157,6 +166,58 @@ class CatalogViewModel @Inject constructor(
                 _uiState.update {
                     it.copy(errorMessage = "Gagal hapus: modifier mungkin masih digunakan menu item")
                 }
+            }
+        }
+    }
+
+    // --- Add-on Group ---
+
+    fun saveAddOnGroup(group: AddOnGroup) {
+        viewModelScope.launch {
+            try {
+                require(group.name.isNotBlank()) { "Nama add-on group harus diisi" }
+                require(group.items.isNotEmpty()) { "Minimal harus ada 1 item" }
+                group.items.forEach { item ->
+                    require(item.name.isNotBlank()) { "Nama item tidak boleh kosong" }
+                    require(item.price.isPositive()) { "Harga item harus lebih dari 0" }
+                }
+                addOnGroupRepository.save(group)
+                reloadAddOnGroups()
+            } catch (e: Exception) {
+                _uiState.update { it.copy(errorMessage = e.message) }
+            }
+        }
+    }
+
+    fun deleteAddOnGroup(id: AddOnGroupId) {
+        viewModelScope.launch {
+            try {
+                addOnGroupRepository.delete(id)
+                reloadAddOnGroups()
+            } catch (e: Exception) {
+                _uiState.update {
+                    it.copy(errorMessage = "Gagal hapus: add-on mungkin masih digunakan menu item")
+                }
+            }
+        }
+    }
+
+    // --- Add-on Links (assign add-on groups to menu items) ---
+
+    suspend fun getAddOnLinksForItem(menuItemId: ProductId): List<MenuItemAddOnLink> {
+        return addOnGroupRepository.getLinksForItem(menuItemId)
+    }
+
+    fun saveAddOnLinks(menuItemId: ProductId, links: List<MenuItemAddOnLink>) {
+        viewModelScope.launch {
+            try {
+                addOnGroupRepository.deleteAllLinksForItem(menuItemId)
+                links.forEach { link ->
+                    addOnGroupRepository.saveLink(link)
+                }
+                reloadMenuItems()
+            } catch (e: Exception) {
+                _uiState.update { it.copy(errorMessage = "Gagal menyimpan add-on: ${e.message}") }
             }
         }
     }
@@ -201,5 +262,11 @@ class CatalogViewModel @Inject constructor(
         val tenantId = _uiState.value.tenantId ?: return
         val groups = modifierGroupRepository.listByTenant(tenantId)
         _uiState.update { it.copy(modifierGroups = groups) }
+    }
+
+    private suspend fun reloadAddOnGroups() {
+        val tenantId = _uiState.value.tenantId ?: return
+        val groups = addOnGroupRepository.listByTenant(tenantId)
+        _uiState.update { it.copy(addOnGroups = groups) }
     }
 }

@@ -1,5 +1,6 @@
 package id.stargan.intikasirfnb.data.repository
 
+import id.stargan.intikasirfnb.data.local.dao.MenuItemAddOnGroupDao
 import id.stargan.intikasirfnb.data.local.dao.MenuItemDao
 import id.stargan.intikasirfnb.data.local.dao.MenuItemModifierGroupDao
 import id.stargan.intikasirfnb.data.mapper.toDomain
@@ -12,13 +13,15 @@ import id.stargan.intikasirfnb.domain.identity.TenantId
 
 class MenuItemRepositoryImpl(
     private val dao: MenuItemDao,
-    private val linkDao: MenuItemModifierGroupDao
+    private val linkDao: MenuItemModifierGroupDao,
+    private val addOnLinkDao: MenuItemAddOnGroupDao
 ) : MenuItemRepository {
 
     override suspend fun getById(id: ProductId): MenuItem? {
         val entity = dao.getById(id.value) ?: return null
-        val links = linkDao.listByMenuItem(id.value).map { it.toDomain() }
-        return entity.toDomain(links)
+        val modifierLinks = linkDao.listByMenuItem(id.value).map { it.toDomain() }
+        val addOnLinks = addOnLinkDao.listByMenuItem(id.value).map { it.toDomain() }
+        return entity.toDomain(modifierLinks, addOnLinks)
     }
 
     override suspend fun save(menuItem: MenuItem) {

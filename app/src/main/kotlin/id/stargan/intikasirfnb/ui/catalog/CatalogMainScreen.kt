@@ -7,6 +7,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Folder
 import androidx.compose.material.icons.filled.RestaurantMenu
+import androidx.compose.material.icons.filled.AddCircle
 import androidx.compose.material.icons.filled.Tune
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
@@ -32,7 +33,8 @@ fun CatalogMainScreen(
     onNavigateBack: () -> Unit,
     onNavigateToCategories: () -> Unit,
     onNavigateToMenuItems: () -> Unit,
-    onNavigateToModifiers: () -> Unit
+    onNavigateToModifiers: () -> Unit,
+    onNavigateToAddOns: () -> Unit = {}
 ) {
     val uiState by viewModel.uiState.collectAsState()
 
@@ -79,6 +81,13 @@ fun CatalogMainScreen(
                         subtitle = modifierSummary(uiState),
                         onClick = onNavigateToModifiers
                     )
+                    SettingsDivider()
+                    SettingsNavigationItem(
+                        icon = Icons.Default.AddCircle,
+                        title = "Add-on",
+                        subtitle = addOnSummary(uiState),
+                        onClick = onNavigateToAddOns
+                    )
                 }
             }
         }
@@ -100,4 +109,9 @@ private fun menuItemSummary(state: CatalogUiState): String {
 private fun modifierSummary(state: CatalogUiState): String {
     val total = state.modifierGroups.size
     return if (total == 0) "Belum ada modifier" else "$total group"
+}
+
+private fun addOnSummary(state: CatalogUiState): String {
+    val total = state.addOnGroups.size
+    return if (total == 0) "Belum ada add-on" else "$total group"
 }

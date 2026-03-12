@@ -20,6 +20,7 @@ data class OrderLineEntity(
     val unitPriceCurrency: String,
     val discountAmount: String = "0",
     val modifierSnapshot: String? = null,
+    val addOnSnapshot: String? = null,
     val notes: String? = null,
     val isSentToKitchen: Boolean = false,
     // Sync metadata

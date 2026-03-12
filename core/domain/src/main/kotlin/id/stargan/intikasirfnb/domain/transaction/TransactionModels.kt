@@ -78,6 +78,15 @@ data class SelectedModifier(
     val priceDelta: Money = Money.zero()
 )
 
+// --- Selected add-on (snapshot of chosen add-ons at time of order) ---
+
+data class SelectedAddOn(
+    val addOnName: String,
+    val quantity: Int,
+    val unitPrice: Money,
+    val totalPrice: Money = unitPrice * quantity
+)
+
 // --- Tax / Service Charge / Tip snapshots on Sale ---
 
 data class TaxLine(
@@ -156,15 +165,21 @@ data class OrderLine(
     val unitPrice: Money,
     val discountAmount: Money = Money.zero(),
     val selectedModifiers: List<SelectedModifier> = emptyList(),
+    val selectedAddOns: List<SelectedAddOn> = emptyList(),
     val notes: String? = null,
     val isSentToKitchen: Boolean = false
 ) {
     fun modifierTotal(): Money =
         selectedModifiers.fold(Money.zero()) { acc, m -> acc + m.priceDelta }
 
+    fun addOnTotal(): Money =
+        selectedAddOns.fold(Money.zero()) { acc, a -> acc + a.totalPrice }
+
     fun effectiveUnitPrice(): Money = unitPrice + modifierTotal()
 
-    fun lineTotal(): Money = (effectiveUnitPrice() * quantity) - discountAmount
+    /** lineTotal = (effectiveUnitPrice * qty) + addOnTotal - discount.
+     *  addOnTotal is NOT multiplied by qty (add-ons are per-line, not per-unit). */
+    fun lineTotal(): Money = (effectiveUnitPrice() * quantity) + addOnTotal() - discountAmount
 }
 
 // --- Payment breakdown (for receipt / reporting) ---

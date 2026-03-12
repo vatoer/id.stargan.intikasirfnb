@@ -12,7 +12,7 @@ IntiKasir memiliki 12 bounded context yang dikategorikan menjadi Core dan Suppor
 graph TB
     subgraph "Core Domains — Differentiator"
         TX[Transaction<br/>Sale, Payment, Session]
-        CT[Catalog<br/>MenuItem, Category, Modifier]
+        CT[Catalog<br/>MenuItem, Category, Modifier, AddOn]
         WF[Workflow / Kitchen<br/>KitchenTicket, Queue]
     end
 
@@ -124,7 +124,10 @@ classDiagram
         +Money unitPrice
         +Money effectiveUnitPrice
         +List~SelectedModifier~ modifiers
+        +List~SelectedAddOn~ addOns
         +Money discountAmount
+        +modifierTotal() Money
+        +addOnTotal() Money
         +lineTotal() Money
     }
 
@@ -173,7 +176,8 @@ stateDiagram-v2
 | `SaleId` | `value: String` (ULID) | Identity Sale |
 | `OrderLineId` | `value: String` (ULID) | Identity OrderLine |
 | `PaymentId` | `value: String` (ULID) | Identity Payment |
-| `SelectedModifier` | `name, priceDelta` | Snapshot modifier di order |
+| `SelectedModifier` | `groupName, optionName, priceDelta` | Snapshot modifier di order |
+| `SelectedAddOn` | `addOnName, quantity, unitPrice, totalPrice` | Snapshot add-on di order |
 | `ProductRef` | `productId, name, price` | ACL snapshot dari Catalog |
 | `PaymentBreakdown` | `entries: List<Entry>` | Summary pembayaran multi-method |
 
@@ -193,6 +197,9 @@ stateDiagram-v2
 | `ModifierGroup` | Entity | id, tenantId, name, isActive |
 | `ModifierOption` | Entity | id, groupId, name, priceDelta, isActive |
 | `MenuItemModifierLink` | Junction | menuItemId, modifierGroupId, isRequired, min/maxSelection |
+| `AddOnGroup` | Entity | id, tenantId, name, isActive |
+| `AddOnItem` | Entity | id, groupId, name, price, maxQty, inventoryItemId?, isActive |
+| `MenuItemAddOnLink` | Junction | menuItemId, addOnGroupId, sortOrder |
 | `PriceList` | Entity | id, tenantId, name, channelId |
 | `PriceListEntry` | Entity | id, priceListId, menuItemId, overridePrice |
 
@@ -264,7 +271,7 @@ classDiagram
 | Entity | Fields Utama | Status |
 |--------|-------------|--------|
 | `KitchenTicket` | id, saleId, items, status, createdAt | Domain DONE, UI NOT_STARTED |
-| `KitchenTicketItem` | menuItemName, quantity, modifiers, notes | Domain DONE |
+| `KitchenTicketItem` | menuItemName, quantity, modifiers, addOns, notes | Domain DONE |
 
 ### Kitchen Ticket Status Flow
 

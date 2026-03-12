@@ -62,6 +62,8 @@ import coil3.compose.AsyncImage
 import coil3.request.ImageRequest
 import id.stargan.intikasirfnb.domain.catalog.Category
 import id.stargan.intikasirfnb.domain.catalog.CategoryId
+import id.stargan.intikasirfnb.domain.catalog.AddOnGroupId
+import id.stargan.intikasirfnb.domain.catalog.MenuItemAddOnLink
 import id.stargan.intikasirfnb.domain.catalog.MenuItemModifierLink
 import id.stargan.intikasirfnb.domain.catalog.MenuItem
 import id.stargan.intikasirfnb.domain.catalog.ModifierGroup
@@ -111,6 +113,14 @@ fun MenuItemFormScreen(
     val modifierLinkConfigs = remember { mutableStateMapOf<String, ModifierLinkConfig>() }
     var modifierLinksLoaded by remember { mutableStateOf(false) }
 
+    // Add-on link state: groupId -> AddOnLinkConfig (enabled, existingLinkId)
+    data class AddOnLinkConfig(
+        val enabled: Boolean = false,
+        val existingLinkId: String? = null
+    )
+    val addOnLinkConfigs = remember { mutableStateMapOf<String, AddOnLinkConfig>() }
+    var addOnLinksLoaded by remember { mutableStateOf(false) }
+
     // Load existing modifier links for edit mode
     LaunchedEffect(editItemId) {
         if (editItemId != null && !modifierLinksLoaded) {
@@ -125,6 +135,16 @@ fun MenuItemFormScreen(
                 )
             }
             modifierLinksLoaded = true
+        }
+        if (editItemId != null && !addOnLinksLoaded) {
+            val addOnLinks = viewModel.getAddOnLinksForItem(editItemId)
+            addOnLinks.forEach { link ->
+                addOnLinkConfigs[link.addOnGroupId.value] = AddOnLinkConfig(
+                    enabled = true,
+                    existingLinkId = link.id
+                )
+            }
+            addOnLinksLoaded = true
         }
     }
 
@@ -197,6 +217,18 @@ fun MenuItemFormScreen(
                 )
             }
 
+        // Build add-on links from config
+        val addOnLinks = addOnLinkConfigs.entries
+            .filter { it.value.enabled }
+            .mapIndexed { index, (groupId, config) ->
+                MenuItemAddOnLink(
+                    id = config.existingLinkId ?: UlidGenerator.generate(),
+                    menuItemId = itemId,
+                    addOnGroupId = AddOnGroupId(groupId),
+                    sortOrder = index
+                )
+            }
+
         val item = MenuItem(
             id = itemId,
             tenantId = tenantId,
@@ -207,10 +239,12 @@ fun MenuItemFormScreen(
             basePrice = Money(price),
             sortOrder = sortOrder.toIntOrNull() ?: 0,
             isActive = existingItem?.isActive ?: true,
-            modifierLinks = links
+            modifierLinks = links,
+            addOnLinks = addOnLinks
         )
         viewModel.saveMenuItem(item)
         viewModel.saveModifierLinks(itemId, links)
+        viewModel.saveAddOnLinks(itemId, addOnLinks)
         saved = true
     }
 
@@ -539,6 +573,69 @@ fun MenuItemFormScreen(
                                         hintText,
                                         style = MaterialTheme.typography.labelSmall,
                                         color = MaterialTheme.colorScheme.primary
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            // --- Add-on Groups ---
+            SettingsGroupHeader(title = "Add-on")
+            if (uiState.addOnGroups.isEmpty()) {
+                SettingsCard {
+                    Column(modifier = Modifier.padding(16.dp)) {
+                        Text(
+                            "Belum ada add-on group. Buat dulu di menu Catalog \u2192 Add-on.",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                }
+            } else {
+                SettingsCard {
+                    Column(modifier = Modifier.padding(16.dp)) {
+                        Text(
+                            "Pilih add-on group yang berlaku untuk menu ini",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        Spacer(modifier = Modifier.height(8.dp))
+
+                        uiState.addOnGroups.filter { it.isActive }.forEachIndexed { index, group ->
+                            val config = addOnLinkConfigs[group.id.value] ?: AddOnLinkConfig()
+                            val itemCount = group.items.size
+
+                            if (index > 0) {
+                                HorizontalDivider(
+                                    modifier = Modifier.padding(vertical = 4.dp),
+                                    color = MaterialTheme.colorScheme.outlineVariant
+                                )
+                            }
+
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Checkbox(
+                                    checked = config.enabled,
+                                    onCheckedChange = { checked ->
+                                        addOnLinkConfigs[group.id.value] = config.copy(enabled = checked)
+                                    }
+                                )
+                                Column(modifier = Modifier.weight(1f)) {
+                                    Text(
+                                        group.name,
+                                        style = MaterialTheme.typography.bodyLarge
+                                    )
+                                    Text(
+                                        "${itemCount} item" +
+                                                group.items.take(3).joinToString(prefix = " (", postfix = if (itemCount > 3) ", ...)" else ")") {
+                                                    "${it.name} Rp${it.price.amount.toBigInteger()}"
+                                                },
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
                                     )
                                 }
                             }

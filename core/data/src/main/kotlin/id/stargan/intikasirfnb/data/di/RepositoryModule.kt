@@ -4,6 +4,9 @@ import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
 import dagger.hilt.components.SingletonComponent
+import id.stargan.intikasirfnb.data.local.dao.AddOnGroupDao
+import id.stargan.intikasirfnb.data.local.dao.AddOnItemDao
+import id.stargan.intikasirfnb.data.local.dao.MenuItemAddOnGroupDao
 import id.stargan.intikasirfnb.data.local.dao.CashierSessionDao
 import id.stargan.intikasirfnb.data.local.dao.KitchenTicketDao
 import id.stargan.intikasirfnb.data.local.dao.CategoryDao
@@ -29,6 +32,7 @@ import id.stargan.intikasirfnb.data.repository.CategoryRepositoryImpl
 import id.stargan.intikasirfnb.data.repository.CustomerRepositoryImpl
 import id.stargan.intikasirfnb.data.repository.KitchenTicketRepositoryImpl
 import id.stargan.intikasirfnb.data.repository.MenuItemRepositoryImpl
+import id.stargan.intikasirfnb.data.repository.AddOnGroupRepositoryImpl
 import id.stargan.intikasirfnb.data.repository.ModifierGroupRepositoryImpl
 import id.stargan.intikasirfnb.data.repository.OutletRepositoryImpl
 import id.stargan.intikasirfnb.data.repository.OutletSettingsRepositoryImpl
@@ -49,6 +53,7 @@ import id.stargan.intikasirfnb.data.repository.TerminalSettingsRepositoryImpl
 import id.stargan.intikasirfnb.data.repository.UserRepositoryImpl
 import id.stargan.intikasirfnb.domain.catalog.CategoryRepository
 import id.stargan.intikasirfnb.domain.catalog.MenuItemRepository
+import id.stargan.intikasirfnb.domain.catalog.AddOnGroupRepository
 import id.stargan.intikasirfnb.domain.catalog.ModifierGroupRepository
 import id.stargan.intikasirfnb.domain.customer.CustomerRepository
 import id.stargan.intikasirfnb.domain.identity.OutletRepository
@@ -96,8 +101,9 @@ object RepositoryModule {
     @Singleton
     fun provideMenuItemRepository(
         dao: MenuItemDao,
-        linkDao: MenuItemModifierGroupDao
-    ): MenuItemRepository = MenuItemRepositoryImpl(dao, linkDao)
+        linkDao: MenuItemModifierGroupDao,
+        addOnLinkDao: MenuItemAddOnGroupDao
+    ): MenuItemRepository = MenuItemRepositoryImpl(dao, linkDao, addOnLinkDao)
 
     @Provides
     @Singleton
@@ -106,6 +112,14 @@ object RepositoryModule {
         optionDao: ModifierOptionDao,
         linkDao: MenuItemModifierGroupDao
     ): ModifierGroupRepository = ModifierGroupRepositoryImpl(groupDao, optionDao, linkDao)
+
+    @Provides
+    @Singleton
+    fun provideAddOnGroupRepository(
+        groupDao: AddOnGroupDao,
+        itemDao: AddOnItemDao,
+        linkDao: MenuItemAddOnGroupDao
+    ): AddOnGroupRepository = AddOnGroupRepositoryImpl(groupDao, itemDao, linkDao)
 
     @Provides
     @Singleton

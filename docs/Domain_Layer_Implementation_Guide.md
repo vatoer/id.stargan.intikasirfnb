@@ -70,8 +70,8 @@ Untuk tiap context: definisikan **Aggregate Root**, **entity/value object di dal
 |------|------------|
 | **Aggregate roots** | `Product` (base), `Category`. Untuk F&B: `MenuItem` extends/specialisasi Product. |
 | **Value objects** | `ProductId`, `CategoryId`, `Money`, `UnitOfMeasure`, `Variant` (size/option). |
-| **Entities (dalam boundary)** | Di Product: variant list; di F&B MenuItem: ModifierGroup, Modifier; **Recipe** (opsional) → `RecipeLine` (ingredientId, quantity, uom). |
-| **Repository** | `ProductRepository`, `CategoryRepository`. F&B: `MenuItemRepository` bila terpisah (interface di domain). |
+| **Entities (dalam boundary)** | Di Product: variant list; di F&B MenuItem: ModifierGroup, ModifierOption (selection-based customization), **AddOnGroup, AddOnItem** (qty-based extras); **Recipe** (opsional) → `RecipeLine` (ingredientId, quantity, uom). |
+| **Repository** | `ProductRepository`, `CategoryRepository`, `ModifierGroupRepository`, `AddOnGroupRepository`. F&B: `MenuItemRepository` bila terpisah (interface di domain). |
 | **Events** | `ProductCreated`, `ProductUpdated`, `ProductDeactivated`, `CategoryStructureChanged`, `RecipeUpdated`. |
 
 ### 3.4 Transaction

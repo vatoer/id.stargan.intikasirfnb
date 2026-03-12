@@ -6,6 +6,7 @@ import id.stargan.intikasirfnb.domain.transaction.OrderLine
 import id.stargan.intikasirfnb.domain.transaction.Sale
 import id.stargan.intikasirfnb.domain.transaction.SaleId
 import id.stargan.intikasirfnb.domain.transaction.SaleRepository
+import id.stargan.intikasirfnb.domain.transaction.SelectedAddOn
 import id.stargan.intikasirfnb.domain.transaction.SelectedModifier
 
 class AddLineItemUseCase(private val saleRepository: SaleRepository) {
@@ -14,6 +15,7 @@ class AddLineItemUseCase(private val saleRepository: SaleRepository) {
         menuItem: MenuItem,
         quantity: Int,
         selectedModifiers: List<SelectedModifier> = emptyList(),
+        selectedAddOns: List<SelectedAddOn> = emptyList(),
         notes: String? = null
     ): Result<Sale> = runCatching {
         require(quantity > 0) { "Quantity must be positive" }
@@ -24,6 +26,7 @@ class AddLineItemUseCase(private val saleRepository: SaleRepository) {
             quantity = quantity,
             unitPrice = productRef.price,
             selectedModifiers = selectedModifiers,
+            selectedAddOns = selectedAddOns,
             notes = notes
         )
         val updated = sale.addLine(line)

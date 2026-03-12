@@ -27,6 +27,7 @@ import id.stargan.intikasirfnb.domain.transaction.OrderFlowType
 import id.stargan.intikasirfnb.domain.transaction.SaleId
 import id.stargan.intikasirfnb.domain.transaction.SaleStatus
 import id.stargan.intikasirfnb.domain.transaction.SalesChannelId
+import id.stargan.intikasirfnb.domain.transaction.SelectedAddOn
 import id.stargan.intikasirfnb.domain.transaction.SelectedModifier
 import id.stargan.intikasirfnb.domain.transaction.ServiceChargeLine
 import id.stargan.intikasirfnb.domain.transaction.SplitBill
@@ -118,6 +119,7 @@ fun OrderLineEntity.toDomain(): OrderLine = OrderLine(
     unitPrice = Money(BigDecimal(unitPriceAmount), unitPriceCurrency),
     discountAmount = Money(BigDecimal(discountAmount), unitPriceCurrency),
     selectedModifiers = deserializeModifiers(modifierSnapshot),
+    selectedAddOns = deserializeAddOns(addOnSnapshot),
     notes = notes,
     isSentToKitchen = isSentToKitchen
 )
@@ -132,6 +134,7 @@ fun OrderLine.toEntity(saleId: String): OrderLineEntity = OrderLineEntity(
     unitPriceCurrency = unitPrice.currencyCode,
     discountAmount = discountAmount.amount.toPlainString(),
     modifierSnapshot = serializeModifiers(selectedModifiers),
+    addOnSnapshot = serializeAddOns(selectedAddOns),
     notes = notes,
     isSentToKitchen = isSentToKitchen
 )
@@ -236,6 +239,40 @@ private fun deserializeModifiers(json: String?): List<SelectedModifier> {
                 groupName = obj.getString("g"),
                 optionName = obj.getString("o"),
                 priceDelta = Money(BigDecimal(obj.optString("p", "0")))
+            )
+        }
+    } catch (_: Exception) {
+        emptyList()
+    }
+}
+
+// --- Add-on serialization (JSON via Android org.json) ---
+
+private fun serializeAddOns(addOns: List<SelectedAddOn>): String? {
+    if (addOns.isEmpty()) return null
+    val arr = JSONArray()
+    for (a in addOns) {
+        val obj = JSONObject()
+        obj.put("n", a.addOnName)
+        obj.put("q", a.quantity)
+        obj.put("u", a.unitPrice.amount.toPlainString())
+        obj.put("t", a.totalPrice.amount.toPlainString())
+        arr.put(obj)
+    }
+    return arr.toString()
+}
+
+private fun deserializeAddOns(json: String?): List<SelectedAddOn> {
+    if (json.isNullOrBlank()) return emptyList()
+    return try {
+        val arr = JSONArray(json)
+        (0 until arr.length()).map { i ->
+            val obj = arr.getJSONObject(i)
+            SelectedAddOn(
+                addOnName = obj.getString("n"),
+                quantity = obj.getInt("q"),
+                unitPrice = Money(BigDecimal(obj.getString("u"))),
+                totalPrice = Money(BigDecimal(obj.getString("t")))
             )
         }
     } catch (_: Exception) {

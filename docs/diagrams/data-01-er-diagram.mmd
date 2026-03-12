@@ -4,6 +4,7 @@ erDiagram
     tenants ||--o{ categories : has
     tenants ||--o{ menu_items : has
     tenants ||--o{ modifier_groups : has
+    tenants ||--o{ addon_groups : has
     tenants ||--o{ sales_channels : has
     tenants ||--o{ tax_configs : has
 
@@ -16,6 +17,9 @@ erDiagram
     menu_items ||--o{ menu_item_modifier_groups : linked
     modifier_groups ||--o{ modifier_options : has
     modifier_groups ||--o{ menu_item_modifier_groups : linked
+    menu_items ||--o{ menu_item_addon_groups : linked
+    addon_groups ||--o{ addon_items : has
+    addon_groups ||--o{ menu_item_addon_groups : linked
 
     sales ||--o{ order_lines : has
     sales ||--o{ payments : has

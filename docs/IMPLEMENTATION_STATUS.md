@@ -2,7 +2,7 @@
 
 > Dashboard status implementasi. Update setiap akhir sesi kerja.
 >
-> **Last updated**: 2026-03-08
+> **Last updated**: 2026-03-13
 > **Current Phase**: Phase 1 — Foundation & Standalone MVP (IN_PROGRESS)
 > **Active Sprint**: Core PoS flow complete (menu→cart→payment→receipt→print). Next: Transaction history, License & Activation
 
@@ -83,9 +83,12 @@ Phase 5: Multi-Outlet & Multi-Tenant    [....................] 0%    NOT_STARTED
 | Task | Status | Notes |
 |------|--------|-------|
 | Domain (MenuItem, Category, Modifier) | DONE | MenuItem (imageUri added), Category, ModifierGroup + ModifierOption (separate entities, reusable across items), MenuItemModifierLink (junction with per-item overrides: isRequired, min/maxSelection) |
-| Data layer | DONE | 5 entities (Category, MenuItem, ModifierGroup, ModifierOption, MenuItemModifierGroup), 5 DAOs, mappers, 3 repos. MenuItem: removed modifierGroupsJson, added imageUri. DB v9 |
+| Domain (AddOnGroup, AddOnItem) | NOT_STARTED | AddOnGroup + AddOnItem (qty-based, own price, reusable). MenuItemAddOnLink junction. SelectedAddOn VO for OrderLine snapshot |
+| Data layer (Modifier) | DONE | 5 entities (Category, MenuItem, ModifierGroup, ModifierOption, MenuItemModifierGroup), 5 DAOs, mappers, 3 repos. MenuItem: removed modifierGroupsJson, added imageUri. DB v9 |
+| Data layer (Add-on) | NOT_STARTED | addon_groups, addon_items, menu_item_addon_groups tables + DAOs + repo + mappers. OrderLineEntity.addOnSnapshot JSON |
 | Use cases | DONE | 11 use cases: GetCategories, SaveCategory, DeleteCategory, GetMenuItems, GetMenuItemById, SaveMenuItem, DeleteMenuItem, GetMenuItemsByCategory, SearchMenuItems, SaveModifierGroup, GetModifierGroups, DeleteModifierGroup |
-| UI: Category management | DONE | CategoryManagementScreen: CRUD dialog, hierarchical display, item count, active toggle, sortOrder, parent selector. CatalogMainScreen hub (Categories, Menu Items, Modifiers nav) |
+| Use cases (Add-on) | NOT_STARTED | 3 use cases: SaveAddOnGroup, GetAddOnGroups, DeleteAddOnGroup |
+| UI: Category management | DONE | CategoryManagementScreen: CRUD dialog, hierarchical display, item count, active toggle, sortOrder, parent selector. CatalogMainScreen hub (Categories, Menu Items, Modifiers, Add-on nav) |
 | UI: Menu item management | DONE | MenuItemManagementScreen (list + category filter chips + search + active toggle + delete confirm) + MenuItemFormScreen (add/edit with image picker, category dropdown, price field). AsyncImage for photos, NumberFormat IDR. Navigation with itemId argument |
 | UI: Modifier group management | DONE | ModifierGroupManagementScreen (list with inline options, price deltas, active toggle, delete confirm with FK warning) + ModifierGroupFormScreen (dynamic options list with mutableStateListOf, add/remove options, price delta per option). Navigation with groupId argument |
 | Tests | DONE | 58 tests: CatalogModelsTest(17) — ID uniqueness, defaults, relationships. CatalogUseCaseTest(11) — all use cases with fake repos, tenant filtering, search, delete with link cleanup. EscPosBuilderTest(30) — ESC/POS commands, rasterImage, ReceiptConfig integration (header/footer/logo/NPWP/socialMedia) |
@@ -155,8 +158,10 @@ Phase 5: Multi-Outlet & Multi-Tenant    [....................] 0%    NOT_STARTED
 | 2.1.7 Table map / grid UI | DONE | TableManagementScreen + TablePickerContent + Settings integration |
 | 2.1.8 Channel selection UI | DONE | ChannelSelectorBar + ChannelChip with icons, order flow subtitle |
 | 2.1.9 Modifier selection UI | DONE | ModifierSelectionContent bottom sheet, required/optional, price delta, validation |
+| 2.1.10 Add-on selection UI | NOT_STARTED | AddOnSelectionContent: qty stepper per add-on item, max qty enforcement, running total |
+| 2.1.11 Add-on display in cart/receipt/kitchen | NOT_STARTED | Cart: add-on per line. Receipt: indented. Kitchen ticket: include add-on |
 
-> **5.1 Complete: 13/13 tasks DONE**
+> **5.1: 13/15 tasks DONE, 2 NOT_STARTED (add-on UI)**
 
 ### 5.2 Workflow / Kitchen Queue
 

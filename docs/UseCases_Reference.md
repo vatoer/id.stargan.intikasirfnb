@@ -39,6 +39,14 @@ Use case berada di modul **`:core:domain`** pada paket `id.stargan.intikasirfnb.
 | `GetMenuItemByIdUseCase` | `ProductId` | `MenuItem?` | Satu menu item |
 | `SaveCategoryUseCase` | `Category` | — | Simpan kategori |
 | `SaveMenuItemUseCase` | `MenuItem` | — | Simpan menu item |
+| `DeleteMenuItemUseCase` | `ProductId` | — | Hapus menu item (soft delete) |
+| `SearchMenuItemsUseCase` | `TenantId`, `String` | `List<MenuItem>` | Cari menu item by name |
+| `SaveModifierGroupUseCase` | `ModifierGroup` | — | Simpan modifier group + options |
+| `GetModifierGroupsUseCase` | `TenantId` | `List<ModifierGroup>` | Semua modifier groups |
+| `DeleteModifierGroupUseCase` | `ModifierGroupId` | — | Hapus modifier group (cascade options) |
+| `SaveAddOnGroupUseCase` | `AddOnGroup` | — | Simpan add-on group + items |
+| `GetAddOnGroupsUseCase` | `TenantId` | `List<AddOnGroup>` | Semua add-on groups |
+| `DeleteAddOnGroupUseCase` | `AddOnGroupId` | — | Hapus add-on group (cascade items) |
 
 ---
 
@@ -50,7 +58,7 @@ Use case berada di modul **`:core:domain`** pada paket `id.stargan.intikasirfnb.
 | `GetSalesChannelByIdUseCase` | `SalesChannelId` | `SalesChannel?` | Satu channel |
 | `SaveSalesChannelUseCase` | `SalesChannel` | `Result<SalesChannel>` | Buat / update channel |
 | `DeactivateSalesChannelUseCase` | `SalesChannelId` | `Result<Unit>` | Nonaktifkan channel |
-| `ResolvePriceUseCase` | `MenuItemId`, `SalesChannelId`, `List<Modifier>` | `Money` | Hitung harga efektif per channel + modifier |
+| `ResolvePriceUseCase` | `MenuItemId`, `SalesChannelId`, `List<Modifier>`, `List<AddOn>` | `Money` | Hitung harga efektif per channel + modifier + add-on |
 
 ---
 

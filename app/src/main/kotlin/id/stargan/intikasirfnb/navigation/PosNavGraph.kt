@@ -14,8 +14,11 @@ import id.stargan.intikasirfnb.debug.DebugSeeder
 import id.stargan.intikasirfnb.feature.identity.navigation.identityNavGraph
 import id.stargan.intikasirfnb.ui.activation.ActivationScreen
 import kotlinx.coroutines.launch
+import id.stargan.intikasirfnb.domain.catalog.AddOnGroupId
 import id.stargan.intikasirfnb.domain.catalog.ModifierGroupId
 import id.stargan.intikasirfnb.domain.catalog.ProductId
+import id.stargan.intikasirfnb.ui.catalog.AddOnGroupFormScreen
+import id.stargan.intikasirfnb.ui.catalog.AddOnGroupManagementScreen
 import id.stargan.intikasirfnb.ui.catalog.CatalogMainScreen
 import id.stargan.intikasirfnb.ui.catalog.CatalogViewModel
 import id.stargan.intikasirfnb.ui.catalog.CategoryManagementScreen
@@ -77,11 +80,15 @@ object PosRoutes {
     const val PAYMENT = "pos/payment/{saleId}"
     const val CATALOG_MODIFIER_ADD = "catalog/modifiers/add"
     const val CATALOG_MODIFIER_EDIT = "catalog/modifiers/edit/{groupId}"
+    const val CATALOG_ADDONS = "catalog/addons"
+    const val CATALOG_ADDON_ADD = "catalog/addons/add"
+    const val CATALOG_ADDON_EDIT = "catalog/addons/edit/{groupId}"
 
     fun pos(saleId: String? = null) = if (saleId != null) "pos?saleId=$saleId" else "pos"
     fun payment(saleId: String) = "pos/payment/$saleId"
     fun menuItemEdit(itemId: String) = "catalog/menu_items/edit/$itemId"
     fun modifierGroupEdit(groupId: String) = "catalog/modifiers/edit/$groupId"
+    fun addOnGroupEdit(groupId: String) = "catalog/addons/edit/$groupId"
 
     const val ACTIVATION = "activation"
 }
@@ -325,7 +332,8 @@ fun PosNavGraph(debugSeeder: DebugSeeder? = null) {
                     onNavigateBack = { navController.popBackStack() },
                     onNavigateToCategories = { navController.navigate(PosRoutes.CATALOG_CATEGORIES) },
                     onNavigateToMenuItems = { navController.navigate(PosRoutes.CATALOG_MENU_ITEMS) },
-                    onNavigateToModifiers = { navController.navigate(PosRoutes.CATALOG_MODIFIERS) }
+                    onNavigateToModifiers = { navController.navigate(PosRoutes.CATALOG_MODIFIERS) },
+                    onNavigateToAddOns = { navController.navigate(PosRoutes.CATALOG_ADDONS) }
                 )
             }
 
@@ -409,6 +417,44 @@ fun PosNavGraph(debugSeeder: DebugSeeder? = null) {
                 ModifierGroupFormScreen(
                     viewModel = catalogViewModel,
                     editGroupId = ModifierGroupId(groupId),
+                    onNavigateBack = { navController.popBackStack() }
+                )
+            }
+
+            // --- Add-on Groups ---
+            composable(PosRoutes.CATALOG_ADDONS) { backStackEntry ->
+                val parentEntry = remember(backStackEntry) { navController.getBackStackEntry(PosRoutes.CATALOG_GRAPH) }
+                val catalogViewModel = hiltViewModel<CatalogViewModel>(parentEntry)
+                AddOnGroupManagementScreen(
+                    viewModel = catalogViewModel,
+                    onNavigateBack = { navController.popBackStack() },
+                    onNavigateToAddGroup = { navController.navigate(PosRoutes.CATALOG_ADDON_ADD) },
+                    onNavigateToEditGroup = { groupId ->
+                        navController.navigate(PosRoutes.addOnGroupEdit(groupId.value))
+                    }
+                )
+            }
+
+            composable(PosRoutes.CATALOG_ADDON_ADD) { backStackEntry ->
+                val parentEntry = remember(backStackEntry) { navController.getBackStackEntry(PosRoutes.CATALOG_GRAPH) }
+                val catalogViewModel = hiltViewModel<CatalogViewModel>(parentEntry)
+                AddOnGroupFormScreen(
+                    viewModel = catalogViewModel,
+                    editGroupId = null,
+                    onNavigateBack = { navController.popBackStack() }
+                )
+            }
+
+            composable(
+                PosRoutes.CATALOG_ADDON_EDIT,
+                arguments = listOf(navArgument("groupId") { type = NavType.StringType })
+            ) { backStackEntry ->
+                val groupId = backStackEntry.arguments?.getString("groupId") ?: return@composable
+                val parentEntry = remember(backStackEntry) { navController.getBackStackEntry(PosRoutes.CATALOG_GRAPH) }
+                val catalogViewModel = hiltViewModel<CatalogViewModel>(parentEntry)
+                AddOnGroupFormScreen(
+                    viewModel = catalogViewModel,
+                    editGroupId = AddOnGroupId(groupId),
                     onNavigateBack = { navController.popBackStack() }
                 )
             }

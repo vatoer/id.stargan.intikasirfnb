@@ -4,9 +4,12 @@ import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
+import id.stargan.intikasirfnb.domain.catalog.AddOnGroup
+import id.stargan.intikasirfnb.domain.catalog.AddOnGroupRepository
 import id.stargan.intikasirfnb.domain.catalog.Category
 import id.stargan.intikasirfnb.domain.catalog.CategoryId
 import id.stargan.intikasirfnb.domain.catalog.CategoryRepository
+import id.stargan.intikasirfnb.domain.catalog.MenuItemAddOnLink
 import id.stargan.intikasirfnb.domain.catalog.MenuItemModifierLink
 import id.stargan.intikasirfnb.domain.catalog.MenuItem
 import id.stargan.intikasirfnb.domain.catalog.MenuItemRepository
@@ -21,6 +24,7 @@ import id.stargan.intikasirfnb.domain.transaction.SaleId
 import id.stargan.intikasirfnb.domain.transaction.SaleStatus
 import id.stargan.intikasirfnb.domain.transaction.SaleRepository
 import id.stargan.intikasirfnb.domain.transaction.SalesChannel
+import id.stargan.intikasirfnb.domain.transaction.SelectedAddOn
 import id.stargan.intikasirfnb.domain.transaction.SelectedModifier
 import id.stargan.intikasirfnb.domain.transaction.Table
 import id.stargan.intikasirfnb.domain.transaction.TableId
@@ -73,11 +77,16 @@ data class PosUiState(
     val showModifierDialog: Boolean = false,
     val pendingMenuItem: MenuItem? = null,
     val pendingModifiers: List<SelectedModifier> = emptyList(), // held while waiting for table
+    val pendingAddOns: List<SelectedAddOn> = emptyList(), // held while waiting for table
     val modifierGroups: List<ModifierGroup> = emptyList(),
     val modifierLinks: List<MenuItemModifierLink> = emptyList(),
-    // Edit modifier for existing cart line
+    // Add-on selection in dialog
+    val addOnGroups: List<AddOnGroup> = emptyList(),
+    val addOnLinks: List<MenuItemAddOnLink> = emptyList(),
+    // Edit modifier/add-on for existing cart line
     val editingLineId: OrderLineId? = null,
     val editingModifiers: List<SelectedModifier> = emptyList(),
+    val editingAddOns: List<SelectedAddOn> = emptyList(),
     val errorMessage: String? = null
 ) {
     /** Open orders sorted by current sort mode */
@@ -121,7 +130,8 @@ class PosViewModel @Inject constructor(
     private val generateQueueNumberUseCase: GenerateQueueNumberUseCase,
     private val tableRepository: TableRepository,
     private val assignTableUseCase: AssignTableUseCase,
-    private val modifierGroupRepository: ModifierGroupRepository
+    private val modifierGroupRepository: ModifierGroupRepository,
+    private val addOnGroupRepository: AddOnGroupRepository
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(PosUiState())
@@ -270,26 +280,35 @@ class PosViewModel @Inject constructor(
     fun addItemToCart(menuItem: MenuItem) {
         viewModelScope.launch {
             try {
-                // Check if item has modifier links → show dialog
-                val links = modifierGroupRepository.getLinksForItem(menuItem.id)
-                if (links.isNotEmpty()) {
+                // Check if item has modifier or add-on links → show dialog
+                val modLinks = modifierGroupRepository.getLinksForItem(menuItem.id)
+                val aoLinks = addOnGroupRepository.getLinksForItem(menuItem.id)
+
+                if (modLinks.isNotEmpty() || aoLinks.isNotEmpty()) {
                     // Load modifier groups for each link
-                    val groups = links.mapNotNull { link ->
+                    val modGroups = modLinks.mapNotNull { link ->
                         modifierGroupRepository.getById(link.modifierGroupId)
                     }.filter { it.isActive }
+                    // Load add-on groups for each link
+                    val aoGroups = aoLinks.mapNotNull { link ->
+                        addOnGroupRepository.getById(link.addOnGroupId)
+                    }.filter { it.isActive }
+
                     _uiState.update {
                         it.copy(
                             showModifierDialog = true,
                             pendingMenuItem = menuItem,
-                            modifierGroups = groups,
-                            modifierLinks = links
+                            modifierGroups = modGroups,
+                            modifierLinks = modLinks,
+                            addOnGroups = aoGroups,
+                            addOnLinks = aoLinks
                         )
                     }
                     return@launch
                 }
 
-                // No modifiers — add directly
-                addItemToCartDirect(menuItem, emptyList())
+                // No modifiers or add-ons — add directly
+                addItemToCartDirect(menuItem, emptyList(), emptyList())
             } catch (e: Exception) {
                 _uiState.update { it.copy(errorMessage = e.message) }
             }
@@ -297,9 +316,16 @@ class PosViewModel @Inject constructor(
     }
 
     fun confirmModifierSelection(selectedModifiers: List<SelectedModifier>) {
+        confirmModifierAndAddOnSelection(selectedModifiers, emptyList())
+    }
+
+    fun confirmModifierAndAddOnSelection(
+        selectedModifiers: List<SelectedModifier>,
+        selectedAddOns: List<SelectedAddOn>
+    ) {
         // If editing an existing line, delegate to confirmEditModifiers
         if (_uiState.value.editingLineId != null) {
-            confirmEditModifiers(selectedModifiers)
+            confirmEditModifiersAndAddOns(selectedModifiers, selectedAddOns)
             return
         }
 
@@ -309,12 +335,14 @@ class PosViewModel @Inject constructor(
                 showModifierDialog = false,
                 pendingMenuItem = null,
                 modifierGroups = emptyList(),
-                modifierLinks = emptyList()
+                modifierLinks = emptyList(),
+                addOnGroups = emptyList(),
+                addOnLinks = emptyList()
             )
         }
         viewModelScope.launch {
             try {
-                addItemToCartDirect(menuItem, selectedModifiers)
+                addItemToCartDirect(menuItem, selectedModifiers, selectedAddOns)
             } catch (e: Exception) {
                 _uiState.update { it.copy(errorMessage = e.message) }
             }
@@ -328,13 +356,16 @@ class PosViewModel @Inject constructor(
                 pendingMenuItem = null,
                 editingLineId = null,
                 editingModifiers = emptyList(),
+                editingAddOns = emptyList(),
                 modifierGroups = emptyList(),
-                modifierLinks = emptyList()
+                modifierLinks = emptyList(),
+                addOnGroups = emptyList(),
+                addOnLinks = emptyList()
             )
         }
     }
 
-    /** Open modifier edit dialog for an existing cart line */
+    /** Open modifier/add-on edit dialog for an existing cart line */
     fun editLineModifiers(lineId: OrderLineId) {
         viewModelScope.launch {
             try {
@@ -345,11 +376,16 @@ class PosViewModel @Inject constructor(
                 if (line.isSentToKitchen) return@launch
 
                 // Load modifier links for the product
-                val links = modifierGroupRepository.getLinksForItem(line.productRef.productId)
-                if (links.isEmpty()) return@launch // no modifiers to edit
+                val modLinks = modifierGroupRepository.getLinksForItem(line.productRef.productId)
+                val aoLinks = addOnGroupRepository.getLinksForItem(line.productRef.productId)
+                if (modLinks.isEmpty() && aoLinks.isEmpty()) return@launch // nothing to edit
 
-                val groups = links.mapNotNull { link ->
+                val modGroups = modLinks.mapNotNull { link ->
                     modifierGroupRepository.getById(link.modifierGroupId)
+                }.filter { it.isActive }
+
+                val aoGroups = aoLinks.mapNotNull { link ->
+                    addOnGroupRepository.getById(link.addOnGroupId)
                 }.filter { it.isActive }
 
                 // Find the menu item to pass to the dialog
@@ -362,8 +398,11 @@ class PosViewModel @Inject constructor(
                         pendingMenuItem = menuItem,
                         editingLineId = lineId,
                         editingModifiers = line.selectedModifiers,
-                        modifierGroups = groups,
-                        modifierLinks = links
+                        editingAddOns = line.selectedAddOns,
+                        modifierGroups = modGroups,
+                        modifierLinks = modLinks,
+                        addOnGroups = aoGroups,
+                        addOnLinks = aoLinks
                     )
                 }
             } catch (e: Exception) {
@@ -374,6 +413,14 @@ class PosViewModel @Inject constructor(
 
     /** Confirm modifier edit — updates existing line's modifiers */
     fun confirmEditModifiers(selectedModifiers: List<SelectedModifier>) {
+        confirmEditModifiersAndAddOns(selectedModifiers, emptyList())
+    }
+
+    /** Confirm modifier + add-on edit — updates existing line */
+    fun confirmEditModifiersAndAddOns(
+        selectedModifiers: List<SelectedModifier>,
+        selectedAddOns: List<SelectedAddOn>
+    ) {
         val lineId = _uiState.value.editingLineId ?: return
         val sale = _uiState.value.currentSale ?: return
         _uiState.update {
@@ -382,8 +429,11 @@ class PosViewModel @Inject constructor(
                 pendingMenuItem = null,
                 editingLineId = null,
                 editingModifiers = emptyList(),
+                editingAddOns = emptyList(),
                 modifierGroups = emptyList(),
-                modifierLinks = emptyList()
+                modifierLinks = emptyList(),
+                addOnGroups = emptyList(),
+                addOnLinks = emptyList()
             )
         }
         viewModelScope.launch {
@@ -391,7 +441,8 @@ class PosViewModel @Inject constructor(
                 val result = updateLineItemUseCase(
                     saleId = sale.id,
                     lineId = lineId,
-                    selectedModifiers = selectedModifiers
+                    selectedModifiers = selectedModifiers,
+                    selectedAddOns = selectedAddOns
                 )
                 _uiState.update { it.copy(currentSale = result.getOrThrow()) }
             } catch (e: Exception) {
@@ -400,7 +451,11 @@ class PosViewModel @Inject constructor(
         }
     }
 
-    private suspend fun addItemToCartDirect(menuItem: MenuItem, selectedModifiers: List<SelectedModifier>) {
+    private suspend fun addItemToCartDirect(
+        menuItem: MenuItem,
+        selectedModifiers: List<SelectedModifier>,
+        selectedAddOns: List<SelectedAddOn> = emptyList()
+    ) {
         val state = _uiState.value
         val sale = state.currentSale
 
@@ -413,7 +468,8 @@ class PosViewModel @Inject constructor(
                     it.copy(
                         showTablePicker = true,
                         pendingMenuItem = menuItem,
-                        pendingModifiers = selectedModifiers
+                        pendingModifiers = selectedModifiers,
+                        pendingAddOns = selectedAddOns
                     )
                 }
                 return
@@ -436,18 +492,20 @@ class PosViewModel @Inject constructor(
                 saleId = newSale.id,
                 menuItem = menuItem,
                 quantity = 1,
-                selectedModifiers = selectedModifiers
+                selectedModifiers = selectedModifiers,
+                selectedAddOns = selectedAddOns
             )
             _uiState.update { it.copy(currentSale = addResult.getOrThrow()) }
         } else {
-            // Check if item already in cart (unsent, same modifiers) → increment qty
-            val existingLine = if (selectedModifiers.isEmpty()) {
+            // Check if item already in cart (unsent, no modifiers/add-ons) → increment qty
+            val existingLine = if (selectedModifiers.isEmpty() && selectedAddOns.isEmpty()) {
                 sale.lines.find {
                     it.productRef.productId == menuItem.id &&
                         it.selectedModifiers.isEmpty() &&
+                        it.selectedAddOns.isEmpty() &&
                         !it.isSentToKitchen
                 }
-            } else null // Items with modifiers always get a new line
+            } else null // Items with modifiers/add-ons always get a new line
 
             if (existingLine != null) {
                 val result = updateLineItemUseCase(
@@ -461,7 +519,8 @@ class PosViewModel @Inject constructor(
                     saleId = sale.id,
                     menuItem = menuItem,
                     quantity = 1,
-                    selectedModifiers = selectedModifiers
+                    selectedModifiers = selectedModifiers,
+                    selectedAddOns = selectedAddOns
                 )
                 _uiState.update { it.copy(currentSale = result.getOrThrow()) }
             }
@@ -619,7 +678,7 @@ class PosViewModel @Inject constructor(
 
     fun hideTablePicker() {
         _uiState.update {
-            it.copy(showTablePicker = false, pendingMenuItem = null, pendingModifiers = emptyList())
+            it.copy(showTablePicker = false, pendingMenuItem = null, pendingModifiers = emptyList(), pendingAddOns = emptyList())
         }
     }
 
@@ -671,10 +730,11 @@ class PosViewModel @Inject constructor(
                 val pendingItem = _uiState.value.pendingMenuItem
                 if (pendingItem != null) {
                     val pendingMods = _uiState.value.pendingModifiers
+                    val pendingAo = _uiState.value.pendingAddOns
                     _uiState.update {
-                        it.copy(pendingMenuItem = null, pendingModifiers = emptyList())
+                        it.copy(pendingMenuItem = null, pendingModifiers = emptyList(), pendingAddOns = emptyList())
                     }
-                    addItemToCartDirect(pendingItem, pendingMods)
+                    addItemToCartDirect(pendingItem, pendingMods, pendingAo)
                 }
             } catch (e: Exception) {
                 _uiState.update { it.copy(errorMessage = e.message) }

@@ -11,7 +11,7 @@
 | ORM | Room (AndroidX) |
 | Engine | SQLite |
 | DB Version | 19 |
-| Total Tables | 25 |
+| Total Tables | 28 |
 | Schema Export | Enabled (`exportSchema = true`) |
 | Migration Strategy | Destructive (dev), proper migrations (production — planned) |
 
@@ -36,6 +36,9 @@ erDiagram
     menu_items ||--o{ menu_item_modifier_groups : linked
     modifier_groups ||--o{ modifier_options : has
     modifier_groups ||--o{ menu_item_modifier_groups : linked
+    menu_items ||--o{ menu_item_addon_groups : linked
+    addon_groups ||--o{ addon_items : has
+    addon_groups ||--o{ menu_item_addon_groups : linked
 
     sales ||--o{ order_lines : has
     sales ||--o{ payments : has
@@ -79,7 +82,10 @@ erDiagram
 | `menu_items` | id (ULID) | tenantId, categoryId | Yes | Item menu |
 | `modifier_groups` | id (ULID) | tenantId | Yes | Group modifier (reusable) |
 | `modifier_options` | id (ULID) | groupId (CASCADE) | Yes | Opsi modifier |
-| `menu_item_modifier_groups` | composite | menuItemId, modifierGroupId | Yes | Junction table |
+| `menu_item_modifier_groups` | composite | menuItemId, modifierGroupId | Yes | Junction modifier↔menu item |
+| `addon_groups` | id (ULID) | tenantId | Yes | Group add-on (reusable) |
+| `addon_items` | id (ULID) | groupId (CASCADE) | Yes | Item add-on (price, maxQty) |
+| `menu_item_addon_groups` | composite | menuItemId, addOnGroupId | Yes | Junction add-on↔menu item |
 | `price_lists` | id (ULID) | tenantId | Yes | Daftar harga per channel |
 | `price_list_entries` | id (ULID) | priceListId | Yes | Override harga per item |
 
@@ -153,8 +159,8 @@ SELECT * FROM menu_items WHERE deletedAt IS NULL AND tenantId = ?
 core/data/src/main/kotlin/id/stargan/intikasirfnb/data/
 ├── local/
 │   ├── PosDatabase.kt              -- Room database definition
-│   ├── entity/                     -- 25 Room @Entity classes
-│   └── dao/                        -- 23 @Dao interfaces
+│   ├── entity/                     -- 28 Room @Entity classes
+│   └── dao/                        -- 26 @Dao interfaces
 ├── repository/                     -- Repository implementations
 ├── mapper/                         -- Domain ↔ Entity mappers
 ├── sync/

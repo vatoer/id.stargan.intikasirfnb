@@ -65,9 +65,188 @@ data class PlatformConfig(
 )
 ```
 
-## 4.2 Modifier System
+## 4.2 Modifier & Add-on System
 
-F&B modifier berbeda dari retail variant — modifier bersifat reusable lintas menu item.
+F&B memiliki dua mekanisme kustomisasi yang berbeda: **Modifier** dan **Add-on**. Keduanya bersifat **reusable** (satu grup bisa di-assign ke banyak menu item) dan **per-item assignment** (setiap menu item memilih sendiri grup mana yang relevan).
+
+### Mengapa Perlu Dua Mekanisme?
+
+Contoh kesalahan tanpa assignment per-item:
+- ❌ Es Teh muncul pilihan "Level Pedas"
+- ❌ Nasi Goreng muncul add-on "Less Sugar"
+- ❌ Semua item muncul semua modifier/add-on → membingungkan kasir
+
+Solusi: **3-Layer Architecture** — Buat grup → Assign ke menu item → Tampil di transaksi.
+
+### Modifier vs Add-on — Perbedaan Konsep
+
+| Aspek | Modifier | Add-on |
+|-------|----------|--------|
+| **Tujuan** | Kustomisasi cara penyajian item | Item tambahan di atas base item |
+| **Contoh** | Level Pedas, Level Gula, Ukuran, Matang/Medium/Rare | Extra Cheese, Extra Shot Espresso, Topping Boba, Extra Patty |
+| **Harga** | Bisa gratis (preferensi) atau ada delta harga | Selalu ada harga sendiri |
+| **Pemilihan** | Selection-based (pilih 1 atau N dari group) | Quantity-based (1x, 2x, 3x Extra Cheese) |
+| **Inventory** | Umumnya tidak track inventory | Bisa track inventory (deduct stock per qty) |
+| **Display di struk** | "Level Pedas: Extra Pedas" | "+ Extra Cheese x2 @5.000" |
+| **Pricing** | `priceDelta` (bisa 0, bisa + atau -) | `price` per unit × quantity |
+| **Link config** | isRequired, minSelection, maxSelection | sortOrder saja (qty diatur saat order) |
+
+### 3-Layer Architecture (Best Practice Modern F&B PoS)
+
+```mermaid
+flowchart TB
+    subgraph LAYER1["Layer 1: Pengaturan Grup (Catalog Settings)"]
+        direction LR
+        MG1["ModifierGroup<br/>Level Pedas"]
+        MG2["ModifierGroup<br/>Level Gula"]
+        MG3["ModifierGroup<br/>Ukuran"]
+        AG1["AddOnGroup<br/>Topping"]
+        AG2["AddOnGroup<br/>Extra Shot"]
+        AG3["AddOnGroup<br/>Side Dish"]
+    end
+
+    subgraph LAYER2["Layer 2: Assignment per Menu Item (Menu Item Form)"]
+        direction TB
+        MI_NG["Nasi Goreng"]
+        MI_NG -->|"✅ Modifier"| MG1
+        MI_NG -->|"✅ Add-on"| AG1
+        MI_NG -.->|"❌ tidak relevan"| MG2
+
+        MI_ET["Es Teh"]
+        MI_ET -->|"✅ Modifier"| MG2
+        MI_ET -->|"✅ Modifier"| MG3
+        MI_ET -.->|"❌ tidak relevan"| MG1
+
+        MI_AM["Americano"]
+        MI_AM -->|"✅ Modifier"| MG3
+        MI_AM -->|"✅ Add-on"| AG2
+    end
+
+    subgraph LAYER3["Layer 3: Transaksi (POS Screen)"]
+        direction TB
+        TAP["Kasir tap 'Nasi Goreng'"]
+        BS["Bottom Sheet muncul:<br/>Modifier: Level Pedas (wajib)<br/>Add-on: Topping (opsional)"]
+        TAP --> BS
+        NOTE["Hanya yang di-assign<br/>yang tampil!"]
+    end
+
+    LAYER1 --> LAYER2 --> LAYER3
+```
+
+> Diagram file: [`diagrams/fnb-08-modifier-addon-assignment-flow.mmd`](diagrams/fnb-08-modifier-addon-assignment-flow.mmd)
+
+### Layer 1: Pengaturan Grup (Catalog Settings)
+
+Grup modifier dan add-on dibuat secara independen — belum terikat ke menu item manapun. Ini adalah **reusable pool**.
+
+**UI**: Catalog → tab "Modifier" dan tab "Add-on" (masing-masing CRUD screen).
+
+```
+Modifier Groups:                  Add-on Groups:
+┌────────────────────────┐       ┌────────────────────────┐
+│ Level Pedas             │       │ Topping                │
+│  • Tidak Pedas    +0   │       │  • Extra Cheese   Rp5K │
+│  • Sedang         +0   │       │  • Extra Patty   Rp10K │
+│  • Pedas       +2.000  │       │  • Telur Mata    Rp4K  │
+│  • Extra Pedas +3.000  │       │  maxQty: 3 per item    │
+├────────────────────────┤       ├────────────────────────┤
+│ Level Gula              │       │ Extra Shot             │
+│  • Normal         +0   │       │  • Espresso Shot  Rp6K │
+│  • Less Sugar     +0   │       │  • Hazelnut Syrup Rp5K │
+│  • No Sugar       +0   │       │  maxQty: 3 per item    │
+├────────────────────────┤       ├────────────────────────┤
+│ Ukuran                  │       │ Side Dish              │
+│  • Regular        +0   │       │  • Kentang Goreng Rp8K │
+│  • Large       +5.000  │       │  • Onion Ring    Rp10K │
+│  • Extra Large +8.000  │       │  maxQty: 2 per item    │
+└────────────────────────┘       └────────────────────────┘
+```
+
+### Layer 2: Assignment per Menu Item (Menu Item Form)
+
+Di form edit/tambah menu item, pemilik usaha memilih grup mana yang berlaku. Ini yang **mencegah "Es Teh + Level Pedas"**.
+
+**UI**: Menu Item Form → section "Modifier" (checklist + config) dan section "Add-on" (checklist).
+
+```
+┌──────────────────────────────────────────────────────────┐
+│  Edit Menu Item: Nasi Goreng Special                     │
+│                                                          │
+│  [Nama] [Kategori] [Harga] [Gambar] ...                  │
+│                                                          │
+│  ── Modifier ──────────────────────────────────────────  │
+│  ☑ Level Pedas                                           │
+│      Tipe: ○ Pilih 1  ● Pilih Beberapa (max: 1)         │
+│      ☑ Wajib dipilih                                     │
+│  ☐ Level Gula          ← tidak dicentang = tidak muncul  │
+│  ☑ Ukuran                                                │
+│      Tipe: ● Pilih 1  ○ Pilih Beberapa                   │
+│      ☑ Wajib dipilih                                     │
+│                                                          │
+│  ── Add-on ────────────────────────────────────────────  │
+│  ☑ Topping             ← centang = muncul saat order     │
+│  ☐ Extra Shot          ← tidak relevan untuk nasi goreng │
+│  ☑ Side Dish                                             │
+│                                                          │
+│                                        [Simpan]          │
+└──────────────────────────────────────────────────────────┘
+```
+
+**Aturan assignment:**
+
+| Aspek | Modifier Link | Add-on Link |
+|-------|---------------|-------------|
+| **Junction entity** | `MenuItemModifierLink` | `MenuItemAddOnLink` |
+| **Config per-link** | isRequired, minSelection, maxSelection, sortOrder | sortOrder |
+| **Relasi** | M:N (1 group → many items, 1 item → many groups) | M:N (sama) |
+| **Kenapa Add-on link lebih simple?** | Modifier perlu aturan "wajib/opsional" dan "berapa banyak boleh dipilih" karena selection-based | Add-on tidak perlu — qty diatur kasir saat order, maxQty sudah ada di AddOnItem level |
+
+### Layer 3: Transaksi (POS Screen)
+
+Saat kasir tap menu item, sistem:
+1. Load `MenuItemModifierLink` untuk item tersebut → ambil ModifierGroup yang di-assign
+2. Load `MenuItemAddOnLink` untuk item tersebut → ambil AddOnGroup yang di-assign
+3. **Jika ada link**: tampilkan bottom sheet dengan modifier + add-on
+4. **Jika tidak ada link**: langsung tambahkan ke cart
+
+```
+┌──────────────────────────────────────────────────┐
+│  Nasi Goreng Special                    Rp25.000 │
+│                                                  │
+│  ── Modifier ─────────────────────────────────── │
+│  Level Pedas (Wajib · Pilih 1)                   │
+│  ┌──────────┐┌──────────┐┌──────────┐┌─────────┐│
+│  │○ Tdk Pdas││○ Sedang  ││● Pedas   ││○ Extra  ││
+│  │   +0     ││   +0     ││  +2.000  ││  +3.000 ││
+│  └──────────┘└──────────┘└──────────┘└─────────┘│
+│                                                  │
+│  Ukuran (Wajib · Pilih 1)                        │
+│  ┌──────────┐┌──────────┐┌──────────┐           │
+│  │● Regular ││○ Large   ││○ XL      │           │
+│  │   +0     ││  +5.000  ││  +8.000  │           │
+│  └──────────┘└──────────┘└──────────┘           │
+│                                                  │
+│  ── Add-on ───────────────────────────────────── │
+│  Topping                                         │
+│  Extra Cheese   Rp5.000       [ - ]  1  [ + ]   │
+│  Extra Patty   Rp10.000       [ - ]  0  [ + ]   │
+│  Telur Mata     Rp4.000       [ - ]  0  [ + ]   │
+│                                                  │
+│  Side Dish                                       │
+│  Kentang Goreng  Rp8.000      [ - ]  0  [ + ]   │
+│  Onion Ring     Rp10.000      [ - ]  0  [ + ]   │
+│                                                  │
+│  ─────────────────────────────────────────────── │
+│  Harga menu:     Rp25.000                        │
+│  Modifier:       +Rp2.000 (Pedas)                │
+│  Add-on:         +Rp5.000 (Extra Cheese x1)      │
+│  Total:          Rp32.000                        │
+│                                                  │
+│            [ Tambahkan ke Order ]                 │
+└──────────────────────────────────────────────────┘
+```
+
+### Modifier Architecture (Domain)
 
 ```mermaid
 graph TB
@@ -98,20 +277,189 @@ graph TB
 
 > Diagram file: [`diagrams/fnb-02-modifier-system.mmd`](diagrams/fnb-02-modifier-system.mmd)
 
-### Modifier di Order (Snapshot Pattern)
+### Add-on Architecture (Domain)
 
-Saat item ditambahkan ke order, modifier di-snapshot sebagai `SelectedModifier`:
+```mermaid
+graph TB
+    subgraph "Add-on Architecture"
+        AG[AddOnGroup<br/>e.g., Topping]
+        AI1[AddOnItem<br/>Extra Cheese 5K<br/>maxQty=3]
+        AI2[AddOnItem<br/>Extra Patty 10K<br/>maxQty=2]
+        AI3[AddOnItem<br/>Telur Mata Sapi 4K<br/>maxQty=3]
 
-```kotlin
-data class SelectedModifier(
-    val name: String,        // "Extra Pedas"
-    val priceDelta: Money    // +3000
-)
+        AG2[AddOnGroup<br/>e.g., Extra Shot]
+        AI4[AddOnItem<br/>Espresso Shot 6K<br/>maxQty=3]
+        AI5[AddOnItem<br/>Hazelnut Syrup 5K<br/>maxQty=2]
 
-// OrderLine.lineTotal = (unitPrice + modifierTotal) * quantity - discount
+        MI1[MenuItem: Burger Classic]
+        MI2[MenuItem: Americano]
+
+        LINK1[Link: sortOrder=1]
+        LINK2[Link: sortOrder=1]
+    end
+
+    AG --> AI1
+    AG --> AI2
+    AG --> AI3
+    AG2 --> AI4
+    AG2 --> AI5
+
+    MI1 -->|MenuItemAddOnLink| LINK1
+    MI2 -->|MenuItemAddOnLink| LINK2
+    LINK1 --> AG
+    LINK2 --> AG2
 ```
 
-Ini memastikan perubahan modifier group di catalog tidak mengubah transaksi yang sudah ada.
+> Diagram file: [`diagrams/fnb-07-addon-system.mmd`](diagrams/fnb-07-addon-system.mmd)
+
+### Domain Models
+
+```kotlin
+// ─── Modifier (selection-based) ────────────────────────
+
+data class ModifierGroup(
+    val id: ModifierGroupId,
+    val tenantId: TenantId,
+    val name: String,              // e.g., "Level Pedas"
+    val options: List<ModifierOption>,
+    val sortOrder: Int,
+    val isActive: Boolean
+)
+
+data class ModifierOption(
+    val id: ModifierOptionId,
+    val groupId: ModifierGroupId,
+    val name: String,              // e.g., "Extra Pedas"
+    val priceDelta: Money,         // bisa 0 (preferensi saja) atau +N
+    val sortOrder: Int,
+    val isActive: Boolean
+)
+
+// Junction: MenuItem ↔ ModifierGroup (M:N) — config per-link
+data class MenuItemModifierLink(
+    val id: String,
+    val menuItemId: ProductId,
+    val modifierGroupId: ModifierGroupId,
+    val sortOrder: Int,
+    val isRequired: Boolean,       // Wajib dipilih?
+    val minSelection: Int,         // Min opsi yang harus dipilih
+    val maxSelection: Int          // Max opsi yang boleh dipilih (1 = single, >1 = multi)
+)
+
+// ─── Add-on (quantity-based) ───────────────────────────
+
+data class AddOnGroup(
+    val id: AddOnGroupId,
+    val tenantId: TenantId,
+    val name: String,              // e.g., "Topping", "Extra Shot"
+    val items: List<AddOnItem>,
+    val sortOrder: Int,
+    val isActive: Boolean
+)
+
+data class AddOnItem(
+    val id: AddOnItemId,
+    val groupId: AddOnGroupId,
+    val name: String,              // e.g., "Extra Cheese"
+    val price: Money,              // e.g., Rp5.000 (selalu positif)
+    val maxQty: Int = 5,           // Batas qty per order line (0 = unlimited)
+    val inventoryItemId: String?,  // Optional: link ke inventory
+    val sortOrder: Int,
+    val isActive: Boolean
+)
+
+// Junction: MenuItem ↔ AddOnGroup (M:N) — simple link
+data class MenuItemAddOnLink(
+    val id: String,
+    val menuItemId: ProductId,
+    val addOnGroupId: AddOnGroupId,
+    val sortOrder: Int             // Urutan tampil add-on group per item
+)
+```
+
+### Modifier & Add-on di Order (Snapshot Pattern)
+
+Saat item ditambahkan ke order, modifier dan add-on di-snapshot secara terpisah:
+
+```kotlin
+// Modifier snapshot — selection-based
+data class SelectedModifier(
+    val groupName: String,        // "Level Pedas"
+    val optionName: String,       // "Extra Pedas"
+    val priceDelta: Money         // +3000
+)
+
+// Add-on snapshot — quantity-based
+data class SelectedAddOn(
+    val addOnName: String,        // "Extra Cheese"
+    val quantity: Int,            // 2
+    val unitPrice: Money,         // 5000
+    val totalPrice: Money         // 10000 (unitPrice × quantity)
+)
+
+// OrderLine price calculation:
+// effectiveUnitPrice = unitPrice + modifierTotal
+// lineTotal = (effectiveUnitPrice * quantity) + addOnTotal - discount
+//
+// Catatan: addOnTotal TIDAK dikalikan quantity OrderLine karena
+// add-on dipilih per-line (bukan per-unit). Misalnya:
+// - 2x Burger Classic + 1x Extra Cheese → addOn = 1×5K, bukan 2×5K
+// - Jika ingin 2x Extra Cheese → set addOn qty = 2
+```
+
+**Kenapa addOnTotal tidak dikali quantity OrderLine?**
+
+Ini mengikuti best practice PoS modern (Square, Toast, Lightspeed):
+- Add-on dipilih **per baris pesanan**, bukan per unit
+- Kasir/pelayan secara eksplisit menentukan qty add-on saat order
+- Lebih fleksibel: "3 Burger, 2 tambah keju" → qty burger=3, addOn keju qty=2
+
+Snapshot pattern memastikan perubahan catalog (harga, nama) tidak mengubah transaksi yang sudah ada.
+
+### POS Flow — Decision Logic
+
+```mermaid
+flowchart TB
+    TAP["Kasir tap menu item"]
+    LOAD["Load links:<br/>modifierLinks = getModifierLinksForItem(itemId)<br/>addOnLinks = getAddOnLinksForItem(itemId)"]
+    CHECK{"Ada modifier<br/>atau add-on?"}
+    DIRECT["Langsung tambah ke cart<br/>(tanpa bottom sheet)"]
+    SHEET["Tampilkan bottom sheet"]
+    MOD{"Ada modifier<br/>links?"}
+    MOD_SEC["Section: Modifier Groups<br/>(radio/checkbox per group)"]
+    ADDON{"Ada add-on<br/>links?"}
+    ADDON_SEC["Section: Add-on Groups<br/>(qty stepper per item)"]
+    VALIDATE{"Semua modifier<br/>wajib terpenuhi?"}
+    DISABLED["Button 'Tambahkan'<br/>disabled"]
+    CONFIRM["Kasir tap 'Tambahkan ke Order'"]
+    SNAPSHOT["Buat snapshot:<br/>List＜SelectedModifier＞<br/>List＜SelectedAddOn＞"]
+    CART["addLineItemUseCase(<br/>sale, menuItem, qty,<br/>modifiers, addOns)"]
+
+    TAP --> LOAD --> CHECK
+    CHECK -->|Tidak| DIRECT
+    CHECK -->|Ya| SHEET
+    SHEET --> MOD
+    MOD -->|Ya| MOD_SEC
+    MOD -->|Tidak| ADDON
+    MOD_SEC --> ADDON
+    ADDON -->|Ya| ADDON_SEC
+    ADDON -->|Tidak| VALIDATE
+    ADDON_SEC --> VALIDATE
+    VALIDATE -->|Belum| DISABLED
+    VALIDATE -->|Sudah| CONFIRM
+    CONFIRM --> SNAPSHOT --> CART
+```
+
+### Contoh Assignment yang Benar
+
+| Menu Item | Modifier Groups | Add-on Groups | Alasan |
+|-----------|----------------|---------------|--------|
+| Nasi Goreng | Level Pedas (wajib), Ukuran | Topping, Side Dish | Makanan: pedas relevan, gula tidak |
+| Es Teh Manis | Level Gula (wajib), Ukuran (wajib) | — | Minuman manis: gula relevan, pedas tidak |
+| Americano | Ukuran (wajib) | Extra Shot | Kopi: shot relevan, topping tidak |
+| Burger Classic | Matang/Rare (wajib) | Topping | Burger: matang relevan, gula tidak |
+| Kentang Goreng | — | Saus (Sambal, Mayo, BBQ) | Snack: tidak perlu modifier, add-on saus |
+| Air Mineral | — | — | Tidak ada kustomisasi → langsung ke cart |
 
 ## 4.3 Tax, Service Charge & Tip
 

@@ -37,3 +37,14 @@ interface ModifierGroupRepository {
     suspend fun deleteLink(menuItemId: ProductId, modifierGroupId: ModifierGroupId)
     suspend fun deleteAllLinksForItem(menuItemId: ProductId)
 }
+
+interface AddOnGroupRepository {
+    suspend fun getById(id: AddOnGroupId): AddOnGroup?
+    suspend fun save(group: AddOnGroup)
+    suspend fun delete(id: AddOnGroupId)
+    suspend fun listByTenant(tenantId: TenantId): List<AddOnGroup>
+    suspend fun getLinksForItem(menuItemId: ProductId): List<MenuItemAddOnLink>
+    suspend fun saveLink(link: MenuItemAddOnLink)
+    suspend fun deleteLink(menuItemId: ProductId, addOnGroupId: AddOnGroupId)
+    suspend fun deleteAllLinksForItem(menuItemId: ProductId)
+}

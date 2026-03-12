@@ -29,7 +29,7 @@ Total: **60+ use cases** implemented. Semua use case adalah `suspend` functions 
 | `SaveOutletSettingsUseCase` | OutletSettings | Unit | Simpan settings outlet |
 | `SaveTenantSettingsUseCase` | TenantSettings | Unit | Simpan settings tenant |
 
-## 9.4 Catalog (11 Use Cases)
+## 9.4 Catalog (15 Use Cases)
 
 | Use Case | Input | Output | Deskripsi |
 |----------|-------|--------|-----------|
@@ -45,13 +45,16 @@ Total: **60+ use cases** implemented. Semua use case adalah `suspend` functions 
 | `SaveModifierGroupUseCase` | ModifierGroup | Unit | Create/update modifier group |
 | `GetModifierGroupsUseCase` | tenantId | Flow\<List\<ModifierGroup\>\> | Stream modifier groups |
 | `DeleteModifierGroupUseCase` | groupId | Unit | Hapus modifier group |
+| `SaveAddOnGroupUseCase` | AddOnGroup | Unit | Create/update add-on group + items |
+| `GetAddOnGroupsUseCase` | tenantId | Flow\<List\<AddOnGroup\>\> | Stream add-on groups |
+| `DeleteAddOnGroupUseCase` | groupId | Unit | Hapus add-on group (cascade items) |
 
 ## 9.5 Transaction — Core (17 Use Cases)
 
 | Use Case | Input | Output | Deskripsi |
 |----------|-------|--------|-----------|
 | `CreateSaleUseCase` | channelId, outletId, cashierId | Sale | Buat draft sale |
-| `AddLineItemUseCase` | saleId, productRef, qty, modifiers | Sale | Tambah item ke order |
+| `AddLineItemUseCase` | saleId, productRef, qty, modifiers, addOns | Sale | Tambah item ke order (+ modifier & add-on) |
 | `UpdateLineItemUseCase` | saleId, lineId, qty | Sale | Update qty item |
 | `RemoveLineItemUseCase` | saleId, lineId | Sale | Hapus item dari order |
 | `ConfirmSaleUseCase` | saleId | Sale | DRAFT→CONFIRMED + compute tax/SC |

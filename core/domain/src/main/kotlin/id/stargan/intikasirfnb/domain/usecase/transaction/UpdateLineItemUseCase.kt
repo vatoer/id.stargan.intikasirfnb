@@ -5,6 +5,7 @@ import id.stargan.intikasirfnb.domain.transaction.OrderLineId
 import id.stargan.intikasirfnb.domain.transaction.Sale
 import id.stargan.intikasirfnb.domain.transaction.SaleId
 import id.stargan.intikasirfnb.domain.transaction.SaleRepository
+import id.stargan.intikasirfnb.domain.transaction.SelectedAddOn
 import id.stargan.intikasirfnb.domain.transaction.SelectedModifier
 
 class UpdateLineItemUseCase(private val saleRepository: SaleRepository) {
@@ -14,7 +15,8 @@ class UpdateLineItemUseCase(private val saleRepository: SaleRepository) {
         quantity: Int? = null,
         discountAmount: Money? = null,
         notes: String? = null,
-        selectedModifiers: List<SelectedModifier>? = null
+        selectedModifiers: List<SelectedModifier>? = null,
+        selectedAddOns: List<SelectedAddOn>? = null
     ): Result<Sale> = runCatching {
         val sale = saleRepository.getById(saleId) ?: error("Sale not found")
         val updated = sale.updateLine(lineId) { line ->
@@ -22,7 +24,8 @@ class UpdateLineItemUseCase(private val saleRepository: SaleRepository) {
                 quantity = quantity ?: line.quantity,
                 discountAmount = discountAmount ?: line.discountAmount,
                 notes = notes ?: line.notes,
-                selectedModifiers = selectedModifiers ?: line.selectedModifiers
+                selectedModifiers = selectedModifiers ?: line.selectedModifiers,
+                selectedAddOns = selectedAddOns ?: line.selectedAddOns
             )
         }
         saleRepository.save(updated)
