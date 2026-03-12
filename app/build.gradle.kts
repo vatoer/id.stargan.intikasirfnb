@@ -19,6 +19,21 @@ android {
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
+    flavorDimensions += "env"
+
+    productFlavors {
+        create("dev") {
+            dimension = "env"
+            applicationIdSuffix = ".dev"
+            versionNameSuffix = "-dev"
+            buildConfigField("String", "APPREG_BASE_URL", "\"http://10.0.2.2:8000\"")
+        }
+        create("prod") {
+            dimension = "env"
+            buildConfigField("String", "APPREG_BASE_URL", "\"https://appreg.stargan.id\"")
+        }
+    }
+
     buildTypes {
         release {
             isMinifyEnabled = false
@@ -71,6 +86,22 @@ dependencies {
     implementation(libs.androidx.activity.compose)
     implementation(libs.androidx.lifecycle.viewmodel.compose)
     implementation(libs.androidx.lifecycle.runtime.compose)
+
+    // Network (Retrofit + OkHttp)
+    implementation(libs.retrofit)
+    implementation(libs.retrofit.converter.gson)
+    implementation(libs.okhttp)
+    implementation(libs.okhttp.logging)
+
+    // Play Integrity
+    implementation(libs.play.integrity)
+    implementation(libs.kotlinx.coroutines.play.services)
+
+    // Encrypted storage
+    implementation(libs.androidx.security.crypto)
+
+    // Ed25519 signature verification
+    implementation(libs.bouncycastle)
 
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)

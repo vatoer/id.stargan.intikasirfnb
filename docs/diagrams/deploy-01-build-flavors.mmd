@@ -1,0 +1,33 @@
+graph LR
+    subgraph "Build Variants"
+        DEV[dev<br/>Development]
+        PROD[prod<br/>Production]
+    end
+
+    subgraph "Dev Config"
+        D1[Dummy Play Integrity]
+        D2[No cert pinning]
+        D3[License bypass option]
+        D4[Debug logging]
+        D5[Destructive DB migration]
+    end
+
+    subgraph "Prod Config"
+        P1[Real Play Integrity]
+        P2[Certificate pinning]
+        P3[License enforced]
+        P4[Structured logging]
+        P5[Proper DB migration]
+    end
+
+    DEV --> D1
+    DEV --> D2
+    DEV --> D3
+    DEV --> D4
+    DEV --> D5
+
+    PROD --> P1
+    PROD --> P2
+    PROD --> P3
+    PROD --> P4
+    PROD --> P5

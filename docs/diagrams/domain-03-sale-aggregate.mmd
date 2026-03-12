@@ -1,0 +1,58 @@
+classDiagram
+    class Sale {
+        +SaleId id
+        +TenantId tenantId
+        +OutletId outletId
+        +SalesChannelId channelId
+        +TableId? tableId
+        +UserId cashierId
+        +SaleStatus status
+        +List~OrderLine~ lines
+        +List~Payment~ payments
+        +List~TaxLine~ taxLines
+        +ServiceChargeLine? serviceCharge
+        +TipLine? tip
+        +SyncMetadata syncMetadata
+        +addLine()
+        +updateLine()
+        +removeLine()
+        +confirm()
+        +addPayment()
+        +complete()
+        +void()
+        +subtotal() Money
+        +totalAmount() Money
+        +changeDue() Money
+    }
+
+    class OrderLine {
+        +OrderLineId id
+        +ProductId productId
+        +String productName
+        +Int quantity
+        +Money unitPrice
+        +Money effectiveUnitPrice
+        +List~SelectedModifier~ modifiers
+        +Money discountAmount
+        +lineTotal() Money
+    }
+
+    class Payment {
+        +PaymentId id
+        +PaymentMethod method
+        +Money amount
+        +String? reference
+    }
+
+    class TaxLine {
+        +TaxConfigId taxConfigId
+        +String taxName
+        +BigDecimal rate
+        +Boolean isInclusive
+        +Money taxableAmount
+        +Money taxAmount
+    }
+
+    Sale "1" *-- "*" OrderLine
+    Sale "1" *-- "*" Payment
+    Sale "1" *-- "*" TaxLine

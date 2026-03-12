@@ -1,0 +1,14 @@
+graph TB
+    subgraph "Gradle Modules"
+        APP[":app<br/>com.android.application"]
+        FI[":feature:identity<br/>com.android.library"]
+        CD[":core:domain<br/>org.jetbrains.kotlin.jvm"]
+        CDA[":core:data<br/>com.android.library"]
+    end
+
+    APP --> CD
+    APP --> CDA
+    APP --> FI
+    FI --> CD
+    FI --> CDA
+    CDA --> CD

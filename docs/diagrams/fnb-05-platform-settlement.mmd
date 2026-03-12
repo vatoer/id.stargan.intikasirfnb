@@ -1,0 +1,7 @@
+flowchart LR
+    ORDER[Order Masuk<br/>via Platform] --> SALE[Sale Created<br/>channelType=DELIVERY_PLATFORM]
+    SALE --> SETTLE[PlatformSettlement<br/>grossAmount, commission, netAmount]
+    SETTLE --> STATUS{Settlement Status}
+    STATUS -->|PENDING| WAIT[Tunggu Transfer]
+    STATUS -->|SETTLED| DONE[Dana Diterima]
+    STATUS -->|DISPUTED| DISPUTE[Selisih / Masalah]

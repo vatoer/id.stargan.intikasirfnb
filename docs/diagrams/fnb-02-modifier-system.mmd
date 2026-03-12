@@ -1,0 +1,24 @@
+graph TB
+    subgraph "Modifier Architecture"
+        MG[ModifierGroup<br/>e.g., Level Pedas]
+        MO1[ModifierOption<br/>Tidak Pedas +0]
+        MO2[ModifierOption<br/>Sedang +0]
+        MO3[ModifierOption<br/>Pedas +2000]
+        MO4[ModifierOption<br/>Extra Pedas +3000]
+
+        MI1[MenuItem: Nasi Goreng]
+        MI2[MenuItem: Mie Goreng]
+
+        LINK1[Link: required, max=1]
+        LINK2[Link: optional, max=1]
+    end
+
+    MG --> MO1
+    MG --> MO2
+    MG --> MO3
+    MG --> MO4
+
+    MI1 -->|MenuItemModifierLink| LINK1
+    MI2 -->|MenuItemModifierLink| LINK2
+    LINK1 --> MG
+    LINK2 --> MG

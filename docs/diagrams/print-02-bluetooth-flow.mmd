@@ -1,0 +1,18 @@
+sequenceDiagram
+    participant UI as PaymentScreen
+    participant VM as ViewModel
+    participant PSF as PrinterServiceFactory
+    participant BPS as BluetoothPrinterService
+    participant PR as Printer
+
+    UI->>VM: Payment Complete
+    VM->>VM: buildSaleReceipt → ByteArray
+    VM->>PSF: getPrinterService(config)
+    PSF-->>VM: BluetoothPrinterService
+    VM->>BPS: print(bytes)
+    BPS->>BPS: Connect SPP socket
+    BPS->>PR: Write ESC/POS bytes
+    BPS->>BPS: flush + 1.5s delay
+    BPS->>BPS: Close socket
+    BPS-->>VM: PrintResult
+    VM-->>UI: PrintStatus.SUCCESS

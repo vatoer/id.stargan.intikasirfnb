@@ -1,0 +1,9 @@
+graph LR
+    MI[MenuItem<br/>Nasi Goreng] --> RC[Recipe]
+    RC --> RL1[RecipeLine<br/>Nasi 200g]
+    RC --> RL2[RecipeLine<br/>Minyak 30ml]
+    RC --> RL3[RecipeLine<br/>Bumbu 1 pkt]
+    RL1 --> STK[Stock Deduction]
+    RL2 --> STK
+    RL3 --> STK
+    STK --> COGS[COGS Calculation]

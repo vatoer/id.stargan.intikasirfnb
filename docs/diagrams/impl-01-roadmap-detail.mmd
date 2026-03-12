@@ -1,0 +1,36 @@
+gantt
+    title IntiKasir F&B — Implementation Roadmap
+    dateFormat YYYY-MM-DD
+    axisFormat %b %Y
+
+    section Phase 1
+    1.1 Project Setup            :done, p11, 2026-03-07, 1d
+    1.2 Identity & Access        :done, p12, after p11, 1d
+    1.3 Settings                 :done, p13, after p11, 1d
+    1.4 Catalog                  :done, p14, after p13, 1d
+    1.5 Transaction              :done, p15, after p14, 1d
+    1.6 App Shell                :done, p16, after p11, 1d
+    1.7 License & Activation     :p17, after p15, 14d
+
+    section Phase 2
+    2.1 F&B Transaction Enh.     :done, p21, after p15, 1d
+    2.2 Kitchen Workflow         :active, p22, after p21, 10d
+    2.3 Customer UI              :p23, after p22, 7d
+    2.4 Inventory                :p24, after p23, 10d
+    2.5 Pricing & Promotion      :p25, after p21, 7d
+    2.6 Accounting               :p26, after p24, 7d
+    2.7 Reporting                :p27, after p26, 10d
+
+    section Phase 3
+    3.1 Cloud API Server         :p31, after p27, 14d
+    3.2 Android Sync Engine      :p32, after p31, 14d
+    3.3 Sync UI                  :p33, after p32, 7d
+
+    section Phase 4
+    4.1 Multi-Kasir              :p41, after p33, 7d
+    4.2 Waiter Terminal          :p42, after p41, 7d
+    4.3 KDS                      :p43, after p41, 7d
+    4.4 Real-Time SSE            :p44, after p43, 7d
+
+    section Phase 5
+    5.x Multi-Outlet & Tenant    :p5, after p44, 30d

@@ -1,0 +1,28 @@
+graph TB
+    subgraph "Core Domains — Differentiator"
+        TX[Transaction<br/>Sale, Payment, Session]
+        CT[Catalog<br/>MenuItem, Category, Modifier]
+        WF[Workflow / Kitchen<br/>KitchenTicket, Queue]
+    end
+
+    subgraph "Support Domains"
+        IA[Identity & Access<br/>Tenant, Outlet, User, Terminal]
+        ST[Settings<br/>Tax, SC, Tip, Receipt, Printer]
+        PP[Pricing & Promotion<br/>PriceList, Discount, Coupon]
+        INV[Inventory<br/>Stock, Movement, Lot]
+        CU[Customer<br/>Profile, Loyalty]
+        SU[Supplier<br/>Vendor, PO, GR]
+        AC[Accounting<br/>Journal, GL, AR/AP]
+        RP[Reporting<br/>Dashboard, Export]
+        LI[Licensing<br/>Activation, Verification]
+    end
+
+    IA -->|auth context| TX
+    CT -->|product ref| TX
+    ST -->|tax/SC config| TX
+    PP -->|price resolution| TX
+    TX -->|tickets| WF
+    TX -->|stock deduction| INV
+    TX -->|journal posting| AC
+    TX -->|loyalty points| CU
+    AC -->|reports| RP

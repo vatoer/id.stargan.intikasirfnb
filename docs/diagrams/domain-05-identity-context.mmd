@@ -1,0 +1,36 @@
+classDiagram
+    class Tenant {
+        +TenantId id
+        +String name
+        +Boolean isActive
+    }
+
+    class Outlet {
+        +OutletId id
+        +TenantId tenantId
+        +String name
+        +String address
+        +Boolean isActive
+    }
+
+    class User {
+        +UserId id
+        +TenantId tenantId
+        +String displayName
+        +String pinHash
+        +Set~Role~ roles
+        +Set~OutletId~ outletIds
+    }
+
+    class Terminal {
+        +TerminalId id
+        +TenantId tenantId
+        +OutletId outletId
+        +TerminalType type
+        +TerminalStatus status
+        +Instant lastSyncAt
+    }
+
+    Tenant "1" *-- "*" Outlet
+    Tenant "1" *-- "*" User
+    Outlet "1" *-- "*" Terminal

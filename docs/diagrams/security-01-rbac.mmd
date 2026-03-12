@@ -1,0 +1,5 @@
+graph LR
+    USER[User] --> |has| ROLE[Roles: CASHIER, MANAGER, OWNER]
+    ROLE --> |grants| PERM[Permissions]
+    PERM --> SCREEN[Screen Access]
+    PERM --> ACTION[Action Access]

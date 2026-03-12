@@ -1,0 +1,16 @@
+sequenceDiagram
+    participant UI as Compose UI
+    participant VM as ViewModel
+    participant UC as UseCase
+    participant R as Repository
+    participant DB as Room DB
+
+    UI->>VM: User Action (event)
+    VM->>UC: Execute use case
+    UC->>R: Call repository
+    R->>DB: Query/Insert
+    DB-->>R: Result
+    R-->>UC: Domain Entity
+    UC-->>VM: Result
+    VM->>VM: Update StateFlow
+    VM-->>UI: New UI State (recompose)

@@ -13,10 +13,12 @@ fun NavGraphBuilder.identityNavGraph(
     onLoginSuccess: () -> Unit,
     onOutletSelected: () -> Unit,
     onOnboardingComplete: () -> Unit,
+    onNeedActivation: () -> Unit,
     onDebugSeed: (() -> Unit)? = null
 ) {
     composable("splash") {
         SplashScreen(
+            onNeedActivation = onNeedActivation,
             onNeedOnboarding = {
                 if (onDebugSeed != null) {
                     onDebugSeed()

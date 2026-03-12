@@ -12,6 +12,7 @@ import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import id.stargan.intikasirfnb.debug.DebugSeeder
 import id.stargan.intikasirfnb.feature.identity.navigation.identityNavGraph
+import id.stargan.intikasirfnb.ui.activation.ActivationScreen
 import kotlinx.coroutines.launch
 import id.stargan.intikasirfnb.domain.catalog.ModifierGroupId
 import id.stargan.intikasirfnb.domain.catalog.ProductId
@@ -81,6 +82,8 @@ object PosRoutes {
     fun payment(saleId: String) = "pos/payment/$saleId"
     fun menuItemEdit(itemId: String) = "catalog/menu_items/edit/$itemId"
     fun modifierGroupEdit(groupId: String) = "catalog/modifiers/edit/$groupId"
+
+    const val ACTIVATION = "activation"
 }
 
 @Composable
@@ -109,6 +112,11 @@ fun PosNavGraph(debugSeeder: DebugSeeder? = null) {
                     popUpTo(PosRoutes.ONBOARDING) { inclusive = true }
                 }
             },
+            onNeedActivation = {
+                navController.navigate(PosRoutes.ACTIVATION) {
+                    popUpTo(PosRoutes.SPLASH) { inclusive = true }
+                }
+            },
             onDebugSeed = if (debugSeeder != null) {
                 {
                     scope.launch {
@@ -120,6 +128,16 @@ fun PosNavGraph(debugSeeder: DebugSeeder? = null) {
                 }
             } else null
         )
+
+        composable(PosRoutes.ACTIVATION) {
+            ActivationScreen(
+                onActivationSuccess = {
+                    navController.navigate(PosRoutes.SPLASH) {
+                        popUpTo(PosRoutes.ACTIVATION) { inclusive = true }
+                    }
+                }
+            )
+        }
 
         composable(PosRoutes.LANDING) {
             LandingScreen(

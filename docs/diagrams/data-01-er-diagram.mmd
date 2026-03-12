@@ -1,0 +1,29 @@
+erDiagram
+    tenants ||--o{ outlets : has
+    tenants ||--o{ users : has
+    tenants ||--o{ categories : has
+    tenants ||--o{ menu_items : has
+    tenants ||--o{ modifier_groups : has
+    tenants ||--o{ sales_channels : has
+    tenants ||--o{ tax_configs : has
+
+    outlets ||--o{ terminals : has
+    outlets ||--o{ sales : has
+    outlets ||--o{ tables : has
+    outlets ||--o{ cashier_sessions : has
+
+    categories ||--o{ menu_items : contains
+    menu_items ||--o{ menu_item_modifier_groups : linked
+    modifier_groups ||--o{ modifier_options : has
+    modifier_groups ||--o{ menu_item_modifier_groups : linked
+
+    sales ||--o{ order_lines : has
+    sales ||--o{ payments : has
+    sales ||--o{ kitchen_tickets : generates
+    sales_channels ||--o{ sales : used_by
+    sales_channels ||--o{ price_lists : has
+    price_lists ||--o{ price_list_entries : has
+
+    sales ||--o| platform_settlements : has
+    tables ||--o| sales : occupied_by
+    cashier_sessions ||--o{ sales : during

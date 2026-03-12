@@ -1,0 +1,14 @@
+sequenceDiagram
+    participant APP as IntiKasir App
+    participant PI as Play Integrity API
+    participant AR as AppReg License Server
+
+    APP->>AR: POST /activate {deviceId, challenge}
+    AR-->>APP: {challenge}
+    APP->>PI: requestIntegrityToken(challenge)
+    PI-->>APP: {integrityToken}
+    APP->>AR: POST /verify {integrityToken, deviceId}
+    AR->>AR: Verify token + create license
+    AR-->>APP: {signedLicense (Ed25519)}
+    APP->>APP: Store in EncryptedSharedPreferences
+    APP->>APP: Verify signature offline (Ed25519)

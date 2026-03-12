@@ -1,0 +1,9 @@
+graph TB
+    subgraph "Testing Pyramid"
+        E2E["E2E Tests<br/>(Planned — Phase 2+)"]
+        INT["Integration Tests<br/>(Room + Repository)"]
+        UNIT["Unit Tests<br/>Domain Entities + Use Cases<br/>157 tests"]
+    end
+
+    E2E -.-> INT
+    INT -.-> UNIT

@@ -1,0 +1,22 @@
+graph TB
+    subgraph "ChannelType Enum"
+        DI[DINE_IN<br/>Makan di tempat]
+        TA[TAKE_AWAY<br/>Bawa pulang]
+        DP[DELIVERY_PLATFORM<br/>GoFood, GrabFood, dll]
+        OD[OWN_DELIVERY<br/>Delivery sendiri]
+    end
+
+    subgraph "SalesChannel Entity"
+        SC[SalesChannel]
+        SC --- |name| N[String]
+        SC --- |channelType| CT[ChannelType]
+        SC --- |priceAdjustment| PA[PriceAdjustmentType]
+        SC --- |adjustmentValue| AV[BigDecimal]
+        SC --- |platformConfig| PC[PlatformConfig?]
+        SC --- |isActive| IA[Boolean]
+    end
+
+    DI --> SC
+    TA --> SC
+    DP --> SC
+    OD --> SC

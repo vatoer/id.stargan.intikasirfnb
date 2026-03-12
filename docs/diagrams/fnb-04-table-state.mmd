@@ -1,0 +1,6 @@
+stateDiagram-v2
+    [*] --> AVAILABLE
+    AVAILABLE --> OCCUPIED: assignTable(saleId)
+    OCCUPIED --> AVAILABLE: releaseTable()
+    note right of OCCUPIED: currentSaleId != null
+    note right of AVAILABLE: currentSaleId == null

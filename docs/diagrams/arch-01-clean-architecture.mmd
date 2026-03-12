@@ -1,0 +1,32 @@
+graph TB
+    subgraph "Presentation Layer (Android)"
+        UI[Jetpack Compose UI]
+        VM[ViewModel + StateFlow]
+        NAV[Navigation Compose]
+    end
+
+    subgraph "Domain Layer (Pure Kotlin)"
+        UC[Use Cases]
+        ENT[Entities & Aggregates]
+        VO[Value Objects]
+        RI[Repository Interfaces]
+        DE[Domain Events]
+    end
+
+    subgraph "Data Layer (Infrastructure)"
+        REPO[Repository Implementations]
+        DAO[Room DAOs]
+        DB[(Room / SQLite)]
+        MAP[Mappers DTO ↔ Domain]
+        SYNC[SyncEngine]
+    end
+
+    UI --> VM
+    VM --> UC
+    UC --> ENT
+    UC --> RI
+    RI -.->|implemented by| REPO
+    REPO --> DAO
+    DAO --> DB
+    REPO --> MAP
+    REPO --> SYNC

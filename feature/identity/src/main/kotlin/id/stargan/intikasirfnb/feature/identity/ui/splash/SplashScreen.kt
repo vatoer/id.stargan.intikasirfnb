@@ -23,6 +23,7 @@ import androidx.hilt.navigation.compose.hiltViewModel
 
 @Composable
 fun SplashScreen(
+    onNeedActivation: () -> Unit,
     onNeedOnboarding: () -> Unit,
     onHasData: () -> Unit,
     viewModel: SplashViewModel = hiltViewModel()
@@ -31,6 +32,7 @@ fun SplashScreen(
 
     LaunchedEffect(uiState) {
         when (uiState) {
+            is SplashUiState.NeedActivation -> onNeedActivation()
             is SplashUiState.NeedOnboarding -> onNeedOnboarding()
             is SplashUiState.HasData -> onHasData()
             else -> {}

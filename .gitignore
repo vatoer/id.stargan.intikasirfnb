@@ -15,3 +15,7 @@
 local.properties
 **/build/**
 ideation.md
+
+.claude/
+
+.idea

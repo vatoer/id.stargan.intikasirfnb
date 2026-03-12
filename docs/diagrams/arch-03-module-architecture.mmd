@@ -1,0 +1,36 @@
+graph TB
+    subgraph ":app"
+        APP_UI[UI / Screens]
+        APP_VM[ViewModels]
+        APP_DI[AppModule DI]
+        APP_NAV[Navigation]
+    end
+
+    subgraph ":feature:identity"
+        ID_UI[Auth UI]
+        ID_VM[Auth ViewModels]
+    end
+
+    subgraph ":core:domain"
+        DOM_E[Entities]
+        DOM_UC[Use Cases]
+        DOM_R[Repository Interfaces]
+        DOM_VO[Value Objects]
+    end
+
+    subgraph ":core:data"
+        DAT_R[Repository Impls]
+        DAT_E[Room Entities]
+        DAT_DAO[DAOs]
+        DAT_DB[PosDatabase]
+        DAT_DI[DatabaseModule]
+    end
+
+    APP_UI --> APP_VM
+    APP_VM --> DOM_UC
+    ID_UI --> ID_VM
+    ID_VM --> DOM_UC
+    DOM_UC --> DOM_R
+    DAT_R -.->|implements| DOM_R
+    DAT_R --> DAT_DAO
+    DAT_DAO --> DAT_DB

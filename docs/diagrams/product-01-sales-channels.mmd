@@ -1,0 +1,32 @@
+graph TB
+    subgraph "Sales Channels"
+        DI[Dine In]
+        TA[Take Away]
+        DP[Delivery Platform]
+        OD[Own Delivery]
+    end
+
+    subgraph "Platform Presets"
+        GF[GoFood]
+        GB[GrabFood]
+        SF[ShopeeFood]
+        CU[Custom Platform]
+    end
+
+    DP --> GF
+    DP --> GB
+    DP --> SF
+    DP --> CU
+
+    subgraph "Per-Channel Config"
+        PR[Pricing Override]
+        CM[Commission %]
+        TX[Tax/SC Rules]
+        ST[Settlement Tracking]
+    end
+
+    DI --> PR
+    TA --> PR
+    DP --> CM
+    DP --> ST
+    DI --> TX

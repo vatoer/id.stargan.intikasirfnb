@@ -1,0 +1,11 @@
+graph LR
+    subgraph "Phone (< 600dp)"
+        P_MENU[Menu Grid<br/>Full width, 100dp cards]
+        P_CART[Cart BottomSheet<br/>Peek bar 80dp]
+        P_FAB[FAB with Badge]
+    end
+
+    subgraph "Tablet (>= 600dp)"
+        T_MENU[Menu Grid<br/>60% width, 140dp cards]
+        T_CART[Cart Panel<br/>40% width, always visible]
+    end

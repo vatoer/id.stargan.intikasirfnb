@@ -1,0 +1,34 @@
+flowchart TB
+    SPLASH[SplashScreen] --> |first run| ONBOARD[Onboarding<br/>3 steps]
+    SPLASH --> |returning| LOGIN[LoginScreen<br/>PIN entry]
+    ONBOARD --> LOGIN
+
+    LOGIN --> OUTLET[OutletPicker]
+    OUTLET --> LANDING[LandingScreen<br/>6-item grid]
+
+    LANDING --> POS_SESSION[CashierSession<br/>Open/Close]
+    LANDING --> CATALOG[CatalogMain<br/>Hub]
+    LANDING --> SETTINGS[Settings<br/>7 screens]
+    LANDING --> HISTORY[TransactionHistory]
+    LANDING --> CUSTOMER[Customer<br/>NOT_STARTED]
+
+    POS_SESSION --> |session active| POS[PosScreen<br/>Menu + Cart]
+    POS --> PAYMENT[PaymentScreen<br/>Confirm + Pay]
+    PAYMENT --> |success| RECEIPT[Receipt + Print]
+    RECEIPT --> POS
+
+    CATALOG --> CAT_MGR[CategoryManagement]
+    CATALOG --> MENU_MGR[MenuItemManagement]
+    CATALOG --> MOD_MGR[ModifierGroupManagement]
+    MENU_MGR --> MENU_FORM[MenuItemForm]
+    MOD_MGR --> MOD_FORM[ModifierGroupForm]
+
+    SETTINGS --> SET_OUTLET[Outlet Profile]
+    SETTINGS --> SET_RECEIPT[Receipt Config]
+    SETTINGS --> SET_PRINTER[Printer Config]
+    SETTINGS --> SET_TAX[Tax Config]
+    SETTINGS --> SET_SC[Service Charge]
+    SETTINGS --> SET_TIP[Tip Config]
+    SETTINGS --> SET_CHANNEL[Sales Channel]
+    SETTINGS --> SET_TABLE[Table Management]
+    SET_CHANNEL --> SETTLEMENT[Settlement Reconciliation]

@@ -1,0 +1,25 @@
+graph LR
+    subgraph "Upstream"
+        IA2[Identity & Access]
+        CT2[Catalog]
+        ST2[Settings]
+    end
+
+    subgraph "Core"
+        TX2[Transaction]
+    end
+
+    subgraph "Downstream"
+        WF2[Workflow]
+        INV2[Inventory]
+        AC2[Accounting]
+        RP2[Reporting]
+    end
+
+    IA2 -->|Shared Kernel| TX2
+    CT2 -->|ACL: ProductRef| TX2
+    ST2 -->|Conformist| TX2
+    TX2 -->|Domain Event| WF2
+    TX2 -->|Domain Event| INV2
+    TX2 -->|Domain Event| AC2
+    TX2 -->|Query| RP2

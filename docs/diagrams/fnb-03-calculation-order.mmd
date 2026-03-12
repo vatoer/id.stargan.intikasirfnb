@@ -1,0 +1,9 @@
+flowchart TB
+    SUB[Subtotal<br/>Σ orderLine.lineTotal]
+    DSC[- Discount]
+    SC[+ Service Charge<br/>rate × subtotal]
+    TAX[+ Tax<br/>PPN/PB1 × taxableAmount]
+    TIP[+ Tip<br/>optional]
+    GT[= Grand Total]
+
+    SUB --> DSC --> SC --> TAX --> TIP --> GT

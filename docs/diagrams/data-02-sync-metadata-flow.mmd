@@ -1,0 +1,9 @@
+flowchart LR
+    CREATE[Create Entity] --> PENDING[syncStatus = PENDING]
+    PENDING --> PUSH[Push to Cloud]
+    PUSH --> SYNCED[syncStatus = SYNCED]
+    SYNCED --> MODIFY[Local Modification]
+    MODIFY --> PENDING
+    SYNCED --> PULL[Pull from Cloud]
+    PULL --> |version conflict| CONFLICT[syncStatus = CONFLICT]
+    CONFLICT --> RESOLVE[Resolve] --> SYNCED

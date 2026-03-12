@@ -1,0 +1,21 @@
+graph TB
+    subgraph "Domain Layer"
+        ESCPOS[EscPosBuilder<br/>Command builder]
+        RECEIPT[buildSaleReceipt<br/>Receipt formatter]
+        LOGO[LogoBitmapProcessor<br/>Floyd-Steinberg dithering]
+    end
+
+    subgraph "Infrastructure"
+        PSF[PrinterServiceFactory<br/>Singleton, BT discovery]
+        BPS[BluetoothPrinterService<br/>SPP connection]
+    end
+
+    subgraph "Hardware"
+        PRINTER[Thermal Printer<br/>58mm / 80mm]
+    end
+
+    RECEIPT --> ESCPOS
+    LOGO --> ESCPOS
+    ESCPOS --> BPS
+    PSF --> BPS
+    BPS -->|Bluetooth SPP| PRINTER
