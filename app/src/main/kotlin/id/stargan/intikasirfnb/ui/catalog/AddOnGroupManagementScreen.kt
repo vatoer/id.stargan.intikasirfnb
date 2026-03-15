@@ -187,7 +187,7 @@ private fun AddOnGroupCard(
     onToggleActive: () -> Unit
 ) {
     val priceFormat = remember {
-        NumberFormat.getNumberInstance(Locale("id", "ID")).apply {
+        NumberFormat.getNumberInstance(Locale.forLanguageTag("id-ID")).apply {
             minimumFractionDigits = 0
             maximumFractionDigits = 0
         }

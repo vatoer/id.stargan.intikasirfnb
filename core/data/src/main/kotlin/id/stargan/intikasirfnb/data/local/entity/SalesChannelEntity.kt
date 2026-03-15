@@ -17,6 +17,7 @@ data class SalesChannelEntity(
     val isActive: Boolean = true,
     val sortOrder: Int = 0,
     val defaultOrderFlow: String = "PAY_FIRST",
+    val tableMode: String = "REQUIRED",
     val priceListId: String? = null,
     val priceAdjustmentType: String? = null,
     val priceAdjustmentValue: String? = null,

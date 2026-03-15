@@ -81,7 +81,7 @@ import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 
-private val idrFormat = NumberFormat.getCurrencyInstance(Locale("id", "ID")).apply {
+private val idrFormat = NumberFormat.getCurrencyInstance(Locale.forLanguageTag("id-ID")).apply {
     maximumFractionDigits = 0
 }
 
@@ -460,7 +460,7 @@ private fun ReceiptPreviewCard(
     cashierName: String?,
     channelName: String?
 ) {
-    val dateFormat = remember { SimpleDateFormat("dd/MM/yyyy HH:mm", Locale("id")) }
+    val dateFormat = remember { SimpleDateFormat("dd/MM/yyyy HH:mm", Locale.forLanguageTag("id")) }
 
     Card(
         modifier = Modifier.fillMaxWidth(),
@@ -496,10 +496,23 @@ private fun ReceiptPreviewCard(
                 Row(modifier = Modifier.fillMaxWidth().padding(vertical = 3.dp)) {
                     Column(modifier = Modifier.weight(1f)) {
                         Text(line.productRef.name, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Medium, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                        Text("${line.quantity} x ${idrFormat.format(line.unitPrice.amount)}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                         if (line.selectedModifiers.isNotEmpty()) {
-                            Text(line.selectedModifiers.joinToString(", ") { it.optionName }, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            val paid = line.selectedModifiers.filter { it.priceDelta.isPositive() }
+                            val free = line.selectedModifiers.filter { !it.priceDelta.isPositive() }
+                            paid.forEach { mod ->
+                                Text("+ ${mod.optionName}  ${idrFormat.format(mod.priceDelta.amount)}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.tertiary)
+                            }
+                            if (free.isNotEmpty()) {
+                                Text(free.joinToString(", ") { it.optionName }, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            }
                         }
-                        Text("${line.quantity} x ${idrFormat.format(line.effectiveUnitPrice().amount)}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        if (line.selectedAddOns.isNotEmpty()) {
+                            line.selectedAddOns.forEach { addOn ->
+                                val label = if (addOn.quantity > 1) "+ ${addOn.addOnName} ${addOn.quantity}x${idrFormat.format(addOn.unitPrice.amount)}" else "+ ${addOn.addOnName}"
+                                Text("$label  ${idrFormat.format(addOn.totalPrice.amount)}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.tertiary)
+                            }
+                        }
                         if (!line.notes.isNullOrBlank()) {
                             Text("* ${line.notes}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.outline)
                         }
@@ -585,10 +598,23 @@ private fun OrderSummaryPanel(
                 Row(modifier = Modifier.fillMaxWidth().padding(vertical = 6.dp), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.Top) {
                     Column(modifier = Modifier.weight(1f)) {
                         Text(line.productRef.name, style = MaterialTheme.typography.bodyMedium, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                        Text("${line.quantity} x ${idrFormat.format(line.unitPrice.amount)}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                         if (line.selectedModifiers.isNotEmpty()) {
-                            Text(line.selectedModifiers.joinToString(", ") { it.optionName }, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            val paid = line.selectedModifiers.filter { it.priceDelta.isPositive() }
+                            val free = line.selectedModifiers.filter { !it.priceDelta.isPositive() }
+                            paid.forEach { mod ->
+                                Text("+ ${mod.optionName}  ${idrFormat.format(mod.priceDelta.amount)}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.tertiary)
+                            }
+                            if (free.isNotEmpty()) {
+                                Text(free.joinToString(", ") { it.optionName }, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            }
                         }
-                        Text("${idrFormat.format(line.effectiveUnitPrice().amount)} x ${line.quantity}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        if (line.selectedAddOns.isNotEmpty()) {
+                            line.selectedAddOns.forEach { addOn ->
+                                val label = if (addOn.quantity > 1) "+ ${addOn.addOnName} ${addOn.quantity}x${idrFormat.format(addOn.unitPrice.amount)}" else "+ ${addOn.addOnName}"
+                                Text("$label  ${idrFormat.format(addOn.totalPrice.amount)}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.tertiary)
+                            }
+                        }
                     }
                     Text(idrFormat.format(line.lineTotal().amount), style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Medium)
                 }
@@ -993,7 +1019,7 @@ private fun referenceLabel(method: PaymentMethod): String = when (method) {
 private fun formatCashDisplay(input: String): String {
     if (input.isBlank()) return ""
     val number = input.toLongOrNull() ?: return input
-    return NumberFormat.getNumberInstance(Locale("id", "ID")).format(number)
+    return NumberFormat.getNumberInstance(Locale.forLanguageTag("id-ID")).format(number)
 }
 
 private fun formatQuickCash(amount: Long): String {

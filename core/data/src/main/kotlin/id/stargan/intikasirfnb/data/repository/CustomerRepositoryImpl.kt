@@ -13,5 +13,7 @@ class CustomerRepositoryImpl(
 ) : CustomerRepository {
     override suspend fun getById(id: CustomerId): Customer? = dao.getById(id.value)?.toDomain()
     override suspend fun save(customer: Customer) { dao.insert(customer.toEntity()) }
+    override suspend fun delete(id: CustomerId) { dao.deleteById(id.value) }
     override suspend fun listByTenant(tenantId: TenantId): List<Customer> = dao.listByTenant(tenantId.value).map { it.toDomain() }
+    override suspend fun search(tenantId: TenantId, query: String): List<Customer> = dao.search(tenantId.value, query).map { it.toDomain() }
 }

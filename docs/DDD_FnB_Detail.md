@@ -33,7 +33,7 @@ Diagram: [F&B Context dalam base](diagrams/fnb-01-fnb-context-overview.mmd).
 | **Settlement** | Proses pembayaran dari platform ke merchant. Status: PENDING → SETTLED. Perlu rekonsiliasi. |
 | **Meja (Table)** | Representasi meja fisik; satu meja bisa punya satu Order aktif (dine in). |
 | **MenuItem** | Item yang dijual (makanan/minuman); punya harga, kategori, modifier, add-on, dan opsional **Resep**. |
-| **Modifier** | Kustomisasi penyajian item, selection-based (pilih dari opsi). Contoh: Level Pedas, Level Gula, Ukuran, Matang/Rare. Harga bisa +0 (preferensi saja) atau ada delta harga. Reusable lintas menu item via ModifierGroup. |
+| **Modifier** | Kustomisasi penyajian item, selection-based (pilih dari opsi). Contoh: Level Pedas, Level Gula, Ukuran, Matang/Rare. Harga bisa +0 (preferensi saja) atau ada delta harga. Reusable lintas menu item via ModifierGroup. **Selection rules (isRequired, minSelection, maxSelection) ada di ModifierGroup**, bukan di link. |
 | **Add-on** | Item tambahan di atas base item, quantity-based (1x, 2x, 3x). Contoh: Extra Cheese, Extra Shot Espresso, Topping Boba, Extra Patty. Selalu punya harga sendiri. Bisa link ke inventory untuk stock deduction. Reusable lintas menu item via AddOnGroup. |
 | **Order Line / Baris Pesanan** | Satu entri di Order: MenuItem + qty + modifier snapshot + add-on snapshot + price snapshot. |
 | **Resep (Recipe)** | Opsional: daftar **Bahan (Ingredient)** + qty per porsi untuk satu MenuItem; dipakai untuk COGS dan pengurangan stok. |
@@ -172,6 +172,14 @@ Harga efektif per OrderLine:
 5. Simpan sebagai priceSnapshot + modifierSnapshot + addOnSnapshot di OrderLine (frozen)
 6. lineTotal = (effectiveUnitPrice × orderQty) + addOnTotal - discount
    Catatan: addOnTotal TIDAK dikali orderQty (best practice modern PoS)
+
+Display di struk & UI:
+- Baris 1: Nama menu + lineTotal di kanan
+- Baris 2: qty x basePrice (unitPrice, tanpa modifier)
+- Modifier berbayar: per-line "  + Large  5.000"
+- Modifier gratis: inline "  (Extra Pedas)"
+- Add-on qty=1: "  + Telur Ceplok  5.000"
+- Add-on qty>1: "  + Keju 2x3.000  6.000"
 ```
 
 ```kotlin
@@ -209,7 +217,8 @@ fun resolvePrice(
 ### 3.4 Aturan per Channel Type
 
 - **DINE_IN**
-  - Order harus punya `tableId` (meja aktif).
+  - Meja dikonfigurasi via `TableMode` di SalesChannel: `REQUIRED` (wajib pilih meja), `OPTIONAL` (boleh skip), `NONE` (tanpa meja, cocok untuk fast-food self-pickup).
+  - `TableMode` independen dari `OrderFlowType` — misalnya PAY_FIRST + REQUIRED untuk food court yang antar ke meja.
   - Satu meja satu order aktif; order selesai/batal → meja kosong.
   - Split bill: tetap satu Order, beberapa Payment; atau kebijakan “bill per kursi” (implementasi spesifik).
   - Harga: base price (default) atau sesuai channel config.

@@ -41,6 +41,22 @@ fun ChannelType.defaultFlow(): OrderFlowType = when (this) {
     ChannelType.OWN_DELIVERY -> OrderFlowType.PAY_FIRST
 }
 
+// --- Table Mode ---
+// Independent from OrderFlow — determines whether table assignment is needed
+
+enum class TableMode {
+    REQUIRED,   // Wajib pilih meja (table service, food court with delivery to table)
+    OPTIONAL,   // Boleh pilih meja, boleh skip
+    NONE        // Tidak pakai meja (self-pickup, take away, delivery)
+}
+
+fun ChannelType.defaultTableMode(): TableMode = when (this) {
+    ChannelType.DINE_IN -> TableMode.REQUIRED
+    ChannelType.TAKE_AWAY -> TableMode.NONE
+    ChannelType.DELIVERY_PLATFORM -> TableMode.NONE
+    ChannelType.OWN_DELIVERY -> TableMode.NONE
+}
+
 // --- Price Adjustment ---
 
 enum class PriceAdjustmentType {
@@ -84,6 +100,7 @@ data class SalesChannel(
     val isActive: Boolean = true,
     val sortOrder: Int = 0,
     val defaultOrderFlow: OrderFlowType = channelType.defaultFlow(),
+    val tableMode: TableMode = channelType.defaultTableMode(),
     val priceListId: PriceListId? = null,
     val priceAdjustmentType: PriceAdjustmentType? = null,
     val priceAdjustmentValue: BigDecimal? = null,
@@ -102,7 +119,11 @@ data class SalesChannel(
         }
     }
 
-    val requiresTable: Boolean get() = channelType == ChannelType.DINE_IN
+    /** Table is mandatory for this channel */
+    val requiresTable: Boolean get() = tableMode == TableMode.REQUIRED
+
+    /** Table is optional — user may pick a table but it's not mandatory */
+    val tableOptional: Boolean get() = tableMode == TableMode.OPTIONAL
 
     val requiresExternalOrderId: Boolean
         get() = platformConfig?.requiresExternalOrderId == true

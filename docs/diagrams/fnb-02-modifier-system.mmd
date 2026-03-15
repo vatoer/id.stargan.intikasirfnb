@@ -1,6 +1,6 @@
 graph TB
     subgraph "Modifier Architecture (Selection-based)"
-        MG[ModifierGroup<br/>e.g., Level Pedas]
+        MG[ModifierGroup<br/>Level Pedas<br/>isRequired=true, maxSelection=1]
         MO1[ModifierOption<br/>Tidak Pedas +0]
         MO2[ModifierOption<br/>Sedang +0]
         MO3[ModifierOption<br/>Pedas +2000]
@@ -9,8 +9,8 @@ graph TB
         MI1[MenuItem: Nasi Goreng]
         MI2[MenuItem: Mie Goreng]
 
-        LINK1[Link: required, max=1]
-        LINK2[Link: optional, max=1]
+        LINK1[Link: sortOrder=1]
+        LINK2[Link: sortOrder=1]
     end
 
     MG --> MO1
@@ -22,6 +22,10 @@ graph TB
     MI2 -->|MenuItemModifierLink| LINK2
     LINK1 --> MG
     LINK2 --> MG
+
+    subgraph "Selection Rules pada Group"
+        NOTE1["isRequired, minSelection, maxSelection<br/>didefinisikan di ModifierGroup<br/>bukan di link per menu item"]
+    end
 
     subgraph "Lihat juga"
         NOTE["Add-on System (qty-based):<br/>fnb-07-addon-system.mmd"]

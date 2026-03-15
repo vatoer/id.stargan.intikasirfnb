@@ -230,6 +230,47 @@ object AppModule {
         kitchenTicketRepository: KitchenTicketRepository
     ): GetActiveKitchenTicketsUseCase = GetActiveKitchenTicketsUseCase(kitchenTicketRepository)
 
+    // --- Inventory use cases ---
+
+    @Provides
+    @Singleton
+    fun provideAdjustStockUseCase(
+        stockLevelRepository: id.stargan.intikasirfnb.domain.inventory.StockLevelRepository,
+        stockMovementRepository: id.stargan.intikasirfnb.domain.inventory.StockMovementRepository
+    ): id.stargan.intikasirfnb.domain.usecase.inventory.AdjustStockUseCase =
+        id.stargan.intikasirfnb.domain.usecase.inventory.AdjustStockUseCase(stockLevelRepository, stockMovementRepository)
+
+    @Provides
+    @Singleton
+    fun provideReceiveStockUseCase(
+        stockLevelRepository: id.stargan.intikasirfnb.domain.inventory.StockLevelRepository,
+        stockMovementRepository: id.stargan.intikasirfnb.domain.inventory.StockMovementRepository
+    ): id.stargan.intikasirfnb.domain.usecase.inventory.ReceiveStockUseCase =
+        id.stargan.intikasirfnb.domain.usecase.inventory.ReceiveStockUseCase(stockLevelRepository, stockMovementRepository)
+
+    @Provides
+    @Singleton
+    fun provideGetStockLevelsUseCase(
+        stockLevelRepository: id.stargan.intikasirfnb.domain.inventory.StockLevelRepository
+    ): id.stargan.intikasirfnb.domain.usecase.inventory.GetStockLevelsUseCase =
+        id.stargan.intikasirfnb.domain.usecase.inventory.GetStockLevelsUseCase(stockLevelRepository)
+
+    // --- Accounting use cases ---
+
+    @Provides
+    @Singleton
+    fun provideRecordSaleJournalUseCase(
+        journalRepository: id.stargan.intikasirfnb.domain.accounting.JournalRepository
+    ): id.stargan.intikasirfnb.domain.usecase.accounting.RecordSaleJournalUseCase =
+        id.stargan.intikasirfnb.domain.usecase.accounting.RecordSaleJournalUseCase(journalRepository)
+
+    @Provides
+    @Singleton
+    fun provideGetDailySummaryUseCase(
+        saleRepository: id.stargan.intikasirfnb.domain.transaction.SaleRepository
+    ): id.stargan.intikasirfnb.domain.usecase.accounting.GetDailySummaryUseCase =
+        id.stargan.intikasirfnb.domain.usecase.accounting.GetDailySummaryUseCase(saleRepository)
+
     @Provides
     @Singleton
     fun provideGetOpenSalesUseCase(

@@ -186,6 +186,9 @@ class CatalogModelsTest {
             name = "Ukuran"
         )
         assertTrue(group.options.isEmpty())
+        assertFalse(group.isRequired)
+        assertEquals(0, group.minSelection)
+        assertEquals(1, group.maxSelection)
         assertEquals(0, group.sortOrder)
         assertTrue(group.isActive)
     }
@@ -214,6 +217,21 @@ class CatalogModelsTest {
     // ==================== MenuItemModifierLink ====================
 
     @Test
+    fun `ModifierGroup with selection rules`() {
+        val group = ModifierGroup(
+            id = ModifierGroupId.generate(),
+            tenantId = tenantId,
+            name = "Topping",
+            isRequired = true,
+            minSelection = 1,
+            maxSelection = 3
+        )
+        assertTrue(group.isRequired)
+        assertEquals(1, group.minSelection)
+        assertEquals(3, group.maxSelection)
+    }
+
+    @Test
     fun `MenuItemModifierLink defaults`() {
         val link = MenuItemModifierLink(
             id = "link-1",
@@ -221,25 +239,6 @@ class CatalogModelsTest {
             modifierGroupId = ModifierGroupId.generate()
         )
         assertEquals(0, link.sortOrder)
-        assertFalse(link.isRequired)
-        assertEquals(0, link.minSelection)
-        assertEquals(1, link.maxSelection)
-    }
-
-    @Test
-    fun `MenuItemModifierLink required with multi-select`() {
-        val link = MenuItemModifierLink(
-            id = "link-2",
-            menuItemId = ProductId.generate(),
-            modifierGroupId = ModifierGroupId.generate(),
-            sortOrder = 1,
-            isRequired = true,
-            minSelection = 1,
-            maxSelection = 3
-        )
-        assertTrue(link.isRequired)
-        assertEquals(1, link.minSelection)
-        assertEquals(3, link.maxSelection)
     }
 
     // ==================== MenuItem with modifierLinks ====================
@@ -251,8 +250,8 @@ class CatalogModelsTest {
         val groupId2 = ModifierGroupId.generate()
 
         val links = listOf(
-            MenuItemModifierLink("l1", itemId, groupId1, sortOrder = 1, isRequired = true),
-            MenuItemModifierLink("l2", itemId, groupId2, sortOrder = 2, isRequired = false)
+            MenuItemModifierLink("l1", itemId, groupId1, sortOrder = 1),
+            MenuItemModifierLink("l2", itemId, groupId2, sortOrder = 2)
         )
 
         val item = MenuItem(
@@ -265,8 +264,8 @@ class CatalogModelsTest {
         )
 
         assertEquals(2, item.modifierLinks.size)
-        assertTrue(item.modifierLinks[0].isRequired)
-        assertFalse(item.modifierLinks[1].isRequired)
+        assertEquals(1, item.modifierLinks[0].sortOrder)
+        assertEquals(2, item.modifierLinks[1].sortOrder)
         assertEquals(itemId, item.modifierLinks[0].menuItemId)
     }
 }

@@ -1,23 +1,33 @@
 package id.stargan.intikasirfnb.licensing
 
+import id.stargan.intikasirfnb.BuildConfig
+
 object AppConfig {
     /**
      * Ed25519 public key server (32 byte = 64 karakter hex).
-     * Digunakan untuk verifikasi signature license secara OFFLINE.
-     * JANGAN fetch dari server runtime — hardcode saja.
+     * Dikonfigurasi via custom.properties → PUBLIC_KEY_HEX
      */
-    const val PUBLIC_KEY_HEX = "GANTI_DENGAN_NILAI_DARI_TIM_BACKEND"
+    val PUBLIC_KEY_HEX: String = BuildConfig.PUBLIC_KEY_HEX
 
     /**
      * Google Cloud project number. Digunakan oleh Play Integrity API.
-     * Dev: 0L (diabaikan). Production: nomor asli dari Google Cloud Console.
+     * Dikonfigurasi via custom.properties → CLOUD_PROJECT_NUMBER
      */
-    const val CLOUD_PROJECT_NUMBER = 0L
+    val CLOUD_PROJECT_NUMBER: Long = BuildConfig.CLOUD_PROJECT_NUMBER
+
+    /**
+     * Hostname untuk certificate pinning (OkHttp CertificatePinner).
+     * Dikonfigurasi via custom.properties → CERT_PIN_HOSTNAME
+     */
+    val CERT_PIN_HOSTNAME: String = BuildConfig.CERT_PIN_HOSTNAME
 
     /**
      * SHA-256 pin sertifikat server untuk certificate pinning.
-     * Dev: kosong (pinning di-skip pada debug build).
-     * Production: diisi dengan SHA-256 hash dari public key sertifikat server.
+     * Dikonfigurasi via custom.properties → CERTIFICATE_PINS (comma-separated).
+     * Kosong = pinning disabled.
      */
-    val CERTIFICATE_PINS = listOf<String>()
+    val CERTIFICATE_PINS: List<String> = BuildConfig.CERTIFICATE_PINS
+        .split(",")
+        .map { it.trim() }
+        .filter { it.isNotBlank() }
 }

@@ -87,9 +87,10 @@ Solusi: **3-Layer Architecture** — Buat grup → Assign ke menu item → Tampi
 | **Harga** | Bisa gratis (preferensi) atau ada delta harga | Selalu ada harga sendiri |
 | **Pemilihan** | Selection-based (pilih 1 atau N dari group) | Quantity-based (1x, 2x, 3x Extra Cheese) |
 | **Inventory** | Umumnya tidak track inventory | Bisa track inventory (deduct stock per qty) |
-| **Display di struk** | "Level Pedas: Extra Pedas" | "+ Extra Cheese x2 @5.000" |
+| **Display di struk** | Berbayar: `+ Large  5.000`, Gratis: `(Extra Pedas)` | `+ Extra Cheese  5.000` (qty 1), `+ Keju 2x3.000  6.000` (qty >1) |
 | **Pricing** | `priceDelta` (bisa 0, bisa + atau -) | `price` per unit × quantity |
-| **Link config** | isRequired, minSelection, maxSelection | sortOrder saja (qty diatur saat order) |
+| **Selection rules** | Di **ModifierGroup**: isRequired, minSelection, maxSelection | Di **AddOnItem**: maxQty per item |
+| **Link config** | sortOrder saja (simple toggle) | sortOrder saja |
 
 ### 3-Layer Architecture (Best Practice Modern F&B PoS)
 
@@ -142,25 +143,30 @@ Grup modifier dan add-on dibuat secara independen — belum terikat ke menu item
 **UI**: Catalog → tab "Modifier" dan tab "Add-on" (masing-masing CRUD screen).
 
 ```
-Modifier Groups:                  Add-on Groups:
-┌────────────────────────┐       ┌────────────────────────┐
-│ Level Pedas             │       │ Topping                │
-│  • Tidak Pedas    +0   │       │  • Extra Cheese   Rp5K │
-│  • Sedang         +0   │       │  • Extra Patty   Rp10K │
-│  • Pedas       +2.000  │       │  • Telur Mata    Rp4K  │
-│  • Extra Pedas +3.000  │       │  maxQty: 3 per item    │
-├────────────────────────┤       ├────────────────────────┤
-│ Level Gula              │       │ Extra Shot             │
-│  • Normal         +0   │       │  • Espresso Shot  Rp6K │
-│  • Less Sugar     +0   │       │  • Hazelnut Syrup Rp5K │
-│  • No Sugar       +0   │       │  maxQty: 3 per item    │
-├────────────────────────┤       ├────────────────────────┤
-│ Ukuran                  │       │ Side Dish              │
-│  • Regular        +0   │       │  • Kentang Goreng Rp8K │
-│  • Large       +5.000  │       │  • Onion Ring    Rp10K │
-│  • Extra Large +8.000  │       │  maxQty: 2 per item    │
-└────────────────────────┘       └────────────────────────┘
+Modifier Groups:                        Add-on Groups:
+┌──────────────────────────────┐       ┌────────────────────────┐
+│ Level Pedas                   │       │ Topping                │
+│  Pilih 1 · Wajib              │       │  • Extra Cheese   Rp5K │
+│  • Tidak Pedas    +0         │       │  • Extra Patty   Rp10K │
+│  • Sedang         +0         │       │  • Telur Mata    Rp4K  │
+│  • Pedas       +2.000        │       │  maxQty: 3 per item    │
+│  • Extra Pedas +3.000        │       ├────────────────────────┤
+├──────────────────────────────┤       │ Extra Shot             │
+│ Level Gula                    │       │  • Espresso Shot  Rp6K │
+│  Pilih 1 · Wajib              │       │  • Hazelnut Syrup Rp5K │
+│  • Normal         +0         │       │  maxQty: 3 per item    │
+│  • Less Sugar     +0         │       ├────────────────────────┤
+│  • No Sugar       +0         │       │ Side Dish              │
+├──────────────────────────────┤       │  • Kentang Goreng Rp8K │
+│ Ukuran                        │       │  • Onion Ring    Rp10K │
+│  Pilih 1 · Wajib              │       │  maxQty: 2 per item    │
+│  • Regular        +0         │       └────────────────────────┘
+│  • Large       +5.000        │
+│  • Extra Large +8.000        │
+└──────────────────────────────┘
 ```
+
+> Selection rules (Pilih 1/Pilih Beberapa, Wajib/Opsional) didefinisikan di level **ModifierGroup** saat pembuatan group. Tidak perlu dikonfigurasi ulang saat attach ke menu item.
 
 ### Layer 2: Assignment per Menu Item (Menu Item Form)
 
@@ -175,13 +181,9 @@ Di form edit/tambah menu item, pemilik usaha memilih grup mana yang berlaku. Ini
 │  [Nama] [Kategori] [Harga] [Gambar] ...                  │
 │                                                          │
 │  ── Modifier ──────────────────────────────────────────  │
-│  ☑ Level Pedas                                           │
-│      Tipe: ○ Pilih 1  ● Pilih Beberapa (max: 1)         │
-│      ☑ Wajib dipilih                                     │
-│  ☐ Level Gula          ← tidak dicentang = tidak muncul  │
-│  ☑ Ukuran                                                │
-│      Tipe: ● Pilih 1  ○ Pilih Beberapa                   │
-│      ☑ Wajib dipilih                                     │
+│  ☑ Level Pedas     4 opsi · Pilih 1 · Wajib              │
+│  ☐ Level Gula      ← tidak dicentang = tidak muncul      │
+│  ☑ Ukuran          3 opsi · Pilih 1 · Wajib              │
 │                                                          │
 │  ── Add-on ────────────────────────────────────────────  │
 │  ☑ Topping             ← centang = muncul saat order     │
@@ -192,14 +194,17 @@ Di form edit/tambah menu item, pemilik usaha memilih grup mana yang berlaku. Ini
 └──────────────────────────────────────────────────────────┘
 ```
 
+> **Catatan arsitektur**: Selection rules (isRequired, minSelection, maxSelection) ada di **ModifierGroup**, bukan di link. Saat attach ke menu item, cukup checkbox on/off. Info aturan ditampilkan read-only dari group (misal "4 opsi · Pilih 1 · Wajib"). Ini mengikuti best practice F&B PoS (Square, Toast, Lightspeed) — sifat "pilih satu" atau "pilih beberapa" melekat pada nature group-nya, bukan pada menu item yang dipasangi.
+
 **Aturan assignment:**
 
 | Aspek | Modifier Link | Add-on Link |
 |-------|---------------|-------------|
 | **Junction entity** | `MenuItemModifierLink` | `MenuItemAddOnLink` |
-| **Config per-link** | isRequired, minSelection, maxSelection, sortOrder | sortOrder |
+| **Config per-link** | sortOrder saja (simple toggle) | sortOrder saja |
+| **Selection rules** | Di **ModifierGroup**: isRequired, minSelection, maxSelection | Di **AddOnItem**: maxQty |
 | **Relasi** | M:N (1 group → many items, 1 item → many groups) | M:N (sama) |
-| **Kenapa Add-on link lebih simple?** | Modifier perlu aturan "wajib/opsional" dan "berapa banyak boleh dipilih" karena selection-based | Add-on tidak perlu — qty diatur kasir saat order, maxQty sudah ada di AddOnItem level |
+| **UX saat attach** | Checkbox on/off, info rule read-only dari group | Checkbox on/off |
 
 ### Layer 3: Transaksi (POS Screen)
 

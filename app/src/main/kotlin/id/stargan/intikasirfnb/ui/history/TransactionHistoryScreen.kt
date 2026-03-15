@@ -89,14 +89,14 @@ import java.util.Calendar
 import java.util.Date
 import java.util.Locale
 
-private val idrFormat = NumberFormat.getCurrencyInstance(Locale("id", "ID")).apply {
+private val idrFormat = NumberFormat.getCurrencyInstance(Locale.forLanguageTag("id-ID")).apply {
     maximumFractionDigits = 0
 }
 
-private val dateFormat = SimpleDateFormat("dd MMM yyyy", Locale("id", "ID"))
-private val timeFormat = SimpleDateFormat("HH:mm", Locale("id", "ID"))
+private val dateFormat = SimpleDateFormat("dd MMM yyyy", Locale.forLanguageTag("id-ID"))
+private val timeFormat = SimpleDateFormat("HH:mm", Locale.forLanguageTag("id-ID"))
 
-private val detailDateFormat = SimpleDateFormat("dd/MM/yyyy HH:mm", Locale("id", "ID"))
+private val detailDateFormat = SimpleDateFormat("dd/MM/yyyy HH:mm", Locale.forLanguageTag("id-ID"))
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable

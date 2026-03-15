@@ -43,6 +43,14 @@ import id.stargan.intikasirfnb.ui.settings.TaxSettingsScreen
 import id.stargan.intikasirfnb.ui.settings.SalesChannelSettingsScreen
 import id.stargan.intikasirfnb.ui.settings.SalesChannelViewModel
 import id.stargan.intikasirfnb.ui.history.TransactionHistoryScreen
+import id.stargan.intikasirfnb.ui.customer.CustomerManagementScreen
+import id.stargan.intikasirfnb.ui.customer.CustomerViewModel
+import id.stargan.intikasirfnb.ui.accounting.SalesSummaryScreen
+import id.stargan.intikasirfnb.ui.accounting.SalesSummaryViewModel
+import id.stargan.intikasirfnb.ui.inventory.StockManagementScreen
+import id.stargan.intikasirfnb.ui.inventory.StockViewModel
+import id.stargan.intikasirfnb.ui.kitchen.KitchenDisplayScreen
+import id.stargan.intikasirfnb.ui.kitchen.KitchenDisplayViewModel
 import id.stargan.intikasirfnb.ui.history.TransactionHistoryViewModel
 import id.stargan.intikasirfnb.ui.settlement.SettlementScreen
 import id.stargan.intikasirfnb.ui.settlement.SettlementViewModel
@@ -74,6 +82,10 @@ object PosRoutes {
     const val CATALOG_MENU_ITEM_EDIT = "catalog/menu_items/edit/{itemId}"
     const val CATALOG_MODIFIERS = "catalog/modifiers"
     const val TRANSACTION_HISTORY = "transaction_history"
+    const val KITCHEN_DISPLAY = "kitchen_display"
+    const val CUSTOMER_MANAGEMENT = "customer_management"
+    const val STOCK_MANAGEMENT = "stock_management"
+    const val SALES_SUMMARY = "sales_summary"
     const val CASHIER_SESSION = "cashier_session"
     const val POS = "pos?saleId={saleId}"
     const val POS_BASE = "pos"
@@ -158,7 +170,16 @@ fun PosNavGraph(debugSeeder: DebugSeeder? = null) {
                     navController.navigate(PosRoutes.CATALOG_GRAPH)
                 },
                 onNavigateToHistory = {
-                    navController.navigate(PosRoutes.TRANSACTION_HISTORY)
+                    navController.navigate(PosRoutes.SALES_SUMMARY)
+                },
+                onNavigateToKitchen = {
+                    navController.navigate(PosRoutes.KITCHEN_DISPLAY)
+                },
+                onNavigateToCustomer = {
+                    navController.navigate(PosRoutes.CUSTOMER_MANAGEMENT)
+                },
+                onNavigateToStock = {
+                    navController.navigate(PosRoutes.STOCK_MANAGEMENT)
                 },
                 onLogout = {
                     navController.navigate(PosRoutes.LOGIN) {
@@ -180,6 +201,42 @@ fun PosNavGraph(debugSeeder: DebugSeeder? = null) {
                 onResumePayment = { saleId ->
                     navController.navigate(PosRoutes.payment(saleId))
                 }
+            )
+        }
+
+        // --- Kitchen Display (KDS) ---
+        composable(PosRoutes.KITCHEN_DISPLAY) {
+            val kitchenViewModel = hiltViewModel<KitchenDisplayViewModel>()
+            KitchenDisplayScreen(
+                viewModel = kitchenViewModel,
+                onNavigateBack = { navController.popBackStack() }
+            )
+        }
+
+        // --- Customer Management ---
+        composable(PosRoutes.CUSTOMER_MANAGEMENT) {
+            val customerViewModel = hiltViewModel<CustomerViewModel>()
+            CustomerManagementScreen(
+                viewModel = customerViewModel,
+                onNavigateBack = { navController.popBackStack() }
+            )
+        }
+
+        // --- Sales Summary ---
+        composable(PosRoutes.SALES_SUMMARY) {
+            val summaryViewModel = hiltViewModel<SalesSummaryViewModel>()
+            SalesSummaryScreen(
+                viewModel = summaryViewModel,
+                onNavigateBack = { navController.popBackStack() }
+            )
+        }
+
+        // --- Stock Management ---
+        composable(PosRoutes.STOCK_MANAGEMENT) {
+            val stockViewModel = hiltViewModel<StockViewModel>()
+            StockManagementScreen(
+                viewModel = stockViewModel,
+                onNavigateBack = { navController.popBackStack() }
             )
         }
 
@@ -210,6 +267,12 @@ fun PosNavGraph(debugSeeder: DebugSeeder? = null) {
                 onNavigateBack = { navController.popBackStack() },
                 onNavigateToPayment = { saleId ->
                     navController.navigate(PosRoutes.payment(saleId))
+                },
+                onNavigateToTableSettings = {
+                    navController.navigate(PosRoutes.SETTINGS_TABLES)
+                },
+                onNavigateToHistory = {
+                    navController.navigate(PosRoutes.TRANSACTION_HISTORY)
                 }
             )
         }

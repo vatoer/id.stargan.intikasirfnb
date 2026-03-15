@@ -31,10 +31,10 @@ object LicenseModule {
             .readTimeout(30, TimeUnit.SECONDS)
 
         // Certificate pinning — aktif hanya pada release build
-        if (!BuildConfig.DEBUG && AppConfig.CERTIFICATE_PINS.isNotEmpty()) {
+        if (!BuildConfig.DEBUG && AppConfig.CERTIFICATE_PINS.isNotEmpty() && AppConfig.CERT_PIN_HOSTNAME.isNotBlank()) {
             val pinner = CertificatePinner.Builder().apply {
                 AppConfig.CERTIFICATE_PINS.forEach { pin ->
-                    add("appreg.stargan.id", pin)
+                    add(AppConfig.CERT_PIN_HOSTNAME, pin)
                 }
             }.build()
             builder.certificatePinner(pinner)

@@ -28,9 +28,6 @@ data class MenuItemModifierGroupEntity(
     val menuItemId: String,
     val modifierGroupId: String,
     val sortOrder: Int = 0,
-    val isRequired: Boolean = false,
-    val minSelection: Int = 0,
-    val maxSelection: Int = 1,
     // Sync metadata
     val syncStatus: String = "PENDING",
     val syncVersion: Long = 0L,

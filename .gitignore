@@ -19,3 +19,7 @@ ideation.md
 .claude/
 
 .idea
+
+*.jks
+signing.properties
+custom.properties

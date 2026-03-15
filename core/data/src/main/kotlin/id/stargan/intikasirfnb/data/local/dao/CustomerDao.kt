@@ -16,4 +16,10 @@ interface CustomerDao {
 
     @Query("SELECT * FROM customers WHERE tenantId = :tenantId ORDER BY name")
     suspend fun listByTenant(tenantId: String): List<CustomerEntity>
+
+    @Query("SELECT * FROM customers WHERE tenantId = :tenantId AND (name LIKE '%' || :query || '%' OR phone LIKE '%' || :query || '%') ORDER BY name")
+    suspend fun search(tenantId: String, query: String): List<CustomerEntity>
+
+    @Query("DELETE FROM customers WHERE id = :id")
+    suspend fun deleteById(id: String)
 }

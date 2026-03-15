@@ -1,5 +1,5 @@
 [versions]
-agp = "9.0.1"
+agp = "9.1.0"
 kotlin = "2.3.10"
 ksp = "2.3.5"
 coreKtx = "1.17.0"
@@ -25,6 +25,8 @@ turbine = "1.2.0"
 coroutinesTest = "1.10.2"
 roomTesting = "2.8.4"
 archCoreTesting = "2.2.0"
+androidxTestRunner = "1.6.2"
+androidxTestCore = "1.6.1"
 coil = "3.1.0"
 retrofit = "2.11.0"
 okhttp = "4.12.0"
@@ -95,6 +97,8 @@ mockk = { group = "io.mockk", name = "mockk", version.ref = "mockk" }
 turbine = { group = "app.cash.turbine", name = "turbine", version.ref = "turbine" }
 kotlinx-coroutines-test = { group = "org.jetbrains.kotlinx", name = "kotlinx-coroutines-test", version.ref = "coroutinesTest" }
 arch-core-testing = { group = "androidx.arch.core", name = "core-testing", version.ref = "archCoreTesting" }
+androidx-test-runner = { group = "androidx.test", name = "runner", version.ref = "androidxTestRunner" }
+androidx-test-core = { group = "androidx.test", name = "core", version.ref = "androidxTestCore" }
 
 # Image loading
 coil-compose = { group = "io.coil-kt.coil3", name = "coil-compose", version.ref = "coil" }

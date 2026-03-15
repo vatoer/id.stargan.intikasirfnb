@@ -1,5 +1,6 @@
 package id.stargan.intikasirfnb.ui.catalog
 
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -16,6 +17,7 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FilterChip
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -25,6 +27,7 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
@@ -75,6 +78,9 @@ fun ModifierGroupFormScreen(
     var formInitialized by remember { mutableStateOf(false) }
     var groupName by remember { mutableStateOf("") }
     var sortOrderText by remember { mutableStateOf("") }
+    var isRequired by remember { mutableStateOf(false) }
+    var isMultiSelect by remember { mutableStateOf(false) }
+    var maxSelectionText by remember { mutableStateOf("") }
     val options = remember { mutableStateListOf<OptionFormState>() }
     var saved by remember { mutableStateOf(false) }
 
@@ -83,6 +89,9 @@ fun ModifierGroupFormScreen(
         if (existingGroup != null && !formInitialized) {
             groupName = existingGroup.name
             sortOrderText = if (existingGroup.sortOrder != 0) existingGroup.sortOrder.toString() else ""
+            isRequired = existingGroup.isRequired
+            isMultiSelect = existingGroup.maxSelection > 1
+            maxSelectionText = if (existingGroup.maxSelection > 1) existingGroup.maxSelection.toString() else ""
             options.clear()
             existingGroup.options
                 .sortedBy { it.sortOrder }
@@ -136,11 +145,19 @@ fun ModifierGroupFormScreen(
             )
         }
 
+        val maxSel = if (isMultiSelect) {
+            (maxSelectionText.toIntOrNull() ?: modifierOptions.size)
+                .coerceIn(2, modifierOptions.size)
+        } else 1
+
         val group = ModifierGroup(
             id = groupId,
             tenantId = tenantId,
             name = groupName.trim(),
             options = modifierOptions,
+            isRequired = isRequired,
+            minSelection = if (isRequired) 1 else 0,
+            maxSelection = maxSel,
             sortOrder = sortOrderText.toIntOrNull() ?: 0,
             isActive = existingGroup?.isActive ?: true
         )
@@ -205,6 +222,89 @@ fun ModifierGroupFormScreen(
                         singleLine = true,
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                         modifier = Modifier.fillMaxWidth()
+                    )
+                }
+            }
+
+            // --- Selection Rules ---
+            SettingsGroupHeader(title = "Aturan Pilihan")
+            SettingsCard {
+                Column(modifier = Modifier.padding(16.dp)) {
+                    // Selection type chips
+                    Text(
+                        "Tipe Pilihan",
+                        style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        FilterChip(
+                            selected = !isMultiSelect,
+                            onClick = { isMultiSelect = false },
+                            label = { Text("Pilih 1") }
+                        )
+                        FilterChip(
+                            selected = isMultiSelect,
+                            onClick = {
+                                isMultiSelect = true
+                                if (maxSelectionText.isBlank()) {
+                                    maxSelectionText = options.size.coerceAtLeast(2).toString()
+                                }
+                            },
+                            label = { Text("Pilih Beberapa") }
+                        )
+                    }
+
+                    // Max selection (only for multi-select)
+                    if (isMultiSelect) {
+                        Spacer(modifier = Modifier.height(12.dp))
+                        OutlinedTextField(
+                            value = maxSelectionText,
+                            onValueChange = { v ->
+                                maxSelectionText = v.filter { it.isDigit() }
+                            },
+                            label = { Text("Maksimal pilihan") },
+                            supportingText = {
+                                Text("Dari ${options.size} opsi tersedia")
+                            },
+                            singleLine = true,
+                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                    }
+
+                    Spacer(modifier = Modifier.height(12.dp))
+
+                    // Required toggle
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Text("Wajib dipilih", style = MaterialTheme.typography.bodyMedium)
+                        Switch(
+                            checked = isRequired,
+                            onCheckedChange = { isRequired = it }
+                        )
+                    }
+
+                    // Hint text
+                    Spacer(modifier = Modifier.height(4.dp))
+                    val maxSel = if (isMultiSelect) (maxSelectionText.toIntOrNull() ?: options.size) else 1
+                    val hintText = when {
+                        !isMultiSelect && isRequired ->
+                            "Kasir wajib pilih 1 opsi"
+                        !isMultiSelect && !isRequired ->
+                            "Kasir boleh pilih 1 opsi atau lewati"
+                        isMultiSelect && isRequired ->
+                            "Kasir wajib pilih minimal 1, maksimal $maxSel opsi"
+                        else ->
+                            "Kasir boleh pilih hingga $maxSel opsi atau lewati"
+                    }
+                    Text(
+                        hintText,
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.primary
                     )
                 }
             }

@@ -55,7 +55,7 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Tab
-import androidx.compose.material3.TabRow
+import androidx.compose.material3.PrimaryTabRow
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
@@ -89,11 +89,11 @@ import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 
-private val idrFormat = NumberFormat.getCurrencyInstance(Locale("id", "ID")).apply {
+private val idrFormat = NumberFormat.getCurrencyInstance(Locale.forLanguageTag("id-ID")).apply {
     maximumFractionDigits = 0
 }
-private val dateTimeFormat = SimpleDateFormat("dd/MM/yyyy HH:mm", Locale("id", "ID"))
-private val dateFormat = SimpleDateFormat("dd MMM yyyy", Locale("id", "ID"))
+private val dateTimeFormat = SimpleDateFormat("dd/MM/yyyy HH:mm", Locale.forLanguageTag("id-ID"))
+private val dateFormat = SimpleDateFormat("dd MMM yyyy", Locale.forLanguageTag("id-ID"))
 
 // ============================================================
 // Main Screen
@@ -357,7 +357,7 @@ private fun SettlementTabs(
     selectedTab: SettlementTab,
     onTabSelected: (SettlementTab) -> Unit
 ) {
-    TabRow(
+    PrimaryTabRow(
         selectedTabIndex = selectedTab.ordinal,
         containerColor = MaterialTheme.colorScheme.surface
     ) {

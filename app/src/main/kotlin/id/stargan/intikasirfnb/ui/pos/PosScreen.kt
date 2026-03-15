@@ -38,8 +38,11 @@ import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.DeliveryDining
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.ConfirmationNumber
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Kitchen
-import androidx.compose.material.icons.filled.ListAlt
+import androidx.compose.material.icons.filled.Percent
+import androidx.compose.material.icons.automirrored.filled.ListAlt
+import androidx.compose.material.icons.automirrored.filled.ReceiptLong
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.PersonAdd
 import androidx.compose.material.icons.filled.RadioButtonChecked
@@ -49,6 +52,8 @@ import androidx.compose.material.icons.filled.Restaurant
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.ShoppingCart
 import androidx.compose.material.icons.filled.TableBar
+import androidx.compose.material.icons.filled.TableRestaurant
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Badge
 import androidx.compose.material3.BadgedBox
 import androidx.compose.material3.BottomSheetScaffold
@@ -101,7 +106,6 @@ import id.stargan.intikasirfnb.domain.catalog.AddOnGroup
 import id.stargan.intikasirfnb.domain.catalog.AddOnItem
 import id.stargan.intikasirfnb.domain.catalog.AddOnItemId
 import id.stargan.intikasirfnb.domain.catalog.MenuItemAddOnLink
-import id.stargan.intikasirfnb.domain.catalog.MenuItemModifierLink
 import id.stargan.intikasirfnb.domain.catalog.MenuItem
 import id.stargan.intikasirfnb.domain.catalog.ModifierGroup
 import id.stargan.intikasirfnb.domain.catalog.ModifierOption
@@ -116,6 +120,7 @@ import id.stargan.intikasirfnb.domain.transaction.OrderLine
 import id.stargan.intikasirfnb.domain.transaction.Sale
 import id.stargan.intikasirfnb.domain.transaction.SaleId
 import id.stargan.intikasirfnb.domain.transaction.SaleStatus
+import id.stargan.intikasirfnb.domain.customer.Customer
 import id.stargan.intikasirfnb.domain.transaction.Table
 import id.stargan.intikasirfnb.ui.table.TablePickerContent
 import kotlinx.coroutines.launch
@@ -124,7 +129,7 @@ import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 
-private val idrFormat = NumberFormat.getCurrencyInstance(Locale("id", "ID")).apply {
+private val idrFormat = NumberFormat.getCurrencyInstance(Locale.forLanguageTag("id-ID")).apply {
     maximumFractionDigits = 0
 }
 
@@ -136,10 +141,24 @@ private val TABLET_BREAKPOINT = 600.dp
 fun PosScreen(
     viewModel: PosViewModel,
     onNavigateBack: () -> Unit,
-    onNavigateToPayment: (saleId: String) -> Unit = {}
+    onNavigateToPayment: (saleId: String) -> Unit = {},
+    onNavigateToTableSettings: () -> Unit = {},
+    onNavigateToHistory: () -> Unit = {}
 ) {
     val uiState by viewModel.uiState.collectAsState()
     val snackbarHostState = remember { SnackbarHostState() }
+    val lifecycleOwner = androidx.lifecycle.compose.LocalLifecycleOwner.current
+
+    // Refresh tables when returning from other screens (e.g., table settings)
+    androidx.compose.runtime.DisposableEffect(lifecycleOwner) {
+        val observer = androidx.lifecycle.LifecycleEventObserver { _, event ->
+            if (event == androidx.lifecycle.Lifecycle.Event.ON_RESUME) {
+                viewModel.refreshTables()
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
+    }
 
     LaunchedEffect(uiState.errorMessage) {
         uiState.errorMessage?.let {
@@ -187,6 +206,62 @@ fun PosScreen(
         }
     }
 
+    // Table setup prompt — DINE_IN + PAY_LAST but no tables configured
+    if (uiState.showTableSetupPrompt) {
+        AlertDialog(
+            onDismissRequest = { viewModel.dismissTableSetupPrompt() },
+            icon = {
+                Icon(
+                    Icons.Default.TableRestaurant,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.primary
+                )
+            },
+            title = { Text("Belum Ada Meja") },
+            text = {
+                Text(
+                    "Channel ini dikonfigurasi \"Wajib Meja\" tapi belum ada meja yang dibuat.\n\n" +
+                            "Silakan buat daftar meja di Pengaturan, atau ubah pengaturan meja channel menjadi \"Tanpa Meja\" atau \"Opsional\"."
+                )
+            },
+            confirmButton = {
+                Button(onClick = {
+                    viewModel.dismissTableSetupPrompt()
+                    onNavigateToTableSettings()
+                }) {
+                    Text("Kelola Meja")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { viewModel.dismissTableSetupPrompt() }) {
+                    Text("Nanti")
+                }
+            }
+        )
+    }
+
+    // Discount dialog
+    var discountLineId by remember { mutableStateOf<id.stargan.intikasirfnb.domain.transaction.OrderLineId?>(null) }
+    discountLineId?.let { lineId ->
+        val line = uiState.currentSale?.lines?.find { it.id == lineId }
+        if (line != null) {
+            DiscountDialog(
+                productName = line.productRef.name,
+                subtotal = line.subtotalBeforeDiscount(),
+                existingInfo = line.discountInfo,
+                onDismiss = { discountLineId = null },
+                onApply = { info ->
+                    viewModel.applyDiscount(lineId, info)
+                    discountLineId = null
+                },
+                onClear = {
+                    viewModel.clearDiscount(lineId)
+                    discountLineId = null
+                }
+            )
+        }
+    }
+
     // Modifier + Add-on selection bottom sheet (add new or edit existing)
     val pendingItem = uiState.pendingMenuItem
     if (uiState.showModifierDialog && pendingItem != null) {
@@ -197,7 +272,6 @@ fun PosScreen(
             ModifierAndAddOnSelectionContent(
                 menuItem = pendingItem,
                 modifierGroups = uiState.modifierGroups,
-                modifierLinks = uiState.modifierLinks,
                 addOnGroups = uiState.addOnGroups,
                 existingModifierSelections = if (isEditing) uiState.editingModifiers else emptyList(),
                 existingAddOnSelections = if (isEditing) uiState.editingAddOns else emptyList(),
@@ -219,7 +293,9 @@ fun PosScreen(
                 snackbarHostState = snackbarHostState,
                 viewModel = viewModel,
                 onNavigateBack = onNavigateBack,
-                onNavigateToPayment = onNavigateToPayment
+                onNavigateToPayment = onNavigateToPayment,
+                onNavigateToHistory = onNavigateToHistory,
+                onDiscountLine = { discountLineId = it }
             )
         } else {
             PhonePosLayout(
@@ -227,7 +303,9 @@ fun PosScreen(
                 snackbarHostState = snackbarHostState,
                 viewModel = viewModel,
                 onNavigateBack = onNavigateBack,
-                onNavigateToPayment = onNavigateToPayment
+                onNavigateToPayment = onNavigateToPayment,
+                onNavigateToHistory = onNavigateToHistory,
+                onDiscountLine = { discountLineId = it }
             )
         }
     }
@@ -244,7 +322,9 @@ private fun TabletPosLayout(
     snackbarHostState: SnackbarHostState,
     viewModel: PosViewModel,
     onNavigateBack: () -> Unit,
-    onNavigateToPayment: (saleId: String) -> Unit
+    onNavigateToPayment: (saleId: String) -> Unit,
+    onNavigateToHistory: () -> Unit = {},
+    onDiscountLine: (id.stargan.intikasirfnb.domain.transaction.OrderLineId) -> Unit = {}
 ) {
     Scaffold(
         snackbarHost = {
@@ -260,7 +340,8 @@ private fun TabletPosLayout(
                 onChannelSelected = viewModel::selectChannel,
                 onOrderFlowOverride = viewModel::overrideOrderFlow,
                 onOpenOrdersClicked = viewModel::toggleOpenOrders,
-                openOrdersCount = uiState.openOrders.size
+                openOrdersCount = uiState.openOrders.size,
+                onHistoryClicked = onNavigateToHistory
             )
         }
     ) { padding ->
@@ -304,6 +385,8 @@ private fun TabletPosLayout(
                     onDecrement = viewModel::decrementLine,
                     onRemove = viewModel::removeLine,
                     onEditModifiers = viewModel::editLineModifiers,
+                    onApplyDiscount = { lineId -> onDiscountLine(lineId) },
+                    onClearDiscount = { lineId -> viewModel.clearDiscount(lineId) },
                     onClearCart = viewModel::clearCart,
                     onPay = { sale -> onNavigateToPayment(sale.id.value) },
                     onSendToKitchen = viewModel::sendToKitchen,
@@ -311,6 +394,10 @@ private fun TabletPosLayout(
                     onNewOrder = viewModel::newOrder,
                     onTableChanged = viewModel::setTableNumber,
                     onCustomerNameChanged = viewModel::setCustomerName,
+                    customerSearchResults = uiState.customerSearchResults,
+                    onCustomerSearch = viewModel::searchCustomers,
+                    onCustomerSelected = viewModel::selectCustomer,
+                    onCustomerCleared = viewModel::clearCustomer,
                     hasTables = uiState.tables.isNotEmpty(),
                     tables = uiState.tables,
                     onShowTablePicker = viewModel::showTablePicker,
@@ -334,7 +421,9 @@ private fun PhonePosLayout(
     snackbarHostState: SnackbarHostState,
     viewModel: PosViewModel,
     onNavigateBack: () -> Unit,
-    onNavigateToPayment: (saleId: String) -> Unit
+    onNavigateToPayment: (saleId: String) -> Unit,
+    onNavigateToHistory: () -> Unit = {},
+    onDiscountLine: (id.stargan.intikasirfnb.domain.transaction.OrderLineId) -> Unit = {}
 ) {
     val scope = rememberCoroutineScope()
     val sheetState = rememberStandardBottomSheetState(
@@ -361,7 +450,8 @@ private fun PhonePosLayout(
                 onChannelSelected = viewModel::selectChannel,
                 onOrderFlowOverride = viewModel::overrideOrderFlow,
                 onOpenOrdersClicked = viewModel::toggleOpenOrders,
-                openOrdersCount = uiState.openOrders.size
+                openOrdersCount = uiState.openOrders.size,
+                onHistoryClicked = onNavigateToHistory
             )
         },
         sheetPeekHeight = if (cartItemCount > 0) 80.dp else 0.dp,
@@ -378,6 +468,8 @@ private fun PhonePosLayout(
                     onDecrement = viewModel::decrementLine,
                     onRemove = viewModel::removeLine,
                     onEditModifiers = viewModel::editLineModifiers,
+                    onApplyDiscount = { lineId -> onDiscountLine(lineId) },
+                    onClearDiscount = { lineId -> viewModel.clearDiscount(lineId) },
                     onClearCart = viewModel::clearCart,
                     onPay = { sale -> onNavigateToPayment(sale.id.value) },
                     onSendToKitchen = viewModel::sendToKitchen,
@@ -385,6 +477,10 @@ private fun PhonePosLayout(
                     onNewOrder = viewModel::newOrder,
                     onTableChanged = viewModel::setTableNumber,
                     onCustomerNameChanged = viewModel::setCustomerName,
+                    customerSearchResults = uiState.customerSearchResults,
+                    onCustomerSearch = viewModel::searchCustomers,
+                    onCustomerSelected = viewModel::selectCustomer,
+                    onCustomerCleared = viewModel::clearCustomer,
                     hasTables = uiState.tables.isNotEmpty(),
                     tables = uiState.tables,
                     onShowTablePicker = viewModel::showTablePicker,
@@ -455,7 +551,8 @@ private fun PosTopBar(
     onChannelSelected: (id.stargan.intikasirfnb.domain.transaction.SalesChannel) -> Unit,
     onOrderFlowOverride: (OrderFlowType?) -> Unit,
     onOpenOrdersClicked: () -> Unit,
-    openOrdersCount: Int
+    openOrdersCount: Int,
+    onHistoryClicked: () -> Unit = {}
 ) {
     Column {
         TopAppBar(
@@ -466,6 +563,10 @@ private fun PosTopBar(
                 }
             },
             actions = {
+                // Transaction history button
+                IconButton(onClick = onHistoryClicked) {
+                    Icon(Icons.AutoMirrored.Filled.ReceiptLong, contentDescription = "Riwayat Transaksi")
+                }
                 // Open orders button
                 if (openOrdersCount > 0) {
                     IconButton(onClick = onOpenOrdersClicked) {
@@ -476,7 +577,7 @@ private fun PosTopBar(
                                 }
                             }
                         ) {
-                            Icon(Icons.Default.ListAlt, contentDescription = "Pesanan Aktif")
+                            Icon(Icons.AutoMirrored.Filled.ListAlt, contentDescription = "Pesanan Aktif")
                         }
                     }
                 }
@@ -669,7 +770,7 @@ private fun OpenOrdersSheet(
     onNewOrder: () -> Unit
 ) {
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
-    val timeFormat = remember { SimpleDateFormat("HH:mm", Locale("id")) }
+    val timeFormat = remember { SimpleDateFormat("HH:mm", Locale.forLanguageTag("id")) }
     val channelMap = remember(salesChannels) { salesChannels.associateBy { it.id } }
 
     ModalBottomSheet(
@@ -1040,6 +1141,8 @@ private fun CartPanel(
     onDecrement: (id.stargan.intikasirfnb.domain.transaction.OrderLineId) -> Unit,
     onRemove: (id.stargan.intikasirfnb.domain.transaction.OrderLineId) -> Unit,
     onEditModifiers: (id.stargan.intikasirfnb.domain.transaction.OrderLineId) -> Unit = {},
+    onApplyDiscount: (id.stargan.intikasirfnb.domain.transaction.OrderLineId) -> Unit = {},
+    onClearDiscount: (id.stargan.intikasirfnb.domain.transaction.OrderLineId) -> Unit = {},
     onClearCart: () -> Unit,
     onPay: (Sale) -> Unit,
     onSendToKitchen: () -> Unit = {},
@@ -1047,6 +1150,10 @@ private fun CartPanel(
     onNewOrder: () -> Unit = {},
     onTableChanged: (String?) -> Unit = {},
     onCustomerNameChanged: (String?) -> Unit = {},
+    customerSearchResults: List<Customer> = emptyList(),
+    onCustomerSearch: (String) -> Unit = {},
+    onCustomerSelected: (Customer) -> Unit = {},
+    onCustomerCleared: () -> Unit = {},
     hasTables: Boolean = false,
     tables: List<Table> = emptyList(),
     onShowTablePicker: () -> Unit = {},
@@ -1134,6 +1241,10 @@ private fun CartPanel(
                 orderFlow = orderFlow,
                 onTableChanged = onTableChanged,
                 onCustomerNameChanged = onCustomerNameChanged,
+                customerSearchResults = customerSearchResults,
+                onCustomerSearch = onCustomerSearch,
+                onCustomerSelected = onCustomerSelected,
+                onCustomerCleared = onCustomerCleared,
                 hasTables = hasTables,
                 tables = tables,
                 onShowTablePicker = onShowTablePicker,
@@ -1203,7 +1314,9 @@ private fun CartPanel(
                             onIncrement = { onIncrement(line.id) },
                             onDecrement = { onDecrement(line.id) },
                             onRemove = { onRemove(line.id) },
-                            onEditModifiers = { onEditModifiers(line.id) }
+                            onEditModifiers = { onEditModifiers(line.id) },
+                            onApplyDiscount = { onApplyDiscount(line.id) },
+                            onClearDiscount = { onClearDiscount(line.id) }
                         )
                     }
                 }
@@ -1231,7 +1344,9 @@ private fun CartPanel(
                             onIncrement = { onIncrement(line.id) },
                             onDecrement = { onDecrement(line.id) },
                             onRemove = { onRemove(line.id) },
-                            onEditModifiers = { onEditModifiers(line.id) }
+                            onEditModifiers = { onEditModifiers(line.id) },
+                            onApplyDiscount = { onApplyDiscount(line.id) },
+                            onClearDiscount = { onClearDiscount(line.id) }
                         )
                     }
                 } else {
@@ -1243,7 +1358,9 @@ private fun CartPanel(
                             onIncrement = { onIncrement(line.id) },
                             onDecrement = { onDecrement(line.id) },
                             onRemove = { onRemove(line.id) },
-                            onEditModifiers = { onEditModifiers(line.id) }
+                            onEditModifiers = { onEditModifiers(line.id) },
+                            onApplyDiscount = { onApplyDiscount(line.id) },
+                            onClearDiscount = { onClearDiscount(line.id) }
                         )
                     }
                 }
@@ -1273,6 +1390,10 @@ private fun OrderInfoBar(
     orderFlow: OrderFlowType,
     onTableChanged: (String?) -> Unit,
     onCustomerNameChanged: (String?) -> Unit,
+    customerSearchResults: List<Customer> = emptyList(),
+    onCustomerSearch: (String) -> Unit = {},
+    onCustomerSelected: (Customer) -> Unit = {},
+    onCustomerCleared: () -> Unit = {},
     hasTables: Boolean = false,
     tables: List<Table> = emptyList(),
     onShowTablePicker: () -> Unit = {},
@@ -1299,6 +1420,9 @@ private fun OrderInfoBar(
     var showNameField by remember(sale.id) {
         mutableStateOf(sale.customerName != null)
     }
+    // Customer picker: true when linked to a Customer record (not just free-text)
+    val hasLinkedCustomer = sale.customerId != null
+    var showCustomerDropdown by remember { mutableStateOf(false) }
 
     // Sync from sale when saved values change externally
     LaunchedEffect(sale.tableId?.value) { tableText = sale.tableId?.value ?: "" }
@@ -1394,45 +1518,106 @@ private fun OrderInfoBar(
                 }
             }
 
-            // Customer name input (toggle)
+            // Customer picker (toggle)
             if (showNameField) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Icon(
-                        Icons.Default.Person,
-                        contentDescription = null,
-                        modifier = Modifier.size(16.dp),
-                        tint = MaterialTheme.colorScheme.primary
-                    )
-                    OutlinedTextField(
-                        value = nameText,
-                        onValueChange = { nameText = it },
-                        placeholder = { Text("Nama pelanggan", style = MaterialTheme.typography.labelSmall) },
-                        singleLine = true,
-                        textStyle = MaterialTheme.typography.labelSmall,
-                        modifier = Modifier.weight(1f)
-                    )
-                    IconButton(
-                        onClick = {
-                            nameText = ""
-                            showNameField = false
-                            onCustomerNameChanged(null)
-                        },
-                        modifier = Modifier.size(28.dp)
+                Column {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalAlignment = Alignment.CenterVertically
                     ) {
                         Icon(
-                            Icons.Default.Close,
-                            contentDescription = "Hapus nama",
-                            modifier = Modifier.size(14.dp)
+                            Icons.Default.Person,
+                            contentDescription = null,
+                            modifier = Modifier.size(16.dp),
+                            tint = MaterialTheme.colorScheme.primary
                         )
+                        Box(modifier = Modifier.weight(1f)) {
+                            OutlinedTextField(
+                                value = nameText,
+                                onValueChange = { text ->
+                                    nameText = text
+                                    if (text.length >= 2) {
+                                        onCustomerSearch(text)
+                                        showCustomerDropdown = true
+                                    } else {
+                                        showCustomerDropdown = false
+                                    }
+                                },
+                                placeholder = { Text("Cari / ketik nama pelanggan", style = MaterialTheme.typography.labelSmall) },
+                                singleLine = true,
+                                textStyle = MaterialTheme.typography.labelSmall,
+                                modifier = Modifier.fillMaxWidth()
+                            )
+                        }
+                        IconButton(
+                            onClick = {
+                                nameText = ""
+                                showNameField = false
+                                showCustomerDropdown = false
+                                onCustomerCleared()
+                            },
+                            modifier = Modifier.size(28.dp)
+                        ) {
+                            Icon(
+                                Icons.Default.Close,
+                                contentDescription = "Hapus pelanggan",
+                                modifier = Modifier.size(14.dp)
+                            )
+                        }
+                    }
+                    // Dropdown results
+                    if (showCustomerDropdown && customerSearchResults.isNotEmpty()) {
+                        Surface(
+                            modifier = Modifier.fillMaxWidth().padding(start = 24.dp),
+                            shape = RoundedCornerShape(8.dp),
+                            shadowElevation = 4.dp,
+                            color = MaterialTheme.colorScheme.surface
+                        ) {
+                            Column {
+                                customerSearchResults.take(5).forEach { customer ->
+                                    Row(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .clickable {
+                                                onCustomerSelected(customer)
+                                                nameText = customer.name
+                                                showCustomerDropdown = false
+                                                isEditing = false
+                                            }
+                                            .padding(horizontal = 12.dp, vertical = 8.dp),
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Icon(
+                                            Icons.Default.Person,
+                                            contentDescription = null,
+                                            modifier = Modifier.size(14.dp),
+                                            tint = MaterialTheme.colorScheme.onSurfaceVariant
+                                        )
+                                        Spacer(modifier = Modifier.width(8.dp))
+                                        Column(modifier = Modifier.weight(1f)) {
+                                            Text(
+                                                customer.name,
+                                                style = MaterialTheme.typography.labelMedium,
+                                                fontWeight = FontWeight.Medium
+                                            )
+                                            customer.phone?.let { phone ->
+                                                Text(
+                                                    phone,
+                                                    style = MaterialTheme.typography.labelSmall,
+                                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                                )
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
                     }
                 }
             }
 
-            // Action row: +Nama toggle & Simpan button
+            // Action row: +Pelanggan toggle & Simpan button
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
@@ -1440,7 +1625,10 @@ private fun OrderInfoBar(
             ) {
                 if (!showNameField) {
                     TextButton(
-                        onClick = { showNameField = true },
+                        onClick = {
+                            showNameField = true
+                            onCustomerSearch("") // preload customer list
+                        },
                         modifier = Modifier.height(28.dp),
                         contentPadding = PaddingValues(horizontal = 8.dp)
                     ) {
@@ -1450,23 +1638,25 @@ private fun OrderInfoBar(
                             modifier = Modifier.size(14.dp)
                         )
                         Spacer(modifier = Modifier.width(4.dp))
-                        Text("Nama", style = MaterialTheme.typography.labelSmall)
+                        Text("Pelanggan", style = MaterialTheme.typography.labelSmall)
                     }
                 }
                 Spacer(modifier = Modifier.weight(1f))
-                // Save & close edit mode
-                val hasChanges = (isDineIn && !hasTables && tableText.isNotBlank()) || nameText.isNotBlank()
-                TextButton(
-                    onClick = {
-                        if (isDineIn && !hasTables) onTableChanged(tableText.takeIf { it.isNotBlank() })
-                        if (showNameField) onCustomerNameChanged(nameText.takeIf { it.isNotBlank() })
-                        isEditing = false
-                    },
-                    enabled = hasChanges,
-                    modifier = Modifier.height(32.dp),
-                    contentPadding = PaddingValues(horizontal = 12.dp)
-                ) {
-                    Text("Simpan", style = MaterialTheme.typography.labelSmall)
+                // Save & close edit mode (for free-text name or table)
+                val hasChanges = (isDineIn && !hasTables && tableText.isNotBlank()) || (showNameField && nameText.isNotBlank() && !hasLinkedCustomer)
+                if (hasChanges) {
+                    TextButton(
+                        onClick = {
+                            if (isDineIn && !hasTables) onTableChanged(tableText.takeIf { it.isNotBlank() })
+                            if (showNameField && !hasLinkedCustomer) onCustomerNameChanged(nameText.takeIf { it.isNotBlank() })
+                            showCustomerDropdown = false
+                            isEditing = false
+                        },
+                        modifier = Modifier.height(32.dp),
+                        contentPadding = PaddingValues(horizontal = 12.dp)
+                    ) {
+                        Text("Simpan", style = MaterialTheme.typography.labelSmall)
+                    }
                 }
             }
         } else {
@@ -1662,7 +1852,9 @@ private fun CartLineItem(
     onIncrement: () -> Unit,
     onDecrement: () -> Unit,
     onRemove: () -> Unit,
-    onEditModifiers: () -> Unit = {}
+    onEditModifiers: () -> Unit = {},
+    onApplyDiscount: () -> Unit = {},
+    onClearDiscount: () -> Unit = {}
 ) {
     Row(
         modifier = Modifier
@@ -1722,11 +1914,37 @@ private fun CartLineItem(
                     }
                 }
             }
-            Text(
-                text = idrFormat.format(line.lineTotal().amount),
-                style = MaterialTheme.typography.labelMedium,
-                color = MaterialTheme.colorScheme.primary
-            )
+            if (line.discountAmount.isPositive()) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(
+                        text = idrFormat.format(line.lineTotal().amount),
+                        style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.primary
+                    )
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text(
+                        text = "-${idrFormat.format(line.discountAmount.amount)}",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.error
+                    )
+                    if (!isSent) {
+                        Icon(
+                            Icons.Default.Close,
+                            contentDescription = "Hapus diskon",
+                            modifier = Modifier
+                                .size(14.dp)
+                                .clickable { onClearDiscount() },
+                            tint = MaterialTheme.colorScheme.error
+                        )
+                    }
+                }
+            } else {
+                Text(
+                    text = idrFormat.format(line.lineTotal().amount),
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.primary
+                )
+            }
         }
 
         // Qty controls
@@ -1747,6 +1965,10 @@ private fun CartLineItem(
             if (!isSent) {
                 IconButton(onClick = onIncrement, modifier = Modifier.size(32.dp)) {
                     Icon(Icons.Default.Add, contentDescription = "Tambah", modifier = Modifier.size(16.dp))
+                }
+                IconButton(onClick = onApplyDiscount, modifier = Modifier.size(32.dp)) {
+                    Icon(Icons.Default.Percent, contentDescription = "Diskon", modifier = Modifier.size(16.dp),
+                        tint = if (line.discountAmount.isPositive()) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant)
                 }
                 IconButton(onClick = onRemove, modifier = Modifier.size(32.dp)) {
                     Icon(
@@ -1883,7 +2105,6 @@ private fun CartSummary(
 private fun ModifierAndAddOnSelectionContent(
     menuItem: MenuItem,
     modifierGroups: List<ModifierGroup>,
-    modifierLinks: List<MenuItemModifierLink>,
     addOnGroups: List<AddOnGroup> = emptyList(),
     existingModifierSelections: List<SelectedModifier> = emptyList(),
     existingAddOnSelections: List<SelectedAddOn> = emptyList(),
@@ -1891,11 +2112,6 @@ private fun ModifierAndAddOnSelectionContent(
     onConfirm: (List<SelectedModifier>, List<SelectedAddOn>) -> Unit,
     onDismiss: () -> Unit
 ) {
-    // Map links by groupId for quick lookup
-    val linkMap = remember(modifierLinks) {
-        modifierLinks.associateBy { it.modifierGroupId }
-    }
-
     // Modifier state: track selected option IDs per group
     val selections = remember(modifierGroups, existingModifierSelections) {
         mutableMapOf<String, MutableList<ModifierOptionId>>().apply {
@@ -1932,12 +2148,11 @@ private fun ModifierAndAddOnSelectionContent(
     // Validation: check all required modifier groups have minimum selections
     val isValid = remember(selectionVersion) {
         modifierGroups.all { group ->
-            val link = linkMap[group.id]
             val selected = selections[group.id.value]?.size ?: 0
-            if (link?.isRequired == true) {
-                selected >= (link.minSelection.coerceAtLeast(1))
+            if (group.isRequired) {
+                selected >= group.minSelection.coerceAtLeast(1)
             } else {
-                selected >= link?.minSelection ?: 0
+                selected >= group.minSelection
             }
         }
     }
@@ -1997,17 +2212,13 @@ private fun ModifierAndAddOnSelectionContent(
         ) {
             // Modifier groups
             items(modifierGroups, key = { "mod_${it.id.value}" }) { group ->
-                val link = linkMap[group.id]
-                val maxSel = link?.maxSelection ?: 1
-                val minSel = link?.minSelection ?: 0
-                val isRequired = link?.isRequired == true
                 val selectedIds = selections[group.id.value] ?: mutableListOf()
 
                 ModifierGroupSection(
                     group = group,
-                    isRequired = isRequired,
-                    minSelection = minSel,
-                    maxSelection = maxSel,
+                    isRequired = group.isRequired,
+                    minSelection = group.minSelection,
+                    maxSelection = group.maxSelection,
                     selectedOptionIds = selectedIds,
                     selectionVersion = selectionVersion,
                     onToggleOption = { optionId ->
@@ -2015,10 +2226,10 @@ private fun ModifierAndAddOnSelectionContent(
                         if (list.contains(optionId)) {
                             list.remove(optionId)
                         } else {
-                            if (maxSel == 1) {
+                            if (group.maxSelection == 1) {
                                 list.clear()
                                 list.add(optionId)
-                            } else if (list.size < maxSel) {
+                            } else if (list.size < group.maxSelection) {
                                 list.add(optionId)
                             }
                         }
@@ -2479,4 +2690,123 @@ private fun resolveTableName(
 ): String? {
     if (tableId == null) return null
     return tables.find { it.id == tableId }?.name ?: tableId.value
+}
+
+// ============================================================
+// DISCOUNT DIALOG
+// ============================================================
+
+@Composable
+private fun DiscountDialog(
+    productName: String,
+    subtotal: id.stargan.intikasirfnb.domain.shared.Money,
+    existingInfo: id.stargan.intikasirfnb.domain.transaction.DiscountInfo?,
+    onDismiss: () -> Unit,
+    onApply: (id.stargan.intikasirfnb.domain.transaction.DiscountInfo) -> Unit,
+    onClear: () -> Unit
+) {
+    var discountType by remember {
+        mutableStateOf(existingInfo?.type ?: id.stargan.intikasirfnb.domain.transaction.DiscountType.PERCENT)
+    }
+    var valueText by remember {
+        mutableStateOf(existingInfo?.value?.stripTrailingZeros()?.toPlainString() ?: "")
+    }
+    var reason by remember { mutableStateOf(existingInfo?.reason ?: "") }
+
+    val valueNum = valueText.toBigDecimalOrNull()
+    val isValid = valueNum != null && valueNum > java.math.BigDecimal.ZERO &&
+            (discountType != id.stargan.intikasirfnb.domain.transaction.DiscountType.PERCENT || valueNum <= java.math.BigDecimal(100))
+
+    // Preview discount amount
+    val previewAmount = if (isValid && valueNum != null) {
+        when (discountType) {
+            id.stargan.intikasirfnb.domain.transaction.DiscountType.PERCENT ->
+                subtotal.amount.multiply(valueNum).divide(java.math.BigDecimal(100), 0, java.math.RoundingMode.HALF_UP)
+            id.stargan.intikasirfnb.domain.transaction.DiscountType.FIXED_AMOUNT -> valueNum
+        }
+    } else null
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Diskon: $productName") },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                // Type selector
+                Text("Tipe Diskon", style = MaterialTheme.typography.labelMedium)
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    FilterChip(
+                        selected = discountType == id.stargan.intikasirfnb.domain.transaction.DiscountType.PERCENT,
+                        onClick = { discountType = id.stargan.intikasirfnb.domain.transaction.DiscountType.PERCENT },
+                        label = { Text("Persen (%)") }
+                    )
+                    FilterChip(
+                        selected = discountType == id.stargan.intikasirfnb.domain.transaction.DiscountType.FIXED_AMOUNT,
+                        onClick = { discountType = id.stargan.intikasirfnb.domain.transaction.DiscountType.FIXED_AMOUNT },
+                        label = { Text("Nominal (Rp)") }
+                    )
+                }
+
+                // Value input
+                OutlinedTextField(
+                    value = valueText,
+                    onValueChange = { v -> valueText = v.filter { it.isDigit() || it == '.' } },
+                    label = {
+                        Text(if (discountType == id.stargan.intikasirfnb.domain.transaction.DiscountType.PERCENT) "Persen (%)" else "Nominal (Rp)")
+                    },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth(),
+                    prefix = {
+                        Text(if (discountType == id.stargan.intikasirfnb.domain.transaction.DiscountType.PERCENT) "%" else "Rp ")
+                    }
+                )
+
+                // Reason
+                OutlinedTextField(
+                    value = reason,
+                    onValueChange = { reason = it },
+                    label = { Text("Alasan (opsional)") },
+                    placeholder = { Text("contoh: Promo, Karyawan, Komplain") },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth()
+                )
+
+                // Preview
+                if (previewAmount != null) {
+                    Text(
+                        "Diskon: -Rp ${idrFormat.format(previewAmount).replace(Regex("[^0-9.,]"), "")}",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.error
+                    )
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(
+                onClick = {
+                    if (isValid && valueNum != null) {
+                        onApply(
+                            id.stargan.intikasirfnb.domain.transaction.DiscountInfo(
+                                type = discountType,
+                                value = valueNum,
+                                reason = reason.trim().takeIf { it.isNotBlank() }
+                            )
+                        )
+                    }
+                },
+                enabled = isValid
+            ) {
+                Text("Terapkan")
+            }
+        },
+        dismissButton = {
+            Row {
+                if (existingInfo != null) {
+                    TextButton(onClick = onClear) {
+                        Text("Hapus Diskon", color = MaterialTheme.colorScheme.error)
+                    }
+                }
+                TextButton(onClick = onDismiss) { Text("Batal") }
+            }
+        }
+    )
 }

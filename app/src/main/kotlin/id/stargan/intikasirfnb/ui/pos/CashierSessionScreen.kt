@@ -58,7 +58,7 @@ import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 
-private val idrFormat = NumberFormat.getCurrencyInstance(Locale("id", "ID")).apply {
+private val idrFormat = NumberFormat.getCurrencyInstance(Locale.forLanguageTag("id-ID")).apply {
     maximumFractionDigits = 0
 }
 
@@ -173,7 +173,7 @@ private fun ActiveSessionContent(
     onCloseSession: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val dateFormat = remember { SimpleDateFormat("dd/MM/yyyy HH:mm", Locale("id")) }
+    val dateFormat = remember { SimpleDateFormat("dd/MM/yyyy HH:mm", Locale.forLanguageTag("id")) }
 
     Column(
         modifier = modifier

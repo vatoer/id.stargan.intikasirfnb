@@ -71,21 +71,22 @@ data class ModifierGroup(
     val tenantId: TenantId,
     val name: String,
     val options: List<ModifierOption> = emptyList(),
+    val isRequired: Boolean = false,
+    val minSelection: Int = 0,
+    val maxSelection: Int = 1,
     val sortOrder: Int = 0,
     val isActive: Boolean = true
 )
 
 /**
- * Junction: links a ModifierGroup to a MenuItem with per-item overrides.
+ * Junction: links a ModifierGroup to a MenuItem.
+ * Selection rules (required, min/max) live on the ModifierGroup itself.
  */
 data class MenuItemModifierLink(
     val id: String,
     val menuItemId: ProductId,
     val modifierGroupId: ModifierGroupId,
-    val sortOrder: Int = 0,
-    val isRequired: Boolean = false,
-    val minSelection: Int = 0,
-    val maxSelection: Int = 1
+    val sortOrder: Int = 0
 )
 
 // --- Add-on (F&B qty-based extras) — separate entities, reusable across items ---

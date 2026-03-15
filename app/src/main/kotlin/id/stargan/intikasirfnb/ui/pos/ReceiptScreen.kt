@@ -57,7 +57,7 @@ import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 
-private val idrFormat = NumberFormat.getCurrencyInstance(Locale("id", "ID")).apply {
+private val idrFormat = NumberFormat.getCurrencyInstance(Locale.forLanguageTag("id-ID")).apply {
     maximumFractionDigits = 0
 }
 
@@ -155,7 +155,7 @@ private fun ReceiptPreviewCard(
     channelName: String?
 ) {
     val dateFormat = remember {
-        SimpleDateFormat("dd/MM/yyyy HH:mm", Locale("id"))
+        SimpleDateFormat("dd/MM/yyyy HH:mm", Locale.forLanguageTag("id"))
     }
 
     Card(
@@ -227,18 +227,45 @@ private fun ReceiptPreviewCard(
                             maxLines = 2,
                             overflow = TextOverflow.Ellipsis
                         )
-                        if (line.selectedModifiers.isNotEmpty()) {
-                            Text(
-                                text = line.selectedModifiers.joinToString(", ") { it.optionName },
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                        }
                         Text(
-                            text = "${line.quantity} x ${idrFormat.format(line.effectiveUnitPrice().amount)}",
+                            text = "${line.quantity} x ${idrFormat.format(line.unitPrice.amount)}",
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
+                        // Modifiers: paid ones with price, free ones inline
+                        if (line.selectedModifiers.isNotEmpty()) {
+                            val paid = line.selectedModifiers.filter { it.priceDelta.isPositive() }
+                            val free = line.selectedModifiers.filter { !it.priceDelta.isPositive() }
+                            paid.forEach { mod ->
+                                Text(
+                                    text = "+ ${mod.optionName}  ${idrFormat.format(mod.priceDelta.amount)}",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.tertiary
+                                )
+                            }
+                            if (free.isNotEmpty()) {
+                                Text(
+                                    text = free.joinToString(", ") { it.optionName },
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                        }
+                        // Add-ons with price detail
+                        if (line.selectedAddOns.isNotEmpty()) {
+                            line.selectedAddOns.forEach { addOn ->
+                                val label = if (addOn.quantity > 1) {
+                                    "+ ${addOn.addOnName} ${addOn.quantity}x${idrFormat.format(addOn.unitPrice.amount)}"
+                                } else {
+                                    "+ ${addOn.addOnName}"
+                                }
+                                Text(
+                                    text = "$label  ${idrFormat.format(addOn.totalPrice.amount)}",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.tertiary
+                                )
+                            }
+                        }
                         if (!line.notes.isNullOrBlank()) {
                             Text(
                                 text = "* ${line.notes}",

@@ -31,7 +31,7 @@ data class DiscoveredBluetoothDevice(
 
 @Singleton
 class PrinterServiceFactory @Inject constructor(
-    @ApplicationContext private val context: Context
+    @param:ApplicationContext private val context: Context
 ) {
     private val _isScanning = MutableStateFlow(false)
     val isScanning: StateFlow<Boolean> = _isScanning.asStateFlow()

@@ -80,7 +80,7 @@ fun buildTestReceipt(
     b.line("*** TES CETAK ***")
     b.normalSize().boldOff()
 
-    val dateFormat = SimpleDateFormat("dd/MM/yyyy HH:mm:ss", Locale("id"))
+    val dateFormat = SimpleDateFormat("dd/MM/yyyy HH:mm:ss", Locale.forLanguageTag("id"))
     b.line(dateFormat.format(Date()))
 
     b.separator('-')

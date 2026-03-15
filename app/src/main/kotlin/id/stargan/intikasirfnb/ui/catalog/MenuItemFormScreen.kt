@@ -5,7 +5,6 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -29,17 +28,15 @@ import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExposedDropdownMenuBox
 import androidx.compose.material3.ExposedDropdownMenuDefaults
-import androidx.compose.material3.FilterChip
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.MenuAnchorType
+import androidx.compose.material3.ExposedDropdownMenuAnchorType
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
-import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
@@ -102,12 +99,9 @@ fun MenuItemFormScreen(
     var sortOrder by remember { mutableStateOf("") }
     var saved by remember { mutableStateOf(false) }
 
-    // Modifier link state: groupId -> LinkConfig (enabled, isRequired, min, max)
+    // Modifier link state: groupId -> LinkConfig (enabled)
     data class ModifierLinkConfig(
         val enabled: Boolean = false,
-        val isRequired: Boolean = false,
-        val minSelection: Int = 0,
-        val maxSelection: Int = 1,
         val existingLinkId: String? = null // preserve ID on edit
     )
     val modifierLinkConfigs = remember { mutableStateMapOf<String, ModifierLinkConfig>() }
@@ -128,9 +122,6 @@ fun MenuItemFormScreen(
             links.forEach { link ->
                 modifierLinkConfigs[link.modifierGroupId.value] = ModifierLinkConfig(
                     enabled = true,
-                    isRequired = link.isRequired,
-                    minSelection = link.minSelection,
-                    maxSelection = link.maxSelection,
                     existingLinkId = link.id
                 )
             }
@@ -210,10 +201,7 @@ fun MenuItemFormScreen(
                     id = config.existingLinkId ?: UlidGenerator.generate(),
                     menuItemId = itemId,
                     modifierGroupId = ModifierGroupId(groupId),
-                    sortOrder = index,
-                    isRequired = config.isRequired,
-                    minSelection = config.minSelection,
-                    maxSelection = config.maxSelection
+                    sortOrder = index
                 )
             }
 
@@ -449,17 +437,7 @@ fun MenuItemFormScreen(
                                 Checkbox(
                                     checked = config.enabled,
                                     onCheckedChange = { checked ->
-                                        // Smart defaults when enabling
-                                        if (checked) {
-                                            modifierLinkConfigs[group.id.value] = config.copy(
-                                                enabled = true,
-                                                isRequired = false,
-                                                minSelection = 0,
-                                                maxSelection = 1
-                                            )
-                                        } else {
-                                            modifierLinkConfigs[group.id.value] = config.copy(enabled = false)
-                                        }
+                                        modifierLinkConfigs[group.id.value] = config.copy(enabled = checked)
                                     }
                                 )
                                 Column(modifier = Modifier.weight(1f)) {
@@ -467,112 +445,22 @@ fun MenuItemFormScreen(
                                         group.name,
                                         style = MaterialTheme.typography.bodyLarge
                                     )
+                                    // Show selection rule info from group
+                                    val ruleText = buildString {
+                                        append("$optionCount opsi")
+                                        append(" · ")
+                                        if (group.maxSelection == 1) append("Pilih 1") else append("Pilih maks ${group.maxSelection}")
+                                        if (group.isRequired) append(" · Wajib")
+                                    }
                                     Text(
-                                        "${optionCount} opsi" +
-                                                group.options.take(3).joinToString(prefix = " (", postfix = if (optionCount > 3) ", ...)" else ")") { it.name },
+                                        ruleText,
                                         style = MaterialTheme.typography.bodySmall,
                                         color = MaterialTheme.colorScheme.onSurfaceVariant
                                     )
-                                }
-                            }
-
-                            // Config detail (shown when enabled)
-                            if (config.enabled) {
-                                // Determine selection type from min/max
-                                // PILIH_SATU: max=1 (single-select, optional or required)
-                                // PILIH_BEBERAPA: max>1 (multi-select)
-                                val isMultiSelect = config.maxSelection > 1
-
-                                Column(
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .padding(start = 48.dp, end = 8.dp, bottom = 8.dp)
-                                ) {
-                                    // --- Selection Type chips ---
                                     Text(
-                                        "Tipe Pilihan",
-                                        style = MaterialTheme.typography.labelMedium,
+                                        group.options.take(3).joinToString(prefix = "(", postfix = if (optionCount > 3) ", ...)" else ")") { it.name },
+                                        style = MaterialTheme.typography.bodySmall,
                                         color = MaterialTheme.colorScheme.onSurfaceVariant
-                                    )
-                                    Spacer(modifier = Modifier.height(4.dp))
-                                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                                        FilterChip(
-                                            selected = !isMultiSelect,
-                                            onClick = {
-                                                modifierLinkConfigs[group.id.value] = config.copy(
-                                                    maxSelection = 1,
-                                                    minSelection = if (config.isRequired) 1 else 0
-                                                )
-                                            },
-                                            label = { Text("Pilih 1") }
-                                        )
-                                        FilterChip(
-                                            selected = isMultiSelect,
-                                            onClick = {
-                                                modifierLinkConfigs[group.id.value] = config.copy(
-                                                    maxSelection = optionCount,
-                                                    minSelection = if (config.isRequired) 1 else 0
-                                                )
-                                            },
-                                            label = { Text("Pilih Beberapa") }
-                                        )
-                                    }
-
-                                    Spacer(modifier = Modifier.height(8.dp))
-
-                                    // --- Required toggle ---
-                                    Row(
-                                        modifier = Modifier.fillMaxWidth(),
-                                        verticalAlignment = Alignment.CenterVertically,
-                                        horizontalArrangement = Arrangement.SpaceBetween
-                                    ) {
-                                        Text("Wajib dipilih", style = MaterialTheme.typography.bodyMedium)
-                                        Switch(
-                                            checked = config.isRequired,
-                                            onCheckedChange = { required ->
-                                                modifierLinkConfigs[group.id.value] = config.copy(
-                                                    isRequired = required,
-                                                    minSelection = if (required) 1 else 0
-                                                )
-                                            }
-                                        )
-                                    }
-
-                                    // --- Max selection (only for multi-select) ---
-                                    if (isMultiSelect) {
-                                        Spacer(modifier = Modifier.height(4.dp))
-                                        OutlinedTextField(
-                                            value = config.maxSelection.toString(),
-                                            onValueChange = { v ->
-                                                val max = v.filter { it.isDigit() }.toIntOrNull() ?: 1
-                                                modifierLinkConfigs[group.id.value] = config.copy(
-                                                    maxSelection = max.coerceIn(1, optionCount)
-                                                )
-                                            },
-                                            label = { Text("Maksimal pilihan") },
-                                            supportingText = { Text("Dari $optionCount opsi tersedia") },
-                                            singleLine = true,
-                                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                                            modifier = Modifier.fillMaxWidth()
-                                        )
-                                    }
-
-                                    // --- Hint text ---
-                                    Spacer(modifier = Modifier.height(4.dp))
-                                    val hintText = when {
-                                        !isMultiSelect && config.isRequired ->
-                                            "Kasir wajib pilih 1 opsi dari ${group.name}"
-                                        !isMultiSelect && !config.isRequired ->
-                                            "Kasir boleh pilih 1 opsi atau lewati"
-                                        isMultiSelect && config.isRequired ->
-                                            "Kasir wajib pilih minimal 1, maksimal ${config.maxSelection} opsi"
-                                        else ->
-                                            "Kasir boleh pilih hingga ${config.maxSelection} opsi atau lewati"
-                                    }
-                                    Text(
-                                        hintText,
-                                        style = MaterialTheme.typography.labelSmall,
-                                        color = MaterialTheme.colorScheme.primary
                                     )
                                 }
                             }
@@ -688,7 +576,7 @@ private fun CategoryDropdown(
             trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
             modifier = Modifier
                 .fillMaxWidth()
-                .menuAnchor(MenuAnchorType.PrimaryNotEditable)
+                .menuAnchor(ExposedDropdownMenuAnchorType.PrimaryNotEditable)
         )
         ExposedDropdownMenu(
             expanded = expanded,

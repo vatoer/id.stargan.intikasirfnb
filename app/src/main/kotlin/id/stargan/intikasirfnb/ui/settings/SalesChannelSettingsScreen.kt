@@ -85,6 +85,8 @@ import id.stargan.intikasirfnb.domain.transaction.PlatformConfig
 import id.stargan.intikasirfnb.domain.transaction.PlatformPaymentMethod
 import id.stargan.intikasirfnb.domain.transaction.PriceAdjustmentType
 import id.stargan.intikasirfnb.domain.transaction.SalesChannel
+import id.stargan.intikasirfnb.domain.transaction.TableMode
+import id.stargan.intikasirfnb.domain.transaction.defaultTableMode
 import id.stargan.intikasirfnb.domain.transaction.SalesChannelId
 import id.stargan.intikasirfnb.domain.transaction.defaultFlow
 import java.math.BigDecimal
@@ -311,7 +313,8 @@ private fun SalesChannelCard(
                 Spacer(modifier = Modifier.height(2.dp))
                 Text(
                     channelTypeLabel(channel.channelType) + " | Kode: ${channel.code}" +
-                        " | ${orderFlowLabel(channel.defaultOrderFlow)}",
+                        " | ${orderFlowLabel(channel.defaultOrderFlow)}" +
+                        if (channel.channelType == ChannelType.DINE_IN) " | ${tableModeLabel(channel.tableMode)}" else "",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
@@ -361,6 +364,7 @@ private fun SalesChannelDialog(
     val channelType = channel?.channelType ?: ChannelType.DINE_IN
     var sortOrder by remember { mutableStateOf(channel?.sortOrder?.toString() ?: "0") }
     var orderFlow by remember { mutableStateOf(channel?.defaultOrderFlow ?: channelType.defaultFlow()) }
+    var tableMode by remember { mutableStateOf(channel?.tableMode ?: channelType.defaultTableMode()) }
 
     // Price adjustment
     var hasAdjustment by remember { mutableStateOf(channel?.priceAdjustmentType != null) }
@@ -429,6 +433,32 @@ private fun SalesChannelDialog(
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
 
+                // Table mode (only for DINE_IN)
+                if (channelType == ChannelType.DINE_IN) {
+                    HorizontalDivider(modifier = Modifier.padding(vertical = 4.dp))
+                    Text("Pengaturan Meja", style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Medium)
+                    FlowRow(
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalArrangement = Arrangement.spacedBy(4.dp)
+                    ) {
+                        TableMode.entries.forEach { mode ->
+                            FilterChip(
+                                selected = tableMode == mode,
+                                onClick = { tableMode = mode },
+                                label = { Text(tableModeLabel(mode), style = MaterialTheme.typography.labelSmall) },
+                                colors = FilterChipDefaults.filterChipColors(
+                                    selectedContainerColor = MaterialTheme.colorScheme.primaryContainer
+                                )
+                            )
+                        }
+                    }
+                    Text(
+                        tableModeDescription(tableMode),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+
                 HorizontalDivider(modifier = Modifier.padding(vertical = 4.dp))
 
                 // Price adjustment
@@ -482,6 +512,7 @@ private fun SalesChannelDialog(
                             name = name.trim(),
                             code = code.trim().uppercase(),
                             defaultOrderFlow = orderFlow,
+                            tableMode = if (channelType == ChannelType.DINE_IN) tableMode else TableMode.NONE,
                             isActive = channel?.isActive ?: true,
                             sortOrder = sortOrder.toIntOrNull() ?: 0,
                             priceAdjustmentType = if (hasAdjustment) adjustmentType else null,
@@ -1253,7 +1284,7 @@ private fun SimulationCard(
 
 private fun formatNumber(value: BigDecimal): String {
     val long = value.toLong()
-    return java.text.NumberFormat.getNumberInstance(java.util.Locale("id", "ID")).format(long)
+    return java.text.NumberFormat.getNumberInstance(java.util.Locale.forLanguageTag("id-ID")).format(long)
 }
 
 private fun channelTypeLabel(type: ChannelType): String = when (type) {
@@ -1301,6 +1332,18 @@ private fun orderFlowDescription(flow: OrderFlowType): String = when (flow) {
     OrderFlowType.PAY_FIRST -> "Pelanggan bayar di kasir, dapat nomor antrian, lalu pesanan disiapkan."
     OrderFlowType.PAY_LAST -> "Pesanan dikirim ke dapur dulu, bayar setelah selesai makan."
     OrderFlowType.PAY_FLEXIBLE -> "Kasir bisa pilih bayar dulu atau bayar akhir per transaksi."
+}
+
+private fun tableModeLabel(mode: TableMode): String = when (mode) {
+    TableMode.REQUIRED -> "Wajib Meja"
+    TableMode.OPTIONAL -> "Meja Opsional"
+    TableMode.NONE -> "Tanpa Meja"
+}
+
+private fun tableModeDescription(mode: TableMode): String = when (mode) {
+    TableMode.REQUIRED -> "Kasir wajib pilih meja saat membuat pesanan. Cocok untuk restoran dan food court dengan antar ke meja."
+    TableMode.OPTIONAL -> "Kasir boleh pilih meja atau lewati. Cocok untuk cafe yang fleksibel."
+    TableMode.NONE -> "Tidak pakai meja. Pelanggan duduk bebas atau ambil sendiri. Cocok untuk fast-food (McD, BK)."
 }
 
 private fun platformPaymentMethodLabel(method: PlatformPaymentMethod): String = when (method) {

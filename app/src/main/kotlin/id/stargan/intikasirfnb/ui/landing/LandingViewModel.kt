@@ -23,9 +23,10 @@ data class LandingMenuItem(
         fun defaults() = listOf(
             LandingMenuItem("pos", "POS / Kasir", "point_of_sale"),
             LandingMenuItem("catalog", "Katalog Menu", "restaurant_menu"),
+            LandingMenuItem("kitchen", "Dapur", "kitchen"),
             LandingMenuItem("customer", "Pelanggan", "people"),
-            LandingMenuItem("report", "Riwayat Transaksi", "receipt_long"),
-            LandingMenuItem("table", "Meja", "table_restaurant"),
+            LandingMenuItem("report", "Laporan", "assessment"),
+            LandingMenuItem("stock", "Stok", "inventory_2"),
             LandingMenuItem("settings", "Pengaturan", "settings")
         )
     }

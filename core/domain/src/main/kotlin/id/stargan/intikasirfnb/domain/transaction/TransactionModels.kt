@@ -156,6 +156,19 @@ data class TipLine(
     val amount: Money
 )
 
+// --- Discount on line item ---
+
+enum class DiscountType {
+    PERCENT,      // diskon persentase (e.g., 10%)
+    FIXED_AMOUNT  // diskon nominal (e.g., Rp 5.000)
+}
+
+data class DiscountInfo(
+    val type: DiscountType,
+    val value: BigDecimal,  // percent value (10 = 10%) or fixed amount (5000)
+    val reason: String? = null
+)
+
 // --- Order line (within Sale aggregate) ---
 
 data class OrderLine(
@@ -164,6 +177,7 @@ data class OrderLine(
     val quantity: Int,
     val unitPrice: Money,
     val discountAmount: Money = Money.zero(),
+    val discountInfo: DiscountInfo? = null,
     val selectedModifiers: List<SelectedModifier> = emptyList(),
     val selectedAddOns: List<SelectedAddOn> = emptyList(),
     val notes: String? = null,
@@ -177,9 +191,31 @@ data class OrderLine(
 
     fun effectiveUnitPrice(): Money = unitPrice + modifierTotal()
 
+    /** Subtotal before discount = (effectiveUnitPrice * qty) + addOnTotal */
+    fun subtotalBeforeDiscount(): Money = (effectiveUnitPrice() * quantity) + addOnTotal()
+
     /** lineTotal = (effectiveUnitPrice * qty) + addOnTotal - discount.
      *  addOnTotal is NOT multiplied by qty (add-ons are per-line, not per-unit). */
-    fun lineTotal(): Money = (effectiveUnitPrice() * quantity) + addOnTotal() - discountAmount
+    fun lineTotal(): Money = subtotalBeforeDiscount() - discountAmount
+
+    /** Apply discount and compute discountAmount from type+value */
+    fun applyDiscount(info: DiscountInfo): OrderLine {
+        val base = subtotalBeforeDiscount()
+        val amount = when (info.type) {
+            DiscountType.PERCENT -> Money(
+                base.amount.multiply(info.value)
+                    .divide(BigDecimal(100), 0, RoundingMode.HALF_UP),
+                base.currencyCode
+            )
+            DiscountType.FIXED_AMOUNT -> Money(info.value, base.currencyCode)
+        }
+        // Cap discount at subtotal (don't go negative)
+        val capped = if (amount.amount > base.amount) base else amount
+        return copy(discountAmount = capped, discountInfo = info)
+    }
+
+    /** Remove discount */
+    fun clearDiscount(): OrderLine = copy(discountAmount = Money.zero(), discountInfo = null)
 }
 
 // --- Payment breakdown (for receipt / reporting) ---
@@ -408,6 +444,18 @@ data class Sale(
         }
         val trimmed = name?.trim()?.takeIf { it.isNotBlank() }
         return copy(customerName = trimmed, updatedAtMillis = System.currentTimeMillis())
+    }
+
+    fun setCustomer(customerId: CustomerId?, customerName: String?): Sale {
+        require(status == SaleStatus.DRAFT || status == SaleStatus.OPEN) {
+            "Cannot change customer in current status"
+        }
+        val trimmedName = customerName?.trim()?.takeIf { it.isNotBlank() }
+        return copy(
+            customerId = customerId,
+            customerName = trimmedName,
+            updatedAtMillis = System.currentTimeMillis()
+        )
     }
 
     fun assignQueueNumber(queueNumber: String): Sale {

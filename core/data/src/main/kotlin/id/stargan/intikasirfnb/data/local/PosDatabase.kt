@@ -27,6 +27,10 @@ import id.stargan.intikasirfnb.data.local.dao.TenantSettingsDao
 import id.stargan.intikasirfnb.data.local.dao.TaxConfigDao
 import id.stargan.intikasirfnb.data.local.dao.TerminalDao
 import id.stargan.intikasirfnb.data.local.dao.TerminalSettingsDao
+import id.stargan.intikasirfnb.data.local.dao.AccountDao
+import id.stargan.intikasirfnb.data.local.dao.JournalDao
+import id.stargan.intikasirfnb.data.local.dao.StockLevelDao
+import id.stargan.intikasirfnb.data.local.dao.StockMovementDao
 import id.stargan.intikasirfnb.data.local.dao.UserDao
 import id.stargan.intikasirfnb.data.local.entity.CashierSessionEntity
 import id.stargan.intikasirfnb.data.local.entity.AddOnGroupEntity
@@ -55,6 +59,10 @@ import id.stargan.intikasirfnb.data.local.entity.TenantSettingsEntity
 import id.stargan.intikasirfnb.data.local.entity.TaxConfigEntity
 import id.stargan.intikasirfnb.data.local.entity.TerminalEntity
 import id.stargan.intikasirfnb.data.local.entity.TerminalSettingsEntity
+import id.stargan.intikasirfnb.data.local.entity.AccountEntity
+import id.stargan.intikasirfnb.data.local.entity.JournalEntity
+import id.stargan.intikasirfnb.data.local.entity.StockLevelEntity
+import id.stargan.intikasirfnb.data.local.entity.StockMovementEntity
 import id.stargan.intikasirfnb.data.local.entity.UserEntity
 
 @Database(
@@ -86,9 +94,13 @@ import id.stargan.intikasirfnb.data.local.entity.UserEntity
         KitchenTicketItemEntity::class,
         AddOnGroupEntity::class,
         AddOnItemEntity::class,
-        MenuItemAddOnGroupEntity::class
+        MenuItemAddOnGroupEntity::class,
+        StockLevelEntity::class,
+        StockMovementEntity::class,
+        JournalEntity::class,
+        AccountEntity::class
     ],
-    version = 20,
+    version = 24,
     exportSchema = true
 )
 abstract class PosDatabase : RoomDatabase() {
@@ -118,4 +130,8 @@ abstract class PosDatabase : RoomDatabase() {
     abstract fun addOnGroupDao(): AddOnGroupDao
     abstract fun addOnItemDao(): AddOnItemDao
     abstract fun menuItemAddOnGroupDao(): MenuItemAddOnGroupDao
+    abstract fun stockLevelDao(): StockLevelDao
+    abstract fun stockMovementDao(): StockMovementDao
+    abstract fun journalDao(): JournalDao
+    abstract fun accountDao(): AccountDao
 }

@@ -10,7 +10,7 @@ import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 
-private val idrFormat = NumberFormat.getNumberInstance(Locale("id", "ID")).apply {
+private val idrFormat = NumberFormat.getNumberInstance(Locale.forLanguageTag("id-ID")).apply {
     maximumFractionDigits = 0
 }
 
@@ -69,7 +69,7 @@ fun buildSaleReceipt(
     // --- Order info ---
     b.leftAlign()
 
-    val dateFormat = SimpleDateFormat("dd/MM/yyyy HH:mm", Locale("id"))
+    val dateFormat = SimpleDateFormat("dd/MM/yyyy HH:mm", Locale.forLanguageTag("id"))
 
     if (body.showOrderNumber && sale.receiptNumber != null) {
         b.twoColumnLine("No.", sale.receiptNumber)
@@ -95,15 +95,40 @@ fun buildSaleReceipt(
     for (line in sale.lines) {
         val name = line.productRef.name
         val qty = line.quantity
-        val unitPrice = formatMoney(line.effectiveUnitPrice().amount)
+        val basePrice = formatMoney(line.unitPrice.amount)
         val lineTotal = formatMoney(line.lineTotal().amount)
 
-        b.line(name)
-        b.twoColumnLine("  ${qty} x $unitPrice", lineTotal)
+        b.twoColumnLine(name, lineTotal)
+        b.line("  ${qty} x $basePrice")
 
+        // Modifiers: show each with price if non-zero, group free ones inline
         if (line.selectedModifiers.isNotEmpty()) {
-            val modText = line.selectedModifiers.joinToString(", ") { it.optionName }
-            b.line("  ($modText)")
+            val paidModifiers = line.selectedModifiers.filter { it.priceDelta.isPositive() }
+            val freeModifiers = line.selectedModifiers.filter { !it.priceDelta.isPositive() }
+
+            paidModifiers.forEach { mod ->
+                b.twoColumnLine(
+                    "  + ${mod.optionName}",
+                    formatMoney(mod.priceDelta.amount)
+                )
+            }
+
+            if (freeModifiers.isNotEmpty()) {
+                val freeText = freeModifiers.joinToString(", ") { it.optionName }
+                b.line("  ($freeText)")
+            }
+        }
+
+        // Add-ons: each with unit price breakdown
+        if (line.selectedAddOns.isNotEmpty()) {
+            line.selectedAddOns.forEach { addOn ->
+                val label = if (addOn.quantity > 1) {
+                    "  + ${addOn.addOnName} ${addOn.quantity}x${formatMoney(addOn.unitPrice.amount)}"
+                } else {
+                    "  + ${addOn.addOnName}"
+                }
+                b.twoColumnLine(label, formatMoney(addOn.totalPrice.amount))
+            }
         }
 
         if (body.showItemNotes && !line.notes.isNullOrBlank()) {

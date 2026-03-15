@@ -21,6 +21,9 @@ data class ModifierGroupEntity(
     @PrimaryKey val id: String,
     val tenantId: String,
     val name: String,
+    val isRequired: Boolean = false,
+    val minSelection: Int = 0,
+    val maxSelection: Int = 1,
     val sortOrder: Int = 0,
     val isActive: Boolean = true,
     // Sync metadata

@@ -194,4 +194,24 @@ object RepositoryModule {
     @Provides
     @Singleton
     fun provideSyncEngine(): SyncEngine = NoOpSyncEngine()
+
+    @Provides
+    @Singleton
+    fun provideJournalRepository(dao: id.stargan.intikasirfnb.data.local.dao.JournalDao): id.stargan.intikasirfnb.domain.accounting.JournalRepository =
+        id.stargan.intikasirfnb.data.repository.JournalRepositoryImpl(dao)
+
+    @Provides
+    @Singleton
+    fun provideAccountRepository(dao: id.stargan.intikasirfnb.data.local.dao.AccountDao): id.stargan.intikasirfnb.domain.accounting.AccountRepository =
+        id.stargan.intikasirfnb.data.repository.AccountRepositoryImpl(dao)
+
+    @Provides
+    @Singleton
+    fun provideStockLevelRepository(dao: id.stargan.intikasirfnb.data.local.dao.StockLevelDao): id.stargan.intikasirfnb.domain.inventory.StockLevelRepository =
+        id.stargan.intikasirfnb.data.repository.StockLevelRepositoryImpl(dao)
+
+    @Provides
+    @Singleton
+    fun provideStockMovementRepository(dao: id.stargan.intikasirfnb.data.local.dao.StockMovementDao): id.stargan.intikasirfnb.domain.inventory.StockMovementRepository =
+        id.stargan.intikasirfnb.data.repository.StockMovementRepositoryImpl(dao)
 }

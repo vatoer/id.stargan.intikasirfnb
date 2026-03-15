@@ -187,7 +187,7 @@ private fun ModifierGroupCard(
     onToggleActive: () -> Unit
 ) {
     val priceFormat = remember {
-        NumberFormat.getNumberInstance(Locale("id", "ID")).apply {
+        NumberFormat.getNumberInstance(Locale.forLanguageTag("id-ID")).apply {
             minimumFractionDigits = 0
             maximumFractionDigits = 0
         }
@@ -221,9 +221,14 @@ private fun ModifierGroupCard(
                         else
                             MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f)
                     )
+                    val ruleText = buildString {
+                        append("${group.options.size} opsi · ")
+                        if (group.maxSelection == 1) append("Pilih 1") else append("Pilih maks ${group.maxSelection}")
+                        if (group.isRequired) append(" · Wajib")
+                        if (!group.isActive) append(" (nonaktif)")
+                    }
                     Text(
-                        text = "${group.options.size} opsi" +
-                                if (!group.isActive) " (nonaktif)" else "",
+                        text = ruleText,
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )

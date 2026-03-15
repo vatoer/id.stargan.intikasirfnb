@@ -11,7 +11,9 @@ import id.stargan.intikasirfnb.domain.transaction.PlatformPaymentMethod
 import id.stargan.intikasirfnb.domain.transaction.PriceAdjustmentType
 import id.stargan.intikasirfnb.domain.transaction.SalesChannel
 import id.stargan.intikasirfnb.domain.transaction.SalesChannelId
+import id.stargan.intikasirfnb.domain.transaction.TableMode
 import id.stargan.intikasirfnb.domain.transaction.defaultFlow
+import id.stargan.intikasirfnb.domain.transaction.defaultTableMode
 import java.math.BigDecimal
 
 fun SalesChannelEntity.toDomain(): SalesChannel = SalesChannel(
@@ -24,6 +26,9 @@ fun SalesChannelEntity.toDomain(): SalesChannel = SalesChannel(
     sortOrder = sortOrder,
     defaultOrderFlow = try { OrderFlowType.valueOf(defaultOrderFlow) } catch (_: Exception) {
         ChannelType.valueOf(channelType).defaultFlow()
+    },
+    tableMode = try { TableMode.valueOf(tableMode) } catch (_: Exception) {
+        ChannelType.valueOf(channelType).defaultTableMode()
     },
     priceListId = priceListId?.let { PriceListId(it) },
     priceAdjustmentType = priceAdjustmentType?.let { PriceAdjustmentType.valueOf(it) },
@@ -51,6 +56,7 @@ fun SalesChannel.toEntity(): SalesChannelEntity = SalesChannelEntity(
     isActive = isActive,
     sortOrder = sortOrder,
     defaultOrderFlow = defaultOrderFlow.name,
+    tableMode = tableMode.name,
     priceListId = priceListId?.value,
     priceAdjustmentType = priceAdjustmentType?.name,
     priceAdjustmentValue = priceAdjustmentValue?.toPlainString(),

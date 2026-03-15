@@ -22,7 +22,7 @@ fun buildKitchenOrderTicket(
 ): ByteArray {
     val cpl = 32 // Standard 58mm paper
     val b = EscPosBuilder(cpl)
-    val dateFormat = SimpleDateFormat("HH:mm", Locale("id"))
+    val dateFormat = SimpleDateFormat("HH:mm", Locale.forLanguageTag("id"))
 
     b.initialize()
     b.centerAlign()
@@ -55,6 +55,11 @@ fun buildKitchenOrderTicket(
         if (line.selectedModifiers.isNotEmpty()) {
             val modText = line.selectedModifiers.joinToString(", ") { it.optionName }
             b.line("  ($modText)")
+        }
+        if (line.selectedAddOns.isNotEmpty()) {
+            line.selectedAddOns.forEach { addOn ->
+                b.line("  + ${addOn.addOnName} x${addOn.quantity}")
+            }
         }
         if (!line.notes.isNullOrBlank()) {
             b.line("  * ${line.notes}")

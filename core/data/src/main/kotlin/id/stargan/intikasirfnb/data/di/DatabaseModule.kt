@@ -26,6 +26,8 @@ import id.stargan.intikasirfnb.data.local.dao.PaymentDao
 import id.stargan.intikasirfnb.data.local.dao.PlatformSettlementDao
 import id.stargan.intikasirfnb.data.local.dao.PriceListDao
 import id.stargan.intikasirfnb.data.local.dao.SaleDao
+import id.stargan.intikasirfnb.data.local.dao.StockLevelDao
+import id.stargan.intikasirfnb.data.local.dao.StockMovementDao
 import id.stargan.intikasirfnb.data.local.dao.SalesChannelDao
 import id.stargan.intikasirfnb.data.local.dao.TableDao
 import id.stargan.intikasirfnb.data.local.dao.TenantDao
@@ -44,7 +46,7 @@ object DatabaseModule {
     @Singleton
     fun provideDatabase(@ApplicationContext context: Context): PosDatabase =
         Room.databaseBuilder(context, PosDatabase::class.java, "pos_database")
-            .fallbackToDestructiveMigration()
+            .fallbackToDestructiveMigration(dropAllTables = true)
             .build()
 
     @Provides fun provideTenantDao(db: PosDatabase): TenantDao = db.tenantDao()
@@ -73,4 +75,8 @@ object DatabaseModule {
     @Provides fun provideAddOnGroupDao(db: PosDatabase): AddOnGroupDao = db.addOnGroupDao()
     @Provides fun provideAddOnItemDao(db: PosDatabase): AddOnItemDao = db.addOnItemDao()
     @Provides fun provideMenuItemAddOnGroupDao(db: PosDatabase): MenuItemAddOnGroupDao = db.menuItemAddOnGroupDao()
+    @Provides fun provideStockLevelDao(db: PosDatabase): StockLevelDao = db.stockLevelDao()
+    @Provides fun provideStockMovementDao(db: PosDatabase): StockMovementDao = db.stockMovementDao()
+    @Provides fun provideJournalDao(db: PosDatabase): id.stargan.intikasirfnb.data.local.dao.JournalDao = db.journalDao()
+    @Provides fun provideAccountDao(db: PosDatabase): id.stargan.intikasirfnb.data.local.dao.AccountDao = db.accountDao()
 }

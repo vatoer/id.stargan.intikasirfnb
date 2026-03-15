@@ -6,6 +6,9 @@ import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
 import id.stargan.intikasirfnb.domain.catalog.AddOnGroup
 import id.stargan.intikasirfnb.domain.catalog.AddOnGroupRepository
+import id.stargan.intikasirfnb.domain.customer.Customer
+import id.stargan.intikasirfnb.domain.customer.CustomerId
+import id.stargan.intikasirfnb.domain.customer.CustomerRepository
 import id.stargan.intikasirfnb.domain.catalog.Category
 import id.stargan.intikasirfnb.domain.catalog.CategoryId
 import id.stargan.intikasirfnb.domain.catalog.CategoryRepository
@@ -16,7 +19,6 @@ import id.stargan.intikasirfnb.domain.catalog.MenuItemRepository
 import id.stargan.intikasirfnb.domain.catalog.ModifierGroup
 import id.stargan.intikasirfnb.domain.catalog.ModifierGroupRepository
 import id.stargan.intikasirfnb.domain.identity.SessionManager
-import id.stargan.intikasirfnb.domain.transaction.ChannelType
 import id.stargan.intikasirfnb.domain.transaction.OrderFlowType
 import id.stargan.intikasirfnb.domain.transaction.OrderLineId
 import id.stargan.intikasirfnb.domain.transaction.Sale
@@ -71,6 +73,7 @@ data class PosUiState(
     val tableSections: List<String> = emptyList(),
     val selectedTableSection: String? = null,
     val showTablePicker: Boolean = false,
+    val showTableSetupPrompt: Boolean = false,
     val isSendingToKitchen: Boolean = false,
     val kitchenTicketResult: KitchenTicketResult? = null,
     // Modifier selection dialog
@@ -79,7 +82,6 @@ data class PosUiState(
     val pendingModifiers: List<SelectedModifier> = emptyList(), // held while waiting for table
     val pendingAddOns: List<SelectedAddOn> = emptyList(), // held while waiting for table
     val modifierGroups: List<ModifierGroup> = emptyList(),
-    val modifierLinks: List<MenuItemModifierLink> = emptyList(),
     // Add-on selection in dialog
     val addOnGroups: List<AddOnGroup> = emptyList(),
     val addOnLinks: List<MenuItemAddOnLink> = emptyList(),
@@ -87,6 +89,8 @@ data class PosUiState(
     val editingLineId: OrderLineId? = null,
     val editingModifiers: List<SelectedModifier> = emptyList(),
     val editingAddOns: List<SelectedAddOn> = emptyList(),
+    // Customer picker
+    val customerSearchResults: List<Customer> = emptyList(),
     val errorMessage: String? = null
 ) {
     /** Open orders sorted by current sort mode */
@@ -131,7 +135,8 @@ class PosViewModel @Inject constructor(
     private val tableRepository: TableRepository,
     private val assignTableUseCase: AssignTableUseCase,
     private val modifierGroupRepository: ModifierGroupRepository,
-    private val addOnGroupRepository: AddOnGroupRepository
+    private val addOnGroupRepository: AddOnGroupRepository,
+    private val customerRepository: CustomerRepository
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(PosUiState())
@@ -299,7 +304,6 @@ class PosViewModel @Inject constructor(
                             showModifierDialog = true,
                             pendingMenuItem = menuItem,
                             modifierGroups = modGroups,
-                            modifierLinks = modLinks,
                             addOnGroups = aoGroups,
                             addOnLinks = aoLinks
                         )
@@ -335,7 +339,6 @@ class PosViewModel @Inject constructor(
                 showModifierDialog = false,
                 pendingMenuItem = null,
                 modifierGroups = emptyList(),
-                modifierLinks = emptyList(),
                 addOnGroups = emptyList(),
                 addOnLinks = emptyList()
             )
@@ -358,7 +361,6 @@ class PosViewModel @Inject constructor(
                 editingModifiers = emptyList(),
                 editingAddOns = emptyList(),
                 modifierGroups = emptyList(),
-                modifierLinks = emptyList(),
                 addOnGroups = emptyList(),
                 addOnLinks = emptyList()
             )
@@ -400,7 +402,6 @@ class PosViewModel @Inject constructor(
                         editingModifiers = line.selectedModifiers,
                         editingAddOns = line.selectedAddOns,
                         modifierGroups = modGroups,
-                        modifierLinks = modLinks,
                         addOnGroups = aoGroups,
                         addOnLinks = aoLinks
                     )
@@ -431,7 +432,6 @@ class PosViewModel @Inject constructor(
                 editingModifiers = emptyList(),
                 editingAddOns = emptyList(),
                 modifierGroups = emptyList(),
-                modifierLinks = emptyList(),
                 addOnGroups = emptyList(),
                 addOnLinks = emptyList()
             )
@@ -462,8 +462,21 @@ class PosViewModel @Inject constructor(
         if (sale == null) {
             val channel = state.selectedChannel ?: return
 
-            // Dine In requires table — show picker first, hold pending item
+            // Table handling based on channel's tableMode
             if (channel.requiresTable) {
+                if (state.tables.isEmpty()) {
+                    // No tables configured — prompt to set up
+                    _uiState.update {
+                        it.copy(
+                            showTableSetupPrompt = true,
+                            pendingMenuItem = menuItem,
+                            pendingModifiers = selectedModifiers,
+                            pendingAddOns = selectedAddOns
+                        )
+                    }
+                    return
+                }
+                // Tables exist — show picker
                 _uiState.update {
                     it.copy(
                         showTablePicker = true,
@@ -559,6 +572,38 @@ class PosViewModel @Inject constructor(
                     )
                     _uiState.update { it.copy(currentSale = result.getOrThrow()) }
                 }
+            } catch (e: Exception) {
+                _uiState.update { it.copy(errorMessage = e.message) }
+            }
+        }
+    }
+
+    fun applyDiscount(lineId: OrderLineId, discountInfo: id.stargan.intikasirfnb.domain.transaction.DiscountInfo) {
+        viewModelScope.launch {
+            try {
+                val sale = _uiState.value.currentSale ?: return@launch
+                val result = updateLineItemUseCase(
+                    saleId = sale.id,
+                    lineId = lineId,
+                    discountInfo = discountInfo
+                )
+                _uiState.update { it.copy(currentSale = result.getOrThrow()) }
+            } catch (e: Exception) {
+                _uiState.update { it.copy(errorMessage = e.message) }
+            }
+        }
+    }
+
+    fun clearDiscount(lineId: OrderLineId) {
+        viewModelScope.launch {
+            try {
+                val sale = _uiState.value.currentSale ?: return@launch
+                val result = updateLineItemUseCase(
+                    saleId = sale.id,
+                    lineId = lineId,
+                    discountAmount = id.stargan.intikasirfnb.domain.shared.Money.zero()
+                )
+                _uiState.update { it.copy(currentSale = result.getOrThrow()) }
             } catch (e: Exception) {
                 _uiState.update { it.copy(errorMessage = e.message) }
             }
@@ -672,6 +717,17 @@ class PosViewModel @Inject constructor(
 
     // --- Order info: table, customer name, queue number ---
 
+    fun refreshTables() {
+        viewModelScope.launch {
+            try {
+                val outlet = sessionManager.getCurrentOutlet() ?: return@launch
+                val tables = tableRepository.listByOutlet(outlet.id)
+                val sections = tableRepository.listSections(outlet.id)
+                _uiState.update { it.copy(tables = tables, tableSections = sections) }
+            } catch (_: Exception) { }
+        }
+    }
+
     fun showTablePicker() {
         _uiState.update { it.copy(showTablePicker = true) }
     }
@@ -679,6 +735,12 @@ class PosViewModel @Inject constructor(
     fun hideTablePicker() {
         _uiState.update {
             it.copy(showTablePicker = false, pendingMenuItem = null, pendingModifiers = emptyList(), pendingAddOns = emptyList())
+        }
+    }
+
+    fun dismissTableSetupPrompt() {
+        _uiState.update {
+            it.copy(showTableSetupPrompt = false, pendingMenuItem = null, pendingModifiers = emptyList(), pendingAddOns = emptyList())
         }
     }
 
@@ -764,6 +826,48 @@ class PosViewModel @Inject constructor(
                 val updated = sale.setCustomerName(name)
                 saleRepository.save(updated)
                 _uiState.update { it.copy(currentSale = updated) }
+            } catch (e: Exception) {
+                _uiState.update { it.copy(errorMessage = e.message) }
+            }
+        }
+    }
+
+    fun searchCustomers(query: String) {
+        viewModelScope.launch {
+            try {
+                val tenantId = sessionManager.getCurrentOutlet()?.tenantId ?: return@launch
+                val results = if (query.isBlank()) {
+                    customerRepository.listByTenant(tenantId)
+                } else {
+                    customerRepository.search(tenantId, query)
+                }
+                _uiState.update { it.copy(customerSearchResults = results) }
+            } catch (_: Exception) {
+                _uiState.update { it.copy(customerSearchResults = emptyList()) }
+            }
+        }
+    }
+
+    fun selectCustomer(customer: Customer) {
+        viewModelScope.launch {
+            try {
+                val sale = _uiState.value.currentSale ?: return@launch
+                val updated = sale.setCustomer(customer.id, customer.name)
+                saleRepository.save(updated)
+                _uiState.update { it.copy(currentSale = updated, customerSearchResults = emptyList()) }
+            } catch (e: Exception) {
+                _uiState.update { it.copy(errorMessage = e.message) }
+            }
+        }
+    }
+
+    fun clearCustomer() {
+        viewModelScope.launch {
+            try {
+                val sale = _uiState.value.currentSale ?: return@launch
+                val updated = sale.setCustomer(null, null)
+                saleRepository.save(updated)
+                _uiState.update { it.copy(currentSale = updated, customerSearchResults = emptyList()) }
             } catch (e: Exception) {
                 _uiState.update { it.copy(errorMessage = e.message) }
             }

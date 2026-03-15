@@ -91,6 +91,9 @@ fun ModifierGroupEntity.toDomain(
     tenantId = TenantId(tenantId),
     name = name,
     options = options,
+    isRequired = isRequired,
+    minSelection = minSelection,
+    maxSelection = maxSelection,
     sortOrder = sortOrder,
     isActive = isActive
 )
@@ -99,6 +102,9 @@ fun ModifierGroup.toEntity(): ModifierGroupEntity = ModifierGroupEntity(
     id = id.value,
     tenantId = tenantId.value,
     name = name,
+    isRequired = isRequired,
+    minSelection = minSelection,
+    maxSelection = maxSelection,
     sortOrder = sortOrder,
     isActive = isActive
 )
@@ -130,20 +136,14 @@ fun MenuItemModifierGroupEntity.toDomain(): MenuItemModifierLink = MenuItemModif
     id = id,
     menuItemId = ProductId(menuItemId),
     modifierGroupId = ModifierGroupId(modifierGroupId),
-    sortOrder = sortOrder,
-    isRequired = isRequired,
-    minSelection = minSelection,
-    maxSelection = maxSelection
+    sortOrder = sortOrder
 )
 
 fun MenuItemModifierLink.toEntity(): MenuItemModifierGroupEntity = MenuItemModifierGroupEntity(
     id = id,
     menuItemId = menuItemId.value,
     modifierGroupId = modifierGroupId.value,
-    sortOrder = sortOrder,
-    isRequired = isRequired,
-    minSelection = minSelection,
-    maxSelection = maxSelection
+    sortOrder = sortOrder
 )
 
 // --- AddOnGroup ---

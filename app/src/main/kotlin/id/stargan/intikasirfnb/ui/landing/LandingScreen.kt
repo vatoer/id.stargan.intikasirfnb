@@ -16,7 +16,10 @@ import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Logout
-import androidx.compose.material.icons.filled.ReceiptLong
+import androidx.compose.material.icons.automirrored.filled.ReceiptLong
+import androidx.compose.material.icons.filled.Assessment
+import androidx.compose.material.icons.filled.Inventory2
+import androidx.compose.material.icons.filled.Kitchen
 import androidx.compose.material.icons.filled.People
 import androidx.compose.material.icons.filled.PointOfSale
 import androidx.compose.material.icons.filled.RestaurantMenu
@@ -50,6 +53,9 @@ fun LandingScreen(
     onNavigateToSettings: () -> Unit = {},
     onNavigateToCatalog: () -> Unit = {},
     onNavigateToHistory: () -> Unit = {},
+    onNavigateToKitchen: () -> Unit = {},
+    onNavigateToCustomer: () -> Unit = {},
+    onNavigateToStock: () -> Unit = {},
     onLogout: () -> Unit,
     viewModel: LandingViewModel = hiltViewModel()
 ) {
@@ -106,7 +112,10 @@ fun LandingScreen(
                     when (item.id) {
                         "pos" -> onNavigateToPos()
                         "catalog" -> onNavigateToCatalog()
+                        "kitchen" -> onNavigateToKitchen()
+                        "customer" -> onNavigateToCustomer()
                         "report" -> onNavigateToHistory()
+                        "stock" -> onNavigateToStock()
                         "settings" -> onNavigateToSettings()
                     }
                 })
@@ -157,7 +166,10 @@ private fun mapIcon(iconName: String): ImageVector = when (iconName) {
     "point_of_sale" -> Icons.Default.PointOfSale
     "restaurant_menu" -> Icons.Default.RestaurantMenu
     "people" -> Icons.Default.People
-    "receipt_long" -> Icons.Default.ReceiptLong
+    "receipt_long" -> Icons.AutoMirrored.Filled.ReceiptLong
+    "kitchen" -> Icons.Default.Kitchen
+    "assessment" -> Icons.Default.Assessment
+    "inventory_2" -> Icons.Default.Inventory2
     "table_restaurant" -> Icons.Default.TableRestaurant
     "settings" -> Icons.Default.Settings
     else -> Icons.Default.Store
